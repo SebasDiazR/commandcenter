@@ -8,6 +8,7 @@ import {
 import { RAW_DATA } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
+import { FONT } from "@/lib/constants";
 
 import Sidebar from "./Sidebar";
 import SaveIndicator from "./SaveIndicator";
@@ -25,20 +26,19 @@ import DataManager from "./views/DataManager";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
 
-const VIEWS: { id: ViewId; label: string; icon: React.ElementType; accent?: string }[] = [
-  { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid },
-  { id: "ecosystem", label: "Ecosystem",       icon: Network    },
-  { id: "timeline",  label: "Timeline",        icon: Calendar   },
-  { id: "list",      label: "Action List",     icon: ListChecks },
-  { id: "funding",   label: "Funding",         icon: PieIcon    },
-  { id: "types",     label: "Proj. Types",     icon: Building2  },
-  { id: "space",     label: "Sq. Footage",     icon: Maximize2  },
-  { id: "growth",    label: "Practice Growth", icon: Sprout     },
-  { id: "data",      label: "Data Manager",    icon: Table2, accent: "#D97706" },
+const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
+  { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
+  { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
+  { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
+  { id: "list",      label: "Action List",      icon: ListChecks, color: "#F59E0B" },
+  { id: "funding",   label: "Funding",          icon: PieIcon,    color: "#EC4899" },
+  { id: "types",     label: "Proj. Types",      icon: Building2,  color: "#8B5CF6" },
+  { id: "space",     label: "Sq. Footage",      icon: Maximize2,  color: "#14B8A6" },
+  { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
+  { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
 ];
 
 export default function BDCommandCenter() {
-  // ── Persistence & undo ───────────────────────────────────────────────────
   const persisted   = useMemo(() => loadPersistedState(), []);
   const defaultEdit = useMemo(() => buildDefaultEditState(RAW_DATA.institutions), []);
 
@@ -90,7 +90,6 @@ export default function BDCommandCenter() {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -102,7 +101,6 @@ export default function BDCommandCenter() {
     return () => window.removeEventListener("keydown", handler);
   });
 
-  // Auto-save every 60 s when dirty
   useEffect(() => {
     if (!dirty) return;
     const t = setTimeout(handleSave, 60_000);
@@ -110,7 +108,6 @@ export default function BDCommandCenter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty, editState]);
 
-  // ── UI state ─────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]     = useState(false);
   const [view, setView]                 = useState<ViewId>("matrix");
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
@@ -120,7 +117,6 @@ export default function BDCommandCenter() {
     minPriority: 0, search: "", hasContacts: false,
   });
 
-  // ── Derived institutions ──────────────────────────────────────────────────
   const institutions = useMemo((): EnrichedInstitution[] => {
     return RAW_DATA.institutions.map(raw => {
       const e = (editState[raw.name] || {}) as any;
@@ -145,7 +141,6 @@ export default function BDCommandCenter() {
         nasf:          e.nasf          ?? raw.nasf,
         eg_nasf:       e.eg_nasf       ?? raw.eg_nasf,
         projects,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         edit: e as any,
         pipeline, nearestYear: ny, urgency,
         energy_score: energy,
@@ -177,7 +172,6 @@ export default function BDCommandCenter() {
     });
   }, [institutions, filters]);
 
-  // ── Edit helpers ──────────────────────────────────────────────────────────
   const updateEdit = (rawName: string, patch: Record<string, unknown>) =>
     setEditState(s => ({ ...s, [rawName]: { ...s[rawName], ...patch } }));
 
@@ -241,51 +235,100 @@ export default function BDCommandCenter() {
   };
 
   const isDataView = view === "data";
+  const activeView = VIEWS.find(v => v.id === view)!;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FAF8F3", fontFamily: "Georgia, 'Iowan Old Style', serif", color: "#1a2744", fontSize: 16, lineHeight: 1.55 }}>
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(160deg, #0A0F1E 0%, #0D1425 60%, #111827 100%)",
+      fontFamily: FONT,
+      color: "#E2E8F0",
+      fontSize: 14,
+      lineHeight: 1.5,
+    }}>
 
-      {/* ── Sticky header ─────────────────────────────────────────── */}
-      <header style={{ background: "#1a2744", color: "#FFFFFF", padding: "22px 32px", borderBottom: "4px solid #D97706", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1700, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D97706", marginBottom: 4 }}>
-                Texas Higher Education · FY 2026–2030
-              </div>
-              <h1 style={{ fontSize: 30, margin: 0, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1 }}>
-                BD Command Center
-              </h1>
-              <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4 }}>
-                ${RAW_DATA.metadata.pipeline_total_b}B · {RAW_DATA.metadata.project_count} verified projects · {institutions.length} institutions
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(10, 15, 30, 0.85)",
+        backdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "0 4px 32px rgba(0,0,0,0.4)",
+      }}>
+        <div style={{ maxWidth: 1700, margin: "0 auto", padding: "0 28px" }}>
+
+          {/* Top row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 10px", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {/* Logo mark */}
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: "linear-gradient(135deg, #6366F1, #0EA5E9)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, fontWeight: 900, color: "#FFF",
+                boxShadow: "0 0 16px rgba(99,102,241,0.5)",
+                flexShrink: 0,
+              }}>H</div>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "#6366F1", fontWeight: 700, marginBottom: 1 }}>
+                  Texas Higher Education · FY 2026–2030
+                </div>
+                <h1 style={{ fontSize: 22, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: "#F1F5F9" }}>
+                  BD Command Center
+                </h1>
               </div>
             </div>
-            <SaveIndicator
-              dirty={dirty} lastSaved={lastSaved}
-              onSave={handleSave}
-              onUndo={handleUndo} onRedo={handleRedo}
-              canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
-            />
+
+            {/* Stats pills */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {[
+                { label: "Pipeline", value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
+                { label: "Projects", value: RAW_DATA.metadata.project_count, color: "#6366F1" },
+                { label: "Institutions", value: institutions.length, color: "#F59E0B" },
+                { label: "Visible", value: visible.length, color: "#0EA5E9" },
+              ].map(s => (
+                <div key={s.label} style={{
+                  padding: "5px 12px", borderRadius: 20,
+                  background: `${s.color}15`,
+                  border: `1px solid ${s.color}35`,
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</span>
+                  <span style={{ fontSize: 9.5, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{s.label}</span>
+                </div>
+              ))}
+              <div style={{ marginLeft: 8 }}>
+                <SaveIndicator
+                  dirty={dirty} lastSaved={lastSaved}
+                  onSave={handleSave}
+                  onUndo={handleUndo} onRedo={handleRedo}
+                  canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* View tabs */}
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {/* Nav tabs */}
+          <div style={{ display: "flex", gap: 2, overflowX: "auto", paddingBottom: 1, scrollbarWidth: "none" }}>
             {VIEWS.map(v => {
               const Icon = v.icon;
               const active = view === v.id;
-              const isData = v.id === "data";
               return (
-                <button key={v.id} onClick={() => setView(v.id)}
-                  style={{
-                    padding: "10px 14px",
-                    background: active ? (isData ? "#D97706" : "#D97706") : isData ? "rgba(217,119,6,0.15)" : "transparent",
-                    color: "#FFFFFF",
-                    border: active ? "1.5px solid #D97706" : isData ? "1.5px solid rgba(217,119,6,0.5)" : "1.5px solid rgba(255,255,255,0.2)",
-                    borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    minHeight: 40, fontFamily: "inherit",
-                    display: "inline-flex", alignItems: "center", gap: 7,
-                  }}>
-                  <Icon size={15} />{v.label}
+                <button key={v.id} onClick={() => setView(v.id)} style={{
+                  padding: "9px 16px",
+                  background: active ? `${v.color}20` : "transparent",
+                  color: active ? v.color : "#64748B",
+                  border: "none",
+                  borderBottom: active ? `2px solid ${v.color}` : "2px solid transparent",
+                  cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
+                  fontFamily: FONT,
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                  borderRadius: active ? "6px 6px 0 0" : "6px 6px 0 0",
+                }}>
+                  <Icon size={13} />
+                  {v.label}
                 </button>
               );
             })}
@@ -293,10 +336,9 @@ export default function BDCommandCenter() {
         </div>
       </header>
 
-      {/* ── Body ──────────────────────────────────────────────────── */}
+      {/* ── Body ────────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
 
-        {/* Hide sidebar in Data Manager — it takes full width */}
         {!isDataView && (
           <Sidebar
             globalEdit={globalEdit}
@@ -310,11 +352,32 @@ export default function BDCommandCenter() {
           />
         )}
 
-        <main style={{ flex: 1, padding: isDataView ? "0" : "24px 32px", minWidth: 0 }}>
+        <main style={{ flex: 1, padding: isDataView ? "0" : "24px 28px", minWidth: 0 }}>
           {!isDataView && globalEdit && (
-            <div style={{ marginBottom: 20, padding: "12px 18px", background: "#FFF8E7", border: "2px solid #D97706", borderRadius: 6, fontSize: 14, color: "#92400E", display: "flex", alignItems: "center", gap: 10 }}>
-              <Edit3 size={16} />
-              <strong>Edit Mode is ON.</strong> Tap any institution card or row to edit all its fields. Changes auto-save every 60 s.
+            <div style={{
+              marginBottom: 18, padding: "12px 18px",
+              background: "rgba(245,158,11,0.1)",
+              border: "1px solid rgba(245,158,11,0.4)",
+              borderLeft: "4px solid #F59E0B",
+              borderRadius: 8, fontSize: 13, color: "#FCD34D",
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <Edit3 size={15} />
+              <strong>Edit Mode ON</strong> — tap any institution card to edit all fields. Changes auto-save every 60 s.
+            </div>
+          )}
+
+          {/* Active view label */}
+          {!isDataView && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <activeView.icon size={16} color={activeView.color} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: activeView.color, letterSpacing: "0.02em" }}>
+                {activeView.label}
+              </span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+              <span style={{ fontSize: 11, color: "#475569" }}>
+                {visible.length} institutions · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))}
+              </span>
             </div>
           )}
 
@@ -341,7 +404,6 @@ export default function BDCommandCenter() {
         </main>
       </div>
 
-      {/* ── Detail panel ─────────────────────────────────────────── */}
       {selectedInst && (
         <DetailPanel
           inst={institutions.find(i => i._rawName === selectedInst || i.name === selectedInst)}
@@ -357,7 +419,6 @@ export default function BDCommandCenter() {
         />
       )}
 
-      {/* ── Export modal ─────────────────────────────────────────── */}
       {showExport && (
         <ExportModal
           institutions={institutions}
@@ -366,13 +427,17 @@ export default function BDCommandCenter() {
         />
       )}
 
-      {/* ── Footer ──────────────────────────────────────────────── */}
       {!isDataView && (
-        <footer style={{ borderTop: "1px solid #E5E0D5", padding: "16px 32px", background: "#FFFFFF", fontSize: 13, color: "#52525B" }}>
-          <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <footer style={{
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+          padding: "12px 32px",
+          background: "rgba(10,15,30,0.6)",
+          fontSize: 11.5, color: "#475569",
+        }}>
+          <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div>Sources: THECB Cap Ex Plan FY26–30 (Sept 2025) · HKS BD Session 05/19–20/26</div>
             <div>
-              Showing {visible.length} institutions · {visible.reduce((s,i)=>s+i.projects.length,0)} projects · {fmtMoney(visible.reduce((s,i)=>s+i.pipeline,0))} pipeline
+              Showing {visible.length} institutions · {visible.reduce((s,i) => s+i.projects.length, 0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline, 0))} pipeline
             </div>
           </div>
         </footer>

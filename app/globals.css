@@ -1,9 +1,93 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body { background: #FAF8F3; }
+html { overflow-x: hidden; }
+body {
+  background: #0A0F1E;
+  overflow-x: hidden;
+  color-scheme: dark;
+}
 input[type="range"] { cursor: pointer; }
 textarea { box-sizing: border-box; }
-button { font-family: Georgia, "Iowan Old Style", serif; }
+button { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Hide scrollbar but keep scroll */
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.8);
+  outline-offset: 2px;
+}
+
+/* Pulse animation for edit mode indicator */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+input[type="range"] {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-header {
+    padding: 18px 16px !important;
+  }
+
+  .app-title {
+    font-size: 26px !important;
+  }
+
+  .app-view-tabs {
+    gap: 8px !important;
+  }
+
+  .app-view-tab {
+    min-height: 44px !important;
+  }
+
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .app-sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+    position: static !important;
+    max-height: none !important;
+  }
+
+  .app-main {
+    width: 100% !important;
+    padding: 20px 16px !important;
+  }
+}
 
 @media print {
   @page { size: A3 landscape; margin: 14mm 12mm; }
