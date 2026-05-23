@@ -22,7 +22,7 @@ export default function ProjectTypes({ institutions }) {
   return (
     <div>
       <h2 style={sectionTitleStyle}>Project Types <InfoTip term="New Construction" /></h2>
-      <div style={sectionSubStyle}>How the $50B splits across the THECB's seven classifications.</div>
+      <div style={sectionSubStyle}>How the $50B splits across the THECB&apos;s seven classifications.</div>
       <div style={{ ...cardStyle, background: "#FFF8E7", borderColor: "#D97706" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>What this is telling you</div>
         <ul style={{ margin: 0, paddingLeft: 22, fontSize: 15 }}>

@@ -18,7 +18,7 @@ export default function SaveIndicator({ dirty, lastSaved, onSave, onUndo, onRedo
   }, [dirty]);
   const btnBase: React.CSSProperties = {
     background: "transparent", border: "1.5px solid rgba(255,255,255,0.25)",
-    borderRadius: 4, padding: "6px 10px", fontSize: 13, minHeight: 36, cursor: "pointer",
+    borderRadius: 4, padding: "10px 12px", fontSize: 14, minHeight: 44, cursor: "pointer",
   };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#D1D5DB" }}>
@@ -28,7 +28,7 @@ export default function SaveIndicator({ dirty, lastSaved, onSave, onUndo, onRedo
         style={{ ...btnBase, color: canRedo ? "#FFFFFF" : "#6B7280", cursor: canRedo ? "pointer" : "default" }}>↪ Redo</button>
       {dirty ? (
         <button onClick={onSave}
-          style={{ background: "#D97706", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 14, minHeight: 36, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+          style={{ background: "#D97706", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "10px 16px", cursor: "pointer", fontWeight: 700, fontSize: 14, minHeight: 44, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
           💾 Save now
         </button>
       ) : (

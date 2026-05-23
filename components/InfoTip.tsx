@@ -22,7 +22,7 @@ export default function InfoTip({ term, label, side = "right" }: InfoTipProps) {
           background: open ? "#1a2744" : "transparent",
           color: open ? "#FFFFFF" : "#52525B",
           border: `1.5px solid ${open ? "#1a2744" : "#9CA3AF"}`,
-          borderRadius: "50%", width: 22, height: 22, minWidth: 22,
+          borderRadius: "50%", width: 44, height: 44, minWidth: 44,
           cursor: "pointer", padding: 0,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           fontFamily: "Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1,
