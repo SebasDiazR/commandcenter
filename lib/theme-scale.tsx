@@ -28,7 +28,7 @@ interface ThemeScaleCtx {
 }
 
 const Ctx = createContext<ThemeScaleCtx>({
-  theme: "system", resolvedTheme: "dark",
+  theme: "light", resolvedTheme: "light",
   setTheme: () => {}, scale: "default", scaleValue: 1, setScale: () => {},
 });
 
@@ -36,7 +36,7 @@ export function useThemeScale() { return useContext(Ctx); }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function ThemeScaleProvider({ children }: { children: React.ReactNode }) {
-  const [theme, _setTheme] = useState<Theme>("system");
+  const [theme, _setTheme] = useState<Theme>("light");
   const [scale, _setScale] = useState<ScalePreset>("default");
   const [osPrefers, setOsPrefers] = useState<"dark" | "light">("dark");
   const [mounted, setMounted] = useState(false);

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
-  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, Lightbulb,
+  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -16,6 +16,7 @@ import SaveIndicator from "./SaveIndicator";
 import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
 import ThemeScaleControls from "./ThemeScaleControls";
+import HKSLogo from "./HKSLogo";
 import PriorityMatrix from "./views/PriorityMatrix";
 import Ecosystem from "./views/Ecosystem";
 import Timeline from "./views/Timeline";
@@ -25,12 +26,10 @@ import ProjectTypes from "./views/ProjectTypes";
 import SquareFootage from "./views/SquareFootage";
 import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
-import UXRecommendations from "./views/UXRecommendations";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
 
-// ── We extend the type locally to add "ux" without touching shared types
-type ExtViewId = ViewId | "ux";
+type ExtViewId = ViewId;
 
 const VIEWS: { id: ExtViewId; label: string; icon: React.ElementType; color: string }[] = [
   { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
@@ -42,7 +41,6 @@ const VIEWS: { id: ExtViewId; label: string; icon: React.ElementType; color: str
   { id: "space",     label: "Sq. Footage",      icon: Maximize2,  color: "#14B8A6" },
   { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
   { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
-  { id: "ux",        label: "UX Guide",         icon: Lightbulb,  color: "#A78BFA" },
 ];
 
 export default function BDCommandCenter() {
@@ -202,8 +200,7 @@ export default function BDCommandCenter() {
   };
 
   const isDataView   = view === "data";
-  const isUxView     = view === "ux";
-  const isFullWidth  = isDataView || isUxView;
+  const isFullWidth  = isDataView;
   const activeView   = VIEWS.find(v => v.id === view)!;
 
   // Colours driven by CSS vars
@@ -231,20 +228,14 @@ export default function BDCommandCenter() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 8px", flexWrap: "wrap", gap: 10 }}>
 
             {/* Brand */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 9,
-                background: "linear-gradient(135deg, #6366F1, #0EA5E9)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 17, fontWeight: 900, color: "#FFF",
-                boxShadow: "0 0 14px rgba(99,102,241,0.45)",
-                flexShrink: 0, letterSpacing: "-0.02em",
-              }}>H</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <HKSLogo height={32} />
+              <div style={{ width: 1, height: 32, background: "var(--border)" }} />
               <div>
-                <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 1 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
                   Texas Higher Ed · FY 2026–2030
                 </div>
-                <h1 style={{ fontSize: 20, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: text1 }}>
+                <h1 style={{ fontSize: 18, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: text1 }}>
                   BD Command Center
                 </h1>
               </div>
@@ -327,7 +318,7 @@ export default function BDCommandCenter() {
           />
         )}
 
-        <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? (isUxView ? "24px 28px" : "0") : "22px 26px", minWidth: 0 }}>
+        <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
 
           {!isFullWidth && globalEdit && (
             <div style={{
@@ -365,7 +356,6 @@ export default function BDCommandCenter() {
             {view === "types"     && <ProjectTypes    institutions={institutions} />}
             {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
             {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
-            {view === "ux"        && <UXRecommendations />}
             {view === "data"      && (
               <DataManager
                 institutions={institutions}
