@@ -49,7 +49,6 @@ export function buildDefaultEditState(institutions: RawInstitution[]): EditState
         next_action:      "",
         next_action_date: "",
         owner:            "",
-        pipeline_override_m: null,
       } satisfies InstEditState,
     ])
   );

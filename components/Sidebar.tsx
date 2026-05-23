@@ -1,25 +1,9 @@
 "use client";
-import React, { useState } from "react";
-import { Search, SlidersHorizontal, Users, ChevronDown, ChevronRight } from "lucide-react";
-import { SYSTEM_COLORS, ALL_PRACTICES, PROJECT_TYPES } from "@/lib/constants";
-import { fmtMoney } from "@/lib/helpers";
+import React from "react";
+import { Search, Filter, Edit3 } from "lucide-react";
+import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_PRACTICES, SHARED_STYLES } from "@/lib/constants";
+import { RAW_DATA } from "@/lib/data";
 import type { FilterState, EnrichedInstitution } from "@/lib/types";
-
-const T = {
-  navy:     "#0F172A",
-  amber:    "#B45309",
-  bg:       "#F8F7F4",
-  surface:  "#FFFFFF",
-  border:   "#E4E2DD",
-  borderSub:"#F0EEE9",
-  textPri:  "#0F172A",
-  textSec:  "#64748B",
-  textMuted:"#94A3B8",
-  fontSans: "'Inter', system-ui, sans-serif",
-  r4: "4px", r6: "6px",
-  sp4:  "4px",  sp6:  "6px",  sp8: "8px",
-  sp10: "10px", sp12: "12px", sp16: "16px",
-};
 
 interface SidebarProps {
   globalEdit: boolean;
@@ -32,146 +16,123 @@ interface SidebarProps {
   onResetData: () => void;
 }
 
-function Section({ title, children, defaultOpen = true }: {
-  title: string; children: React.ReactNode; defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{ borderBottom: `1px solid ${T.borderSub}` }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: `${T.sp10} ${T.sp12}`,
-          background: "none", border: "none", cursor: "pointer",
-          fontSize: "10.5px", fontWeight: 600,
-          letterSpacing: "0.07em", textTransform: "uppercase",
-          color: T.textMuted, fontFamily: T.fontSans,
-        }}>
-        {title}
-        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </button>
-      {open && <div style={{ padding: `0 ${T.sp12} ${T.sp10}` }}>{children}</div>}
-    </div>
-  );
-}
+export default function Sidebar({
+  globalEdit, onToggleEdit, filters, onFiltersChange,
+  visible, total, onExportPDF, onResetData,
+}: SidebarProps) {
+  const allSystems = Array.from(new Set(RAW_DATA.institutions.map(i => i.system)));
+  const allTypes   = RAW_DATA.project_types.map(t => t.name);
 
-function MultiCheck({ items, selected, color, onChange }: {
-  items: string[];
-  selected: string[];
-  color?: (item: string) => string;
-  onChange: (v: string[]) => void;
-}) {
-  const toggle = (item: string) =>
-    onChange(selected.includes(item) ? selected.filter(x => x !== item) : [...selected, item]);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-      {items.map(item => {
-        const active = selected.includes(item);
-        const c = color ? color(item) : T.textSec;
-        return (
-          <label key={item} style={{ display: "flex", alignItems: "center", gap: T.sp8, cursor: "pointer", padding: "2px 0" }}>
-            <input type="checkbox" checked={active} onChange={() => toggle(item)}
-              style={{ accentColor: T.amber, width: "13px", height: "13px", flexShrink: 0 }} />
-            <span style={{ fontSize: "12px", color: active ? c : T.textSec, fontWeight: active ? 600 : 400, fontFamily: T.fontSans }}>
-              {item}
-            </span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-export default function Sidebar({ filters, onFiltersChange, visible, total }: SidebarProps) {
-  const set = (patch: Partial<FilterState>) => onFiltersChange({ ...filters, ...patch });
-
-  const systems = Object.keys(SYSTEM_COLORS);
+  const toggle = (key: "systems" | "practices" | "types", val: string) => {
+    const arr = filters[key] as string[];
+    const next = arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
+    onFiltersChange({ ...filters, [key]: next });
+  };
 
   return (
-    <div style={{ fontFamily: T.fontSans }}>
-      {/* Search */}
-      <div style={{ padding: T.sp12, borderBottom: `1px solid ${T.borderSub}` }}>
-        <div style={{ position: "relative" }}>
-          <Search size={13} style={{ position: "absolute", left: "9px", top: "50%", transform: "translateY(-50%)", color: T.textMuted, pointerEvents: "none" }} />
-          <input
-            value={filters.search}
-            onChange={e => set({ search: e.target.value })}
-            placeholder="Search…"
-            style={{
-              width: "100%", padding: `${T.sp6} ${T.sp8} ${T.sp6} 30px`,
-              fontSize: "12.5px", fontFamily: T.fontSans, color: T.textPri,
-              border: `1px solid ${T.border}`, borderRadius: T.r6,
-              background: T.surface, outline: "none",
-              boxSizing: "border-box" as const,
-            }} />
+    <aside className="no-print" style={{
+      width: 300, minWidth: 300, background: "#FFFFFF",
+      borderRight: "1px solid #E5E0D5", padding: "20px 18px",
+      fontSize: 15, color: "#1a2744",
+      display: "flex", flexDirection: "column", gap: 0,
+    }}>
+      {/* Edit mode toggle */}
+      <div style={{ marginBottom: 20, padding: "14px 16px", background: globalEdit ? "#FFF8E7" : "#FAF8F3", border: `2px solid ${globalEdit ? "#D97706" : "#E5E0D5"}`, borderRadius: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          <Edit3 size={16} color={globalEdit ? "#D97706" : "#52525B"} />
+          Edit Mode
         </div>
-        <div style={{ marginTop: T.sp8, fontSize: "11px", color: T.textMuted }}>
-          {visible.length} of {total} · {fmtMoney(visible.reduce((s, i) => s + i.pipeline, 0))}
+        <button onClick={onToggleEdit} style={{ width: "100%", padding: "10px 14px", background: globalEdit ? "#D97706" : "#1a2744", color: "#FFFFFF", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 15, minHeight: 44, fontFamily: "inherit" }}>
+          {globalEdit ? "✎ Editing — click to lock" : "Edit all fields"}
+        </button>
+        {globalEdit && (
+          <div style={{ fontSize: 12, color: "#92400E", marginTop: 8, lineHeight: 1.4 }}>
+            All fields are now editable. Tap any institution to edit in the detail panel.
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 6 }}>
+        <Filter size={14} style={{ display: "inline", marginRight: 6, verticalAlign: "text-bottom" }} />
+        Filters · <span style={{ color: "#1a2744" }}>{visible.length}/{total}</span>
+      </div>
+
+      {/* Search */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ position: "relative" }}>
+          <Search size={15} style={{ position: "absolute", left: 11, top: 13, color: "#9CA3AF" }} />
+          <input value={filters.search}
+            onChange={e => onFiltersChange({ ...filters, search: e.target.value })}
+            placeholder="Institution or project…"
+            style={{ width: "100%", padding: "11px 11px 11px 36px", fontSize: 14, border: "1.5px solid #D1D5DB", borderRadius: 4, fontFamily: "inherit", minHeight: 44, color: "#1a2744" }} />
         </div>
       </div>
 
-      {/* Filters */}
-      <Section title="Filters">
-        {/* Min priority */}
-        <div style={{ marginBottom: T.sp10 }}>
-          <label style={{ fontSize: "11px", color: T.textMuted, fontWeight: 500, display: "block", marginBottom: T.sp4 }}>
-            Min Priority: <strong style={{ color: T.textSec }}>{filters.minPriority}</strong>
-          </label>
-          <input type="range" min={0} max={10} step={1}
-            value={filters.minPriority}
-            onChange={e => set({ minPriority: Number(e.target.value) })}
-            style={{ width: "100%", accentColor: T.amber }} />
-        </div>
+      {/* System chips */}
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 6 }}>System</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
+        {allSystems.map(s => {
+          const on = filters.systems.includes(s);
+          return (
+            <button key={s} onClick={() => toggle("systems", s)}
+              style={{ padding: "6px 10px", background: on ? SYSTEM_COLORS[s] : "#FFFFFF", color: on ? "#FFFFFF" : "#1a2744", border: `1.5px solid ${SYSTEM_COLORS[s]}`, borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600, minHeight: 32, fontFamily: "inherit" }}>
+              {s}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Has contacts */}
-        <label style={{ display: "flex", alignItems: "center", gap: T.sp8, cursor: "pointer", marginBottom: T.sp6 }}>
-          <input type="checkbox" checked={filters.hasContacts} onChange={e => set({ hasContacts: e.target.checked })}
-            style={{ accentColor: T.amber, width: "13px", height: "13px" }} />
-          <span style={{ fontSize: "12px", color: T.textSec, fontFamily: T.fontSans, display: "flex", alignItems: "center", gap: T.sp4 }}>
-            <Users size={12} /> Has contacts
-          </span>
-        </label>
-      </Section>
+      {/* Practice chips */}
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 6 }}>HKS Practice</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
+        {ALL_PRACTICES.map(p => {
+          const on = filters.practices.includes(p);
+          return (
+            <button key={p} onClick={() => toggle("practices", p)}
+              style={{ padding: "5px 8px", background: on ? PRACTICE_COLORS[p] : "#FFFFFF", color: on ? "#FFFFFF" : "#1a2744", border: `1.5px solid ${PRACTICE_COLORS[p]}`, borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 600, minHeight: 30, fontFamily: "inherit" }}>
+              {p}
+            </button>
+          );
+        })}
+      </div>
 
-      <Section title="System" defaultOpen={false}>
-        <MultiCheck
-          items={systems}
-          selected={filters.systems}
-          color={item => SYSTEM_COLORS[item] ?? T.textSec}
-          onChange={v => set({ systems: v })} />
-      </Section>
+      {/* Type chips */}
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 6 }}>Project Type</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
+        {allTypes.map(t => {
+          const on = filters.types.includes(t);
+          return (
+            <button key={t} onClick={() => toggle("types", t)}
+              style={{ padding: "5px 8px", background: on ? "#D97706" : "#FFFFFF", color: on ? "#FFFFFF" : "#1a2744", border: "1.5px solid #D97706", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 600, minHeight: 30, fontFamily: "inherit" }}>
+              {t.replace("Repair and Renovation","R&R").replace("Information Resources","IT").replace("Land Acquisition","Land")}
+            </button>
+          );
+        })}
+      </div>
 
-      <Section title="Practice Area" defaultOpen={false}>
-        <MultiCheck
-          items={ALL_PRACTICES}
-          selected={filters.practices}
-          onChange={v => set({ practices: v })} />
-      </Section>
+      {/* Priority slider */}
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 4 }}>
+        Min Priority: <strong style={{ color: "#D97706" }}>{filters.minPriority}</strong>
+      </div>
+      <input type="range" min={0} max={10} step={1} value={filters.minPriority}
+        onChange={e => onFiltersChange({ ...filters, minPriority: Number(e.target.value) })}
+        style={{ width: "100%", marginBottom: 14, accentColor: "#D97706" }} />
 
-      <Section title="Project Type" defaultOpen={false}>
-        <MultiCheck
-          items={PROJECT_TYPES}
-          selected={filters.types}
-          onChange={v => set({ types: v })} />
-      </Section>
-
-      {/* Clear filters */}
-      {(filters.systems.length || filters.practices.length || filters.types.length ||
-        filters.minPriority > 0 || filters.search || filters.hasContacts) ? (
-        <div style={{ padding: T.sp12 }}>
-          <button
-            onClick={() => onFiltersChange({ systems: [], practices: [], types: [], minPriority: 0, search: "", hasContacts: false })}
-            style={{
-              width: "100%", padding: `${T.sp6} 0`,
-              background: "none", border: `1px solid ${T.border}`, borderRadius: T.r6,
-              cursor: "pointer", fontSize: "12px", color: T.textSec,
-              fontFamily: T.fontSans, display: "flex", alignItems: "center", justifyContent: "center", gap: T.sp4,
-            }}>
-            <SlidersHorizontal size={12} /> Clear all filters
-          </button>
-        </div>
-      ) : null}
-    </div>
+      {/* Action buttons */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto", paddingTop: 14, borderTop: "1px solid #E5E0D5" }}>
+        <button onClick={() => onFiltersChange({ systems: [], practices: [], types: [], minPriority: 0, search: "", hasContacts: false })}
+          style={{ padding: "10px 14px", background: "#FFFFFF", color: "#1a2744", border: "1.5px solid #1a2744", borderRadius: 4, cursor: "pointer", fontSize: 14, fontWeight: 600, minHeight: 44, fontFamily: "inherit" }}>
+          Reset filters
+        </button>
+        <button onClick={onExportPDF}
+          style={{ padding: "10px 14px", background: "#1a2744", color: "#FFFFFF", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 14, fontWeight: 700, minHeight: 44, fontFamily: "inherit" }}>
+          ⬇ Export PDF
+        </button>
+        <button onClick={onResetData}
+          style={{ padding: "8px 14px", background: "#FFFFFF", color: "#B91C1C", border: "1.5px solid #B91C1C", borderRadius: 4, cursor: "pointer", fontSize: 13, minHeight: 40, fontFamily: "inherit" }}>
+          Reset to source data
+        </button>
+      </div>
+    </aside>
   );
 }

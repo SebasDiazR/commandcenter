@@ -1,85 +1,94 @@
 "use client";
-import React, { useMemo } from "react";
-import { SYSTEM_COLORS } from "@/lib/constants";
+import React from "react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
+import InfoTip from "../InfoTip";
+import LegendChip from "../LegendChip";
+import { SYSTEM_COLORS, SHARED_STYLES } from "@/lib/constants";
+import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 
-const T = { navy: "#0F172A", amber: "#B45309", border: "#E4E2DD", borderSub: "#F0EEE9", textPri: "#0F172A", textSec: "#64748B", textMuted: "#94A3B8", bg: "#F8F7F4", surface: "#FFFFFF", fontSans: "'Inter', system-ui, sans-serif" };
+const cardStyle = SHARED_STYLES.card;
+const thStyle = SHARED_STYLES.th;
+const tdStyle = SHARED_STYLES.td;
+const sectionTitleStyle = SHARED_STYLES.sectionTitle;
+const sectionSubStyle = SHARED_STYLES.sectionSub;
 
-function fmt(n: number) { return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${(n / 1_000).toFixed(0)}K`; }
-
-interface Props { institutions: EnrichedInstitution[]; onSelect: (name: string) => void; }
-
-export default function SquareFootage({ institutions, onSelect }: Props) {
-  const rows = useMemo(() =>
-    [...institutions].filter(i => i.gsf || i.nasf)
-      .sort((a, b) => (b.gsf ?? 0) - (a.gsf ?? 0)),
-    [institutions]
-  );
-
-  const maxGSF = Math.max(...rows.map(i => i.gsf ?? 0), 1);
-
-  const totals = { gsf: rows.reduce((s, i) => s + (i.gsf ?? 0), 0), nasf: rows.reduce((s, i) => s + (i.nasf ?? 0), 0) };
+export default function SquareFootage({ institutions, onSelect }) {
+  const withSpace = institutions.filter(i => i.gsf && i.gsf > 0)
+    .map(i => ({ ...i, eg_pct: (i.eg_nasf / i.gsf) * 100 || 0, $_per_gsf: i.pipeline ? (i.pipeline * 1e6) / i.gsf : 0 }))
+    .sort((a,b) => b.gsf - a.gsf);
+  const totalGSF  = withSpace.reduce((s,i) => s + i.gsf, 0);
+  const totalNASF = withSpace.reduce((s,i) => s + (i.nasf||0), 0);
 
   return (
     <div>
-      {/* Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "20px" }}>
-        {[
-          { label: "Total GSF",  value: fmt(totals.gsf),  sub: "Gross Square Feet" },
-          { label: "Total NASF", value: fmt(totals.nasf), sub: "Net Assignable Sq Ft" },
-          { label: "Efficiency", value: totals.gsf > 0 ? `${(totals.nasf / totals.gsf * 100).toFixed(1)}%` : "—", sub: "NASF / GSF ratio" },
-        ].map(({ label, value, sub }) => (
-          <div key={label} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: "8px", padding: "16px 20px" }}>
-            <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.textMuted, marginBottom: "6px", fontFamily: T.fontSans }}>{label}</div>
-            <div style={{ fontSize: "22px", fontWeight: 700, color: T.navy, fontFamily: T.fontSans, letterSpacing: "-0.02em" }}>{value}</div>
-            <div style={{ fontSize: "11px", color: T.textSec, marginTop: "4px", fontFamily: T.fontSans }}>{sub}</div>
-          </div>
-        ))}
+      <h2 style={sectionTitleStyle}>Square Footage Planned</h2>
+      <div style={sectionSubStyle}>From THECB Appendix B — new and renovated space. Tap any bar or row to view institution detail.</div>
+      <div style={{ ...cardStyle, background: "#FFF8E7", borderColor: "#D97706" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>What this is telling you</div>
+        <ul style={{ margin: 0, paddingLeft: 22, fontSize: 15 }}>
+          <li>Total planned: <strong>{(totalGSF/1e6).toFixed(1)}M GSF</strong> · {(totalNASF/1e6).toFixed(1)}M NASF across {withSpace.length} reporting institutions.</li>
+          <li>Largest by GSF: <strong>{withSpace[0]?.name}</strong> at {(withSpace[0]?.gsf/1e6).toFixed(2)}M GSF.</li>
+          <li>$/GSF column: values over $2,000 signal lab/hospital-density programs with higher design fees.</li>
+        </ul>
       </div>
-
-      {/* Table */}
-      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: "8px", overflow: "hidden" }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${T.borderSub}` }}>
-          <div style={{ fontSize: "13.5px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans }}>{rows.length} institutions with space data</div>
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              {["Institution","System","GSF","NASF","Efficiency","Relative Scale"].map((h, i) => (
-                <th key={h} style={{ padding: "9px 14px", fontSize: "10.5px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: T.textMuted, background: T.bg, borderBottom: `1px solid ${T.border}`, textAlign: i < 2 ? "left" : "right", fontFamily: T.fontSans, whiteSpace: "nowrap" }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((inst, i) => {
-              const eff = inst.gsf && inst.nasf ? (inst.nasf / inst.gsf * 100) : null;
-              const sc  = SYSTEM_COLORS[inst.system] ?? T.textSec;
-              const barW = (inst.gsf ?? 0) / maxGSF * 100;
-              return (
-                <tr key={inst._rawName} style={{ background: i % 2 === 0 ? T.surface : T.bg, borderBottom: `1px solid ${T.borderSub}`, cursor: "pointer" }}
-                  onClick={() => onSelect(inst._rawName)}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#FFFBF0")}
-                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? T.surface : T.bg)}>
-                  <td style={{ padding: "9px 14px", fontSize: "12.5px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans }}>{inst.name}</td>
-                  <td style={{ padding: "9px 14px", fontSize: "11.5px", color: sc, fontFamily: T.fontSans }}>{inst.system}</td>
-                  <td style={{ padding: "9px 14px", fontSize: "12.5px", fontWeight: 600, color: T.textPri, textAlign: "right", fontFamily: T.fontSans }}>{inst.gsf ? fmt(inst.gsf) : "—"}</td>
-                  <td style={{ padding: "9px 14px", fontSize: "12.5px", color: T.textSec, textAlign: "right", fontFamily: T.fontSans }}>{inst.nasf ? fmt(inst.nasf) : "—"}</td>
-                  <td style={{ padding: "9px 14px", fontSize: "12px", color: eff && eff > 70 ? T.amber : T.textSec, textAlign: "right", fontFamily: T.fontSans, fontWeight: eff && eff > 70 ? 600 : 400 }}>
-                    {eff != null ? `${eff.toFixed(1)}%` : "—"}
+      <div style={cardStyle}>
+        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>GSF by institution</h3>
+        <ResponsiveContainer width="100%" height={Math.max(400, withSpace.length * 25)}>
+          <BarChart data={withSpace} layout="vertical" margin={{ left: 0, right: 40 }}>
+            <CartesianGrid stroke="#E5E0D5" />
+            <XAxis type="number" tickFormatter={v => `${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: "#52525B" }} />
+            <YAxis type="category" dataKey="name" width={230} tick={{ fontSize: 11, fill: "#1a2744" }} />
+            <Tooltip content={({ payload }) => {
+              if (!payload?.[0]) return null;
+              const d = payload[0].payload;
+              return <div style={{ background: "#1a2744", color: "#FFF", padding: 12, borderRadius: 4, fontSize: 13 }}>
+                <strong>{d.name}</strong><br />GSF: {d.gsf?.toLocaleString()}<br />NASF: {d.nasf?.toLocaleString() || "—"}<br />Pipeline: {fmtMoney(d.pipeline)}
+              </div>;
+            }} />
+            <Bar dataKey="gsf" onClick={d => onSelect(d._rawName || d.name)}>
+              {withSpace.map((d, i) => <Cell key={i} fill={SYSTEM_COLORS[d.system] || "#52525B"} cursor="pointer" />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={cardStyle}>
+        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>Detail table</h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 750 }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #1a2744" }}>
+                <th style={thStyle}>Institution</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>GSF</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>NASF</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>E&G NASF</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>E&G %</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Pipeline</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>$/GSF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {withSpace.map((d, i) => (
+                <tr key={d._rawName} onClick={() => onSelect(d._rawName)}
+                  style={{ background: i%2 ? "#FAF8F3" : "#FFFFFF", borderBottom: "1px solid #E5E0D5", cursor: "pointer" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700 }}>
+                    <span style={{ display: "inline-block", width: 10, height: 10, background: SYSTEM_COLORS[d.system], borderRadius: 2, marginRight: 8 }} />{d.name}
                   </td>
-                  <td style={{ padding: "9px 14px" }}>
-                    <div style={{ height: "6px", background: T.borderSub, borderRadius: "3px", minWidth: "80px" }}>
-                      <div style={{ height: "100%", width: `${barW}%`, background: T.navy, opacity: 0.6, borderRadius: "3px", transition: "width 0.3s" }} />
-                    </div>
-                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{d.gsf?.toLocaleString()}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{d.nasf?.toLocaleString() || "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{d.eg_nasf?.toLocaleString() || "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{d.eg_pct.toFixed(0)}%</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmtMoney(d.pipeline)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: d.$_per_gsf > 2000 ? "#D97706" : "#1a2744" }}>${d.$_per_gsf.toFixed(0)}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
+
+// =============================================================================
+// VIEW 8: PRACTICE GROWTH

@@ -1,260 +1,89 @@
 "use client";
-import React, { useState, useMemo } from "react";
-import { SYSTEM_COLORS, PRACTICE_COLORS } from "@/lib/constants";
+import React from "react";
+import { Star } from "lucide-react";
+import InfoTip from "../InfoTip";
+import { SYSTEM_COLORS, STATUS_COLORS, ALL_STATUSES, SHARED_STYLES } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
-import { Calendar, User, AlertCircle, ChevronRight, Zap } from "lucide-react";
 
-const T = {
-  navy: "#0F172A", amber: "#B45309",
-  border: "#E4E2DD", borderSub: "#F0EEE9",
-  textPri: "#0F172A", textSec: "#64748B", textMuted: "#94A3B8",
-  bg: "#F8F7F4", surface: "#FFFFFF",
-  fontSans: "'Inter', system-ui, sans-serif",
-};
+const cardStyle = SHARED_STYLES.card;
+const thStyle = SHARED_STYLES.th;
+const tdStyle = SHARED_STYLES.td;
+const sectionTitleStyle = SHARED_STYLES.sectionTitle;
+const sectionSubStyle = SHARED_STYLES.sectionSub;
 
-const STATUS_CFG: Record<string, { bg: string; color: string; dot: string }> = {
-  Active:   { bg: "#DCFCE7", color: "#15803D", dot: "#16A34A" },
-  Watching: { bg: "#FEF9C3", color: "#A16207", dot: "#D97706" },
-  Dormant:  { bg: "#F3F4F6", color: "#6B7280", dot: "#9CA3AF" },
-  Won:      { bg: "#E0F2FE", color: "#0369A1", dot: "#0369A1" },
-  Lost:     { bg: "#FEE2E2", color: "#B91C1C", dot: "#DC2626" },
-};
-
-interface Props {
-  institutions: EnrichedInstitution[];
-  onSelect: (name: string) => void;
-  updateEdit: (rawName: string, patch: Record<string, unknown>) => void;
-}
-
-function PriorityBar({ value, max = 10 }: { value: number; max?: number }) {
-  const pct = (value / max) * 100;
-  const color = value >= 8 ? T.amber : value >= 5 ? "#0369A1" : T.textMuted;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div style={{ width: "40px", height: "4px", background: T.borderSub, borderRadius: "2px", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: "2px" }} />
-      </div>
-      <span style={{ fontSize: "12px", fontWeight: 700, color, fontFamily: T.fontSans, minWidth: "14px" }}>{value}</span>
-    </div>
+export default function ActionList({ institutions, onSelect, updateEdit }) {
+  const sorted = [...institutions].sort((a,b) => b.energy_score - a.energy_score);
+  const top10  = new Set(sorted.slice(0,10).map(i => i._rawName));
+  const Stars = ({ value, onChange }) => (
+    <span style={{ display: "inline-flex", gap: 2 }}>
+      {[1,2,3,4,5].map(n => (
+        <button key={n} onClick={(e) => { e.stopPropagation(); onChange(n); }}
+          style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: n <= value ? "#D97706" : "#D1D5DB", display: "inline-flex" }}>
+          <Star size={17} fill={n <= value ? "#D97706" : "none"} />
+        </button>
+      ))}
+    </span>
   );
-}
-
-function Row({ inst, onSelect, idx }: { inst: EnrichedInstitution; onSelect: () => void; idx: number }) {
-  const [hovered, setHovered] = useState(false);
-  const priority = inst.edit.priority ?? inst.strategy_priority ?? 0;
-  const status   = inst.edit.hks_status ?? "Active";
-  const sc2      = STATUS_CFG[status] ?? { bg: T.bg, color: T.textSec, dot: T.textMuted };
-  const sysColor = SYSTEM_COLORS[inst.system] ?? T.textSec;
-  const isOverdue = inst.edit.next_action_date && new Date(inst.edit.next_action_date) < new Date();
-  const daysUntil = inst.edit.next_action_date
-    ? Math.ceil((new Date(inst.edit.next_action_date).getTime() - Date.now()) / 86400000)
-    : null;
-
-  return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "28px 1fr 100px 100px 100px 180px 120px 34px",
-        alignItems: "center",
-        gap: "0",
-        borderBottom: `1px solid ${T.borderSub}`,
-        background: hovered ? "#FFFBF0" : idx % 2 === 0 ? T.surface : T.bg,
-        cursor: "pointer",
-        transition: "background 0.12s",
-        minHeight: "48px",
-      }}>
-
-      {/* Priority indicator */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", borderRight: `3px solid ${priority >= 8 ? T.amber : priority >= 5 ? "#0369A1" : "transparent"}` }} />
-
-      {/* Institution */}
-      <div style={{ padding: "10px 14px" }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans, lineHeight: 1.3 }}>
-          {inst.name}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "2px" }}>
-          <span style={{ fontSize: "10.5px", color: sysColor, fontFamily: T.fontSans }}>{inst.system}</span>
-          {inst.lead_practice && (
-            <span style={{ fontSize: "10px", color: PRACTICE_COLORS[inst.lead_practice] ?? T.textMuted, fontFamily: T.fontSans }}>
-              · {inst.lead_practice}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Pipeline */}
-      <div style={{ padding: "0 12px", fontSize: "13px", fontWeight: 700, color: T.amber, fontFamily: T.fontSans }}>
-        {fmtMoney(inst.pipeline)}
-      </div>
-
-      {/* Priority */}
-      <div style={{ padding: "0 8px" }}>
-        <PriorityBar value={priority} />
-      </div>
-
-      {/* Status */}
-      <div style={{ padding: "0 8px" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "3px 9px", borderRadius: "12px", background: sc2.bg, fontSize: "11px", fontWeight: 600, color: sc2.color, fontFamily: T.fontSans }}>
-          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: sc2.dot }} />
-          {status}
-        </span>
-      </div>
-
-      {/* Next action */}
-      <div style={{ padding: "0 12px" }}>
-        {inst.edit.next_action ? (
-          <div>
-            <div style={{ fontSize: "11.5px", color: T.textPri, fontFamily: T.fontSans, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {inst.edit.next_action}
-            </div>
-            {inst.edit.owner && (
-              <div style={{ fontSize: "10px", color: T.textMuted, fontFamily: T.fontSans, marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
-                <User size={9} /> {inst.edit.owner}
-              </div>
-            )}
-          </div>
-        ) : (
-          <span style={{ fontSize: "11px", color: T.textMuted, fontFamily: T.fontSans }}>—</span>
-        )}
-      </div>
-
-      {/* Due date */}
-      <div style={{ padding: "0 12px" }}>
-        {inst.edit.next_action_date ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            {isOverdue && <AlertCircle size={11} color="#DC2626" />}
-            <div>
-              <div style={{ fontSize: "11px", fontWeight: 600, color: isOverdue ? "#DC2626" : T.textSec, fontFamily: T.fontSans }}>
-                {inst.edit.next_action_date}
-              </div>
-              {daysUntil !== null && (
-                <div style={{ fontSize: "10px", color: isOverdue ? "#DC2626" : T.textMuted, fontFamily: T.fontSans }}>
-                  {isOverdue ? `${Math.abs(daysUntil)}d overdue` : daysUntil === 0 ? "Today" : `in ${daysUntil}d`}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <span style={{ fontSize: "11px", color: T.textMuted, fontFamily: T.fontSans }}>—</span>
-        )}
-      </div>
-
-      {/* Chevron */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: hovered ? T.amber : T.textMuted, transition: "color 0.15s" }}>
-        <ChevronRight size={15} />
-      </div>
-    </div>
-  );
-}
-
-export default function ActionList({ institutions, onSelect }: Props) {
-  const [sortBy, setSortBy]   = useState<"priority" | "pipeline" | "urgency" | "status">("priority");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  const STATUSES = ["all", "Active", "Watching", "Dormant", "Won", "Lost"];
-
-  const sorted = useMemo(() => {
-    let filtered = statusFilter === "all" ? institutions : institutions.filter(i => (i.edit.hks_status ?? "Active") === statusFilter);
-    return [...filtered].sort((a, b) => {
-      let av = 0, bv = 0;
-      if      (sortBy === "priority") { av = a.edit.priority ?? a.strategy_priority ?? 0; bv = b.edit.priority ?? b.strategy_priority ?? 0; }
-      else if (sortBy === "pipeline") { av = a.pipeline;      bv = b.pipeline;      }
-      else if (sortBy === "urgency")  { av = a.urgency;       bv = b.urgency;       }
-      else if (sortBy === "status")   { av = Object.keys(STATUS_CFG).indexOf(a.edit.hks_status ?? "Active"); bv = Object.keys(STATUS_CFG).indexOf(b.edit.hks_status ?? "Active"); }
-      return sortDir === "desc" ? bv - av : av - bv;
-    });
-  }, [institutions, sortBy, sortDir, statusFilter]);
-
-  const withAction    = sorted.filter(i => i.edit.next_action);
-  const withoutAction = sorted.filter(i => !i.edit.next_action);
-  const overdue       = sorted.filter(i => i.edit.next_action_date && new Date(i.edit.next_action_date) < new Date());
-
-  const ColHdr = ({ label, col }: { label: string; col: typeof sortBy | null }) => (
-    <div
-      onClick={() => {
-        if (!col) return;
-        if (sortBy === col) setSortDir(d => d === "desc" ? "asc" : "desc");
-        else { setSortBy(col); setSortDir("desc"); }
-      }}
-      style={{ padding: "9px 12px", fontSize: "10.5px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: sortBy === col ? T.navy : T.textMuted, fontFamily: T.fontSans, cursor: col ? "pointer" : "default", userSelect: "none", display: "flex", alignItems: "center", gap: "3px" }}>
-      {label}
-      {col && sortBy === col && <span style={{ fontSize: "9px" }}>{sortDir === "desc" ? "↓" : "↑"}</span>}
-    </div>
-  );
-
   return (
     <div>
-      {/* Summary chips */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
-        {overdue.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 12px", background: "#FEE2E2", borderRadius: "20px", border: "1px solid rgba(220,38,38,0.2)" }}>
-            <AlertCircle size={12} color="#DC2626" />
-            <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#B91C1C", fontFamily: T.fontSans }}>{overdue.length} overdue</span>
-          </div>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 12px", background: "#FEF9C3", borderRadius: "20px", border: "1px solid rgba(217,119,6,0.2)" }}>
-          <Zap size={12} color="#D97706" />
-          <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#92400E", fontFamily: T.fontSans }}>
-            {withAction.length} with next action
-          </span>
-        </div>
-        {/* Status filters */}
-        <div style={{ display: "flex", gap: "3px", marginLeft: "auto" }}>
-          {STATUSES.map(s => {
-            const cfg = s !== "all" ? STATUS_CFG[s] : null;
-            const active = statusFilter === s;
-            return (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "4px",
-                  padding: "4px 10px", borderRadius: "20px",
-                  border: `1px solid ${active && cfg ? cfg.color : T.border}`,
-                  background: active && cfg ? cfg.bg : active ? T.bg : "none",
-                  cursor: "pointer", fontSize: "11px", fontFamily: T.fontSans,
-                  color: active && cfg ? cfg.color : T.textSec,
-                  fontWeight: active ? 600 : 400, transition: "all 0.15s",
-                }}>
-                {cfg && <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: cfg.dot }} />}
-                {s === "all" ? "All" : s}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: "10px", overflow: "hidden" }}>
-        {/* Column headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 100px 100px 100px 180px 120px 34px", borderBottom: `1px solid ${T.border}`, background: T.bg }}>
-          <div />
-          <ColHdr label="Institution" col={null} />
-          <ColHdr label="Pipeline"   col="pipeline" />
-          <ColHdr label="Priority"   col="priority" />
-          <ColHdr label="Status"     col="status" />
-          <ColHdr label="Next Action" col={null} />
-          <ColHdr label="Due Date"   col="urgency" />
-          <div />
-        </div>
-
-        <div style={{ maxHeight: "560px", overflowY: "auto" }}>
-          {sorted.map((inst, i) => (
-            <Row key={inst._rawName} inst={inst} onSelect={() => onSelect(inst._rawName)} idx={i} />
-          ))}
-          {sorted.length === 0 && (
-            <div style={{ padding: "40px", textAlign: "center", color: T.textMuted, fontSize: "13px", fontFamily: T.fontSans }}>
-              No institutions match current filters
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ marginTop: "8px", fontSize: "11px", color: T.textMuted, fontFamily: T.fontSans }}>
-        {sorted.length} institutions · click any row to open detail panel
+      <h2 style={sectionTitleStyle}>Action List</h2>
+      <div style={sectionSubStyle}>Ranked by Energy Score. <strong style={{ color: "#D97706" }}>FOCUS</strong> = top 10. Edit priority and relationship inline.</div>
+      <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <thead>
+            <tr style={{ background: "#1a2744", color: "#FFFFFF" }}>
+              <th style={{ ...thStyle, color: "#FFF" }}>#</th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Institution</th>
+              <th style={{ ...thStyle, color: "#FFF" }}>System</th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Status</th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Pipeline</th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Priority <InfoTip term="Priority Score" /></th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Relationship <InfoTip term="Relationship" /></th>
+              <th style={{ ...thStyle, color: "#FFF" }}>Energy <InfoTip term="Energy Score" /></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((inst, idx) => {
+              const focus = top10.has(inst._rawName);
+              const status = inst.edit.hks_status || "Active";
+              const statusColors = { Active: "#15803D", Watching: "#D97706", Dormant: "#9CA3AF", Won: "#1a2744", Lost: "#B91C1C" };
+              return (
+                <tr key={inst._rawName} onClick={() => onSelect(inst._rawName)}
+                  style={{ background: focus ? "#FFF8E7" : (idx%2 ? "#FAF8F3" : "#FFFFFF"), borderBottom: "1px solid #E5E0D5", cursor: "pointer" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: focus ? "#D97706" : "#52525B", fontSize: 13 }}>
+                    {focus && <span style={{ background: "#D97706", color: "#FFF", padding: "1px 5px", borderRadius: 2, fontSize: 10, marginRight: 5 }}>FOCUS</span>}
+                    {idx+1}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 700 }}>{inst.name}</td>
+                  <td style={tdStyle}>
+                    <span style={{ display: "inline-block", padding: "2px 7px", background: SYSTEM_COLORS[inst.system], color: "#FFF", fontSize: 11, borderRadius: 2, fontWeight: 700 }}>{inst.system}</span>
+                  </td>
+                  <td style={tdStyle}>
+                    <select value={status}
+                      onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { hks_status: e.target.value }); }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ padding: "4px 8px", fontSize: 13, border: `1.5px solid ${statusColors[status]}`, borderRadius: 3, color: statusColors[status], fontWeight: 700, background: "#FFF", fontFamily: "inherit", cursor: "pointer" }}>
+                      {["Active","Watching","Dormant","Won","Lost"].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td style={tdStyle}>{fmtMoney(inst.pipeline)}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <button onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.max(0,(inst.edit.priority ?? inst.strategy_priority ?? 0)-1) }); }}
+                        style={{ width: 26, height: 26, border: "1.5px solid #1a2744", background: "#FFF", borderRadius: 3, cursor: "pointer", fontWeight: 700, color: "#1a2744", fontSize: 15 }}>−</button>
+                      <strong style={{ minWidth: 24, textAlign: "center", color: "#D97706", fontSize: 15 }}>{inst.edit.priority ?? inst.strategy_priority ?? "—"}</strong>
+                      <button onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.min(10,(inst.edit.priority ?? inst.strategy_priority ?? 0)+1) }); }}
+                        style={{ width: 26, height: 26, border: "1.5px solid #1a2744", background: "#FFF", borderRadius: 3, cursor: "pointer", fontWeight: 700, color: "#1a2744", fontSize: 15 }}>+</button>
+                    </div>
+                  </td>
+                  <td style={tdStyle}><Stars value={inst.edit.relationship ?? 1} onChange={v => updateEdit(inst._rawName, { relationship: v })} /></td>
+                  <td style={{ ...tdStyle, fontWeight: 700, fontSize: 16, color: focus ? "#D97706" : "#1a2744" }}>{inst.energy_score.toFixed(1)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

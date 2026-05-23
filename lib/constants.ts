@@ -1,75 +1,104 @@
-import type React from "react";
-
-// ─── University Systems ────────────────────────────────────────────────────────
 export const SYSTEM_COLORS: Record<string, string> = {
-  "UT System":    "#BF5700",   // Longhorn orange
-  "Texas A&M":   "#500000",   // Maroon
-  "TTU System":  "#CC0000",   // Red Raider
-  "UH System":   "#C8102E",   // Cougar red
-  "UT Dallas":   "#C75B12",
-  "TWU":         "#4B0082",
-  "UTSA":        "#0C2340",
-  "UT Arlington":"#0064A4",
-  "UNT System":  "#00853E",
-  "Stephen F. Austin": "#4A235A",
-  "Sam Houston": "#512888",
-  "Lamar":       "#DF4A29",
-  "Independent": "#374151",
+  "UT":           "#BF5700",
+  "TAMU":         "#500000",
+  "Texas Tech":   "#CC0000",
+  "Texas State":  "#501214",
+  "UNT":          "#00853E",
+  "UH":           "#C8102E",
+  "TSTC":         "#003E7E",
+  "Other Public": "#52525B",
+  "Community":    "#65A30D",
+  "Private":      "#7C3AED",
 };
-
-// ─── Practice Areas ────────────────────────────────────────────────────────────
-export const ALL_PRACTICES: string[] = [
-  "Academic",
-  "Science + Technology",
-  "Residential",
-  "Student Life",
-  "Sports + Recreation",
-  "Health + Wellness",
-  "Civic + Culture",
-  "Urban Design",
-  "Workplace",
-  "Mixed Use",
-];
 
 export const PRACTICE_COLORS: Record<string, string> = {
-  "Academic":             "#0F172A",
-  "Science + Technology": "#0369A1",
-  "Residential":          "#15803D",
-  "Student Life":         "#7C3AED",
-  "Sports + Recreation":  "#B45309",
-  "Health + Wellness":    "#DC2626",
-  "Civic + Culture":      "#0891B2",
-  "Urban Design":         "#475569",
-  "Workplace":            "#64748B",
-  "Mixed Use":            "#92400E",
+  "Health":      "#0E7C7B",
+  "Education":   "#1a2744",
+  "Sports":      "#D97706",
+  "Aviation":    "#0EA5E9",
+  "Hospitality": "#9D174D",
+  "Cultural":    "#7C3AED",
+  "Civic":       "#52525B",
+  "Justice":     "#3F3F46",
+  "Lab/Sci":     "#15803D",
+  "Workplace":   "#B45309",
+  "Mixed":       "#737373",
 };
 
-// ─── Project Types ─────────────────────────────────────────────────────────────
-export const PROJECT_TYPES: string[] = [
-  "New Construction",
-  "Renovation",
-  "Addition",
-  "Infrastructure",
-  "Master Plan",
-  "Feasibility Study",
-  "Interior",
-  "Landscape",
+export const ALL_PRACTICES = [
+  "Health","Education","Sports","Aviation","Hospitality",
+  "Cultural","Civic","Justice","Lab/Sci","Workplace",
 ];
 
-// ─── Shared inline style helpers ──────────────────────────────────────────────
-export const SHARED_STYLES = {
-  sectionTitle: {
-    fontSize: "18px",
-    fontWeight: 600,
-    color: "#0F172A",
-    letterSpacing: "-0.01em",
-    fontFamily: "'Inter', system-ui, sans-serif",
-  } as React.CSSProperties,
+export const ALL_STATUSES = ["Active","Watching","Dormant","Won","Lost"] as const;
 
+export const STATUS_COLORS: Record<string, string> = {
+  Active:   "#15803D",
+  Watching: "#D97706",
+  Dormant:  "#9CA3AF",
+  Won:      "#1a2744",
+  Lost:     "#B91C1C",
+};
+
+export const PROJECT_TYPES = [
+  "New Construction","Repair and Renovation","Addition",
+  "Infrastructure","Land Acquisition","Information Resources","Leased Space",
+] as const;
+
+export const ESTABLISHED_PRACTICES = new Set(["Health","Education","Sports","Hospitality"]);
+
+export const SHARED_STYLES = {
+  card: {
+    background: "#FFFFFF",
+    border: "1px solid #E5E0D5",
+    borderRadius: 4,
+    padding: "24px 28px",
+    marginBottom: 24,
+  } as React.CSSProperties,
+  th: {
+    padding: "14px 12px",
+    textAlign: "left" as const,
+    fontSize: 13,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+    fontWeight: 700,
+    color: "#52525B",
+  } as React.CSSProperties,
+  td: {
+    padding: "14px 12px",
+    verticalAlign: "middle" as const,
+    fontSize: 15,
+  } as React.CSSProperties,
+  sectionTitle: {
+    fontFamily: "Georgia, 'Iowan Old Style', serif",
+    fontSize: 26,
+    fontWeight: 700,
+    color: "#1a2744",
+    margin: "0 0 4px 0",
+    letterSpacing: "-0.01em",
+  } as React.CSSProperties,
   sectionSub: {
-    fontSize: "12.5px",
-    color: "#64748B",
-    lineHeight: 1.5,
-    fontFamily: "'Inter', system-ui, sans-serif",
+    fontSize: 15,
+    color: "#52525B",
+    marginBottom: 22,
+  } as React.CSSProperties,
+  insightCard: {
+    background: "#FFF8E7",
+    border: "1px solid #D97706",
+    borderRadius: 4,
+    padding: "16px 20px",
+    marginBottom: 20,
+  } as React.CSSProperties,
+  fieldActive: {
+    width: "100%",
+    padding: "8px 10px",
+    fontSize: 15,
+    border: "1.5px solid #D97706",
+    borderRadius: 4,
+    fontFamily: "Georgia, serif",
+    color: "#1a2744",
+    background: "#FFFBF0",
+    outline: "none",
+    transition: "all 0.15s ease",
   } as React.CSSProperties,
 };

@@ -79,15 +79,13 @@ export interface InstEditState {
   next_action: string;
   next_action_date: string;
   owner: string;
-  pipeline_override_m: number | null; // ← NEW: overrides computed sum when set
 }
 
 export type EditStateMap = Record<string, InstEditState>;
 
 export interface EnrichedInstitution extends RawInstitution {
   edit: InstEditState;
-  pipeline: number;          // final pipeline (override ?? computed)
-  pipeline_computed: number; // always the sum of project budgets
+  pipeline: number;
   nearestYear: number | null;
   urgency: number;
   energy_score: number;

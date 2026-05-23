@@ -2,18 +2,15 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
-  Building2, PieChart as PieIcon, Maximize2, Sprout, Table2,
-  Download, RotateCcw, Undo2, Redo2, Save, ChevronRight,
-  PencilLine, X, Check, AlertCircle, Type,
+  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2,
 } from "lucide-react";
 
-import { RAW_DATA, ALL_INSTITUTIONS } from "@/lib/data";
+import { RAW_DATA } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 
 import Sidebar from "./Sidebar";
 import SaveIndicator from "./SaveIndicator";
-import InfoTooltip from "./InfoTooltip";
 import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
 import PriorityMatrix from "./views/PriorityMatrix";
@@ -28,152 +25,22 @@ import DataManager from "./views/DataManager";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const T = {
-  // Colors
-  navy:      "#0F172A",
-  navyMid:   "#1E293B",
-  amber:     "#B45309",
-  amberSoft: "#FEF3C7",
-  amberBg:   "rgba(180,83,9,0.08)",
-  bg:        "#F8F7F4",
-  surface:   "#FFFFFF",
-  surfaceAlt:"#F8F7F4",
-  border:    "#E4E2DD",
-  borderSub: "#F0EEE9",
-  textPri:   "#0F172A",
-  textSec:   "#64748B",
-  textMuted: "#94A3B8",
-  green:     "#16A34A",
-  red:       "#DC2626",
-
-  // Spacing
-  sp2:  "2px", sp4:  "4px",  sp6:  "6px",  sp8:  "8px",
-  sp12: "12px", sp16: "16px", sp20: "20px", sp24: "24px",
-  sp32: "32px", sp40: "40px", sp48: "48px",
-
-  // Typography
-  fontSans: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  fontMono: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-
-  // Radii
-  r4:  "4px",
-  r6:  "6px",
-  r8:  "8px",
-  r12: "12px",
-
-  // Shadows
-  shadowXs: "0 1px 2px rgba(0,0,0,0.04)",
-  shadowSm: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
-  shadowMd: "0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04)",
-  shadowLg: "0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04)",
-} as const;
-
-// ─── View Config ──────────────────────────────────────────────────────────────
-const VIEWS: { id: ViewId; label: string; icon: React.ElementType; group: string; description: string }[] = [
-  { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, group: "Analysis",   description: "Priority vs pipeline positioning" },
-  { id: "ecosystem", label: "Ecosystem",       icon: Network,    group: "Analysis",   description: "Network relationships" },
-  { id: "timeline",  label: "Timeline",        icon: Calendar,   group: "Analysis",   description: "Project fiscal year schedule" },
-  { id: "list",      label: "Action List",     icon: ListChecks, group: "Analysis",   description: "CRM-style next steps" },
-  { id: "funding",   label: "Funding",         icon: PieIcon,    group: "Insights",   description: "Funding source breakdown" },
-  { id: "types",     label: "Project Types",   icon: Building2,  group: "Insights",   description: "Project type distribution" },
-  { id: "space",     label: "Sq. Footage",     icon: Maximize2,  group: "Insights",   description: "GSF/NASF space analysis" },
-  { id: "growth",    label: "Practice Growth", icon: Sprout,     group: "Insights",   description: "Practice area pipeline" },
-  { id: "data",      label: "Data Manager",    icon: Table2,     group: "Settings",   description: "Edit all records directly" },
+const VIEWS: { id: ViewId; label: string; icon: React.ElementType; accent?: string }[] = [
+  { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid },
+  { id: "ecosystem", label: "Ecosystem",       icon: Network    },
+  { id: "timeline",  label: "Timeline",        icon: Calendar   },
+  { id: "list",      label: "Action List",     icon: ListChecks },
+  { id: "funding",   label: "Funding",         icon: PieIcon    },
+  { id: "types",     label: "Proj. Types",     icon: Building2  },
+  { id: "space",     label: "Sq. Footage",     icon: Maximize2  },
+  { id: "growth",    label: "Practice Growth", icon: Sprout     },
+  { id: "data",      label: "Data Manager",    icon: Table2, accent: "#D97706" },
 ];
 
-const VIEW_GROUPS = ["Analysis", "Insights", "Settings"];
-
-// ─── Sub-components ────────────────────────────────────────────────────────────
-
-function NavItem({
-  view, active, onClick,
-}: { view: typeof VIEWS[0]; active: boolean; onClick: () => void }) {
-  const Icon = view.icon;
-  const isData = view.id === "data";
-  return (
-    <button
-      onClick={onClick}
-      title={view.description}
-      style={{
-        width: "100%",
-        display: "flex",
-        alignItems: "center",
-        gap: T.sp8,
-        padding: `${T.sp8} ${T.sp12}`,
-        background: active ? (isData ? "rgba(180,83,9,0.1)" : "rgba(15,23,42,0.06)") : "transparent",
-        border: "none",
-        borderRadius: T.r6,
-        cursor: "pointer",
-        fontSize: "13px",
-        fontWeight: active ? 600 : 400,
-        fontFamily: T.fontSans,
-        color: active ? (isData ? T.amber : T.navy) : T.textSec,
-        textAlign: "left",
-        transition: "all 0.15s ease",
-        position: "relative",
-      }}
-    >
-      {active && (
-        <span style={{
-          position: "absolute",
-          left: 0,
-          top: "20%",
-          height: "60%",
-          width: "2px",
-          background: isData ? T.amber : T.navy,
-          borderRadius: "0 2px 2px 0",
-        }} />
-      )}
-      <Icon size={15} style={{ flexShrink: 0, opacity: active ? 1 : 0.65 }} />
-      <span style={{ lineHeight: 1.3 }}>{view.label}</span>
-    </button>
-  );
-}
-
-function StatPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-      <span style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: T.textMuted, fontFamily: T.fontSans }}>
-        {label}
-      </span>
-      <span style={{ fontSize: "13px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function EditModeBanner({ onClose }: { onClose: () => void }) {
-  return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: T.sp12,
-      padding: `${T.sp8} ${T.sp16}`,
-      background: T.amberSoft,
-      border: `1px solid rgba(180,83,9,0.2)`,
-      borderRadius: T.r8,
-      marginBottom: T.sp20,
-      fontSize: "13px",
-      color: "#92400E",
-      fontFamily: T.fontSans,
-    }}>
-      <PencilLine size={14} style={{ flexShrink: 0 }} />
-      <span><strong style={{ fontWeight: 600 }}>Edit Mode active.</strong> Click any institution to edit its fields. Changes auto-save every 60 s or press ⌘S.</span>
-      <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#92400E", display: "flex", padding: T.sp4 }}>
-        <X size={14} />
-      </button>
-    </div>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────────
-
 export default function BDCommandCenter() {
-  // ── Persistence & undo ────────────────────────────────────────────────────
+  // ── Persistence & undo ───────────────────────────────────────────────────
   const persisted   = useMemo(() => loadPersistedState(), []);
-  const defaultEdit = useMemo(() => buildDefaultEditState(ALL_INSTITUTIONS), []);
+  const defaultEdit = useMemo(() => buildDefaultEditState(RAW_DATA.institutions), []);
 
   const [editState, _setEditState] = useState<EditStateMap>(
     () => persisted?.editState ?? defaultEdit
@@ -223,6 +90,7 @@ export default function BDCommandCenter() {
     }
   };
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -234,6 +102,7 @@ export default function BDCommandCenter() {
     return () => window.removeEventListener("keydown", handler);
   });
 
+  // Auto-save every 60 s when dirty
   useEffect(() => {
     if (!dirty) return;
     const t = setTimeout(handleSave, 60_000);
@@ -241,10 +110,9 @@ export default function BDCommandCenter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty, editState]);
 
-  // ── UI state ──────────────────────────────────────────────────────────────
+  // ── UI state ─────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]     = useState(false);
   const [view, setView]                 = useState<ViewId>("matrix");
-  const [textScale, setTextScale]       = useState(1.0);
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
@@ -252,15 +120,14 @@ export default function BDCommandCenter() {
     minPriority: 0, search: "", hasContacts: false,
   });
 
-  // ── Derived data ──────────────────────────────────────────────────────────
+  // ── Derived institutions ──────────────────────────────────────────────────
   const institutions = useMemo((): EnrichedInstitution[] => {
-    return ALL_INSTITUTIONS.map(raw => {
-      const e = editState[raw.name] || {};
+    return RAW_DATA.institutions.map(raw => {
+      const e = (editState[raw.name] || {}) as any;
       const projects = e.projects ?? raw.projects.map(p => ({
         ...p, _id: p._id ?? Math.random().toString(36).slice(2),
       }));
-      const pipeline_computed = projects.reduce((s, p) => s + (p.budget_m || 0), 0);
-      const pipeline = e.pipeline_override_m ?? pipeline_computed;
+      const pipeline = projects.reduce((s, p) => s + (p.budget_m || 0), 0);
       const ys       = projects.map(p => p.year).filter(Boolean) as number[];
       const ny       = ys.length ? Math.min(...ys) : null;
       const urgency  = ny ? Math.max(0.3, 1 - (ny - 2026) * 0.15) : 0.4;
@@ -280,7 +147,7 @@ export default function BDCommandCenter() {
         projects,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         edit: e as any,
-        pipeline, pipeline_computed, nearestYear: ny, urgency,
+        pipeline, nearestYear: ny, urgency,
         energy_score: energy,
         _rawName: raw.name,
       };
@@ -367,323 +234,99 @@ export default function BDCommandCenter() {
 
   const resetToDefaults = () => {
     if (!window.confirm("Reset ALL edits to original source data? This cannot be undone.")) return;
-    _setEditState(buildDefaultEditState(ALL_INSTITUTIONS));
+    _setEditState(buildDefaultEditState(RAW_DATA.institutions));
     setUndoStack([]); setRedoStack([]);
     clearState();
     setLastSaved(null); setDirty(false);
   };
 
   const isDataView = view === "data";
-  const currentView = VIEWS.find(v => v.id === view);
-
-  // ── Pipeline stats ─────────────────────────────────────────────────────────
-  const visiblePipeline = visible.reduce((s, i) => s + i.pipeline, 0);
-  const visibleProjects = visible.reduce((s, i) => s + i.projects.length, 0);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: T.bg,
-      fontFamily: T.fontSans,
-      color: T.textPri,
-      fontSize: "14px",
-      lineHeight: 1.5,
-      display: "flex",
-      flexDirection: "column",
-      "--text-scale": textScale,
-    } as React.CSSProperties}>
+    <div style={{ minHeight: "100vh", background: "#FAF8F3", fontFamily: "Georgia, 'Iowan Old Style', serif", color: "#1a2744", fontSize: 16, lineHeight: 1.55 }}>
 
-      {/* ── Top Bar ──────────────────────────────────────────────────── */}
-      <header style={{
-        height: "56px",
-        background: T.navy,
-        display: "flex",
-        alignItems: "center",
-        padding: `0 ${T.sp24}`,
-        gap: T.sp16,
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        flexShrink: 0,
-      }}>
-        {/* Logo + Wordmark */}
-        <div
-          onClick={() => setView("matrix")}
-          style={{ display: "flex", alignItems: "center", gap: T.sp8, marginRight: T.sp8, cursor: "pointer" }}
-        >
-          {/* HKS Logo SVG — 32px, white fill */}
-          <svg width="32" height="32" viewBox="0 0 512 512" fill="white" style={{ flexShrink: 0 }}>
-            {/* HKS wordmark paths — stylized letterforms */}
-            <text x="50%" y="58%" dominantBaseline="middle" textAnchor="middle"
-              fontFamily="'Inter', system-ui, sans-serif" fontWeight="800"
-              fontSize="210" letterSpacing="-8" fill="white">HKS</text>
-          </svg>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
-              BD Command Center
-            </span>
-            <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Texas HE · FY 2026–2030
-            </span>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: "1px", height: "24px", background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
-
-        {/* Stats strip */}
-        <div style={{ display: "flex", gap: T.sp24, flex: 1 }}>
-          <StatPill label="Pipeline" value={`$${RAW_DATA.metadata.pipeline_total_b}B`} />
-          <StatPill label="Projects" value={`${RAW_DATA.metadata.project_count}`} />
-          <StatPill label="Institutions" value={`${institutions.length}`} />
-          {visible.length !== institutions.length && (
-            <>
-              <div style={{ width: "1px", background: "rgba(255,255,255,0.1)" }} />
-              <StatPill label="Filtered" value={`${visible.length} shown`} />
-              <StatPill label="Filtered Pipeline" value={fmtMoney(visiblePipeline)} />
-            </>
-          )}
-        </div>
-
-        {/* Action bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: T.sp8 }}>
-          {/* Undo / Redo */}
-          {[
-            { fn: handleUndo, label: "Undo (⌘Z)", icon: <Undo2 size={14} />, disabled: !undoStack.length },
-            { fn: handleRedo, label: "Redo (⌘Y)", icon: <Redo2 size={14} />, disabled: !redoStack.length },
-          ].map(({ fn, label, icon, disabled }) => (
-            <button key={label} onClick={fn} disabled={disabled} title={label}
-              style={{
-                width: "32px", height: "32px",
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: T.r6,
-                color: disabled ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.7)",
-                cursor: disabled ? "default" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s",
-              }}>
-              {icon}
-            </button>
-          ))}
-
-          {/* Save state */}
-          {dirty ? (
-            <button onClick={handleSave}
-              style={{
-                display: "flex", alignItems: "center", gap: T.sp6,
-                padding: `${T.sp6} ${T.sp12}`,
-                background: T.amber, border: "none", borderRadius: T.r6,
-                color: "#FFFFFF", cursor: "pointer", fontSize: "12px", fontWeight: 600,
-                fontFamily: T.fontSans, transition: "all 0.15s",
-              }}>
-              <Save size={13} /> Save
-            </button>
-          ) : lastSaved ? (
-            <span style={{ display: "flex", alignItems: "center", gap: T.sp4, fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>
-              <Check size={12} style={{ color: "#34D399" }} /> Saved {lastSaved}
-            </span>
-          ) : null}
-
-          {/* Text scale */}
-          <div style={{ display: "flex", alignItems: "center", gap: T.sp6, padding: `0 ${T.sp8}` }}>
-            <Type size={13} style={{ color: "rgba(255,255,255,0.45)", flexShrink: 0 }} />
-            <input
-              type="range"
-              min={0.8}
-              max={1.3}
-              step={0.05}
-              value={textScale}
-              onChange={e => setTextScale(Number(e.target.value))}
-              title={`Text scale: ${(textScale * 100).toFixed(0)}%`}
-              style={{
-                width: "60px",
-                accentColor: T.amber,
-                cursor: "pointer",
-              }}
+      {/* ── Sticky header ─────────────────────────────────────────── */}
+      <header style={{ background: "#1a2744", color: "#FFFFFF", padding: "22px 32px", borderBottom: "4px solid #D97706", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1700, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D97706", marginBottom: 4 }}>
+                Texas Higher Education · FY 2026–2030
+              </div>
+              <h1 style={{ fontSize: 30, margin: 0, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1 }}>
+                BD Command Center
+              </h1>
+              <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4 }}>
+                ${RAW_DATA.metadata.pipeline_total_b}B · {RAW_DATA.metadata.project_count} verified projects · {institutions.length} institutions
+              </div>
+            </div>
+            <SaveIndicator
+              dirty={dirty} lastSaved={lastSaved}
+              onSave={handleSave}
+              onUndo={handleUndo} onRedo={handleRedo}
+              canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
             />
           </div>
 
-          {/* Edit toggle */}
-          <button onClick={() => setGlobalEdit(g => !g)}
-            style={{
-              display: "flex", alignItems: "center", gap: T.sp6,
-              padding: `${T.sp6} ${T.sp12}`,
-              background: globalEdit ? "rgba(180,83,9,0.25)" : "rgba(255,255,255,0.07)",
-              border: `1px solid ${globalEdit ? T.amber : "rgba(255,255,255,0.1)"}`,
-              borderRadius: T.r6,
-              color: globalEdit ? "#FCD34D" : "rgba(255,255,255,0.7)",
-              cursor: "pointer", fontSize: "12px", fontWeight: 600,
-              fontFamily: T.fontSans, transition: "all 0.15s",
-            }}>
-            <PencilLine size={13} />
-            {globalEdit ? "Editing" : "Edit"}
-          </button>
-
-          {/* Export */}
-          <button onClick={() => setShowExport(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: T.sp6,
-              padding: `${T.sp6} ${T.sp12}`,
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: T.r6,
-              color: "rgba(255,255,255,0.7)", cursor: "pointer",
-              fontSize: "12px", fontWeight: 600,
-              fontFamily: T.fontSans, transition: "all 0.15s",
-            }}>
-            <Download size={13} /> Export
-          </button>
-        </div>
-      </header>
-
-      {/* ── Body ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
-
-        {/* ── Left Nav ───────────────────────────────────────────────── */}
-        <nav style={{
-          width: "220px",
-          flexShrink: 0,
-          background: T.surface,
-          borderRight: `1px solid ${T.border}`,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          zIndex: 90,
-        }}>
-
-          {/* Filters section — only for non-data views */}
-          {!isDataView && (
-            <div style={{ borderBottom: `1px solid ${T.borderSub}`, flexShrink: 0 }}>
-              <Sidebar
-                globalEdit={globalEdit}
-                onToggleEdit={() => setGlobalEdit(g => !g)}
-                filters={filters}
-                onFiltersChange={setFilters}
-                visible={visible}
-                total={institutions.length}
-                onExportPDF={() => setShowExport(true)}
-                onResetData={resetToDefaults}
-              />
-            </div>
-          )}
-
-          {/* View navigation */}
-          <div style={{ flex: 1, overflowY: "auto", padding: `${T.sp12} ${T.sp8}` }}>
-            {VIEW_GROUPS.map(group => {
-              const groupViews = VIEWS.filter(v => v.group === group);
+          {/* View tabs */}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {VIEWS.map(v => {
+              const Icon = v.icon;
+              const active = view === v.id;
+              const isData = v.id === "data";
               return (
-                <div key={group} style={{ marginBottom: T.sp16 }}>
-                  <div style={{
-                    fontSize: "10px",
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: T.textMuted,
-                    padding: `${T.sp4} ${T.sp12}`,
-                    marginBottom: T.sp4,
+                <button key={v.id} onClick={() => setView(v.id)}
+                  style={{
+                    padding: "10px 14px",
+                    background: active ? (isData ? "#D97706" : "#D97706") : isData ? "rgba(217,119,6,0.15)" : "transparent",
+                    color: "#FFFFFF",
+                    border: active ? "1.5px solid #D97706" : isData ? "1.5px solid rgba(217,119,6,0.5)" : "1.5px solid rgba(255,255,255,0.2)",
+                    borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    minHeight: 40, fontFamily: "inherit",
+                    display: "inline-flex", alignItems: "center", gap: 7,
                   }}>
-                    {group}
-                  </div>
-                  {groupViews.map(v => (
-                    <NavItem
-                      key={v.id}
-                      view={v}
-                      active={view === v.id}
-                      onClick={() => setView(v.id)}
-                    />
-                  ))}
-                </div>
+                  <Icon size={15} />{v.label}
+                </button>
               );
             })}
           </div>
+        </div>
+      </header>
 
-          {/* Footer actions */}
-          <div style={{
-            borderTop: `1px solid ${T.borderSub}`,
-            padding: T.sp12,
-            display: "flex",
-            flexDirection: "column",
-            gap: T.sp4,
-          }}>
-            <button onClick={resetToDefaults}
-              style={{
-                display: "flex", alignItems: "center", gap: T.sp8,
-                padding: `${T.sp6} ${T.sp8}`,
-                background: "none", border: "none", borderRadius: T.r6,
-                cursor: "pointer", fontSize: "12px", color: T.textMuted,
-                fontFamily: T.fontSans, textAlign: "left",
-                transition: "all 0.15s",
-              }}>
-              <RotateCcw size={13} /> Reset to source data
-            </button>
-          </div>
-        </nav>
+      {/* ── Body ──────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
 
-        {/* ── Main Content ───────────────────────────────────────────── */}
-        <main style={{
-          flex: 1,
-          overflow: "auto",
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          fontSize: `${textScale}em`,
-        }}>
-          {!isDataView && (
-            <div style={{
-              padding: `${T.sp20} ${T.sp32}`,
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              minWidth: 0,
-            }}>
-              {/* Breadcrumb / View header */}
-              <div style={{ marginBottom: T.sp20, display: "flex", alignItems: "center", gap: T.sp8 }}>
-                <span style={{ fontSize: "12px", color: T.textMuted }}>
-                  {currentView?.group}
-                </span>
-                <ChevronRight size={13} style={{ color: T.textMuted, opacity: 0.5 }} />
-                <span style={{ fontSize: "12px", fontWeight: 600, color: T.textSec }}>
-                  {currentView?.label}
-                </span>
-                {view === "matrix" && <InfoTooltip title="Priority Matrix" content="Plots each institution by Strategic Priority (x-axis, 0–10) vs. Pipeline Value (y-axis, log scale). Circle size = number of projects. Color = university system." formula="Pipeline = Σ project budgets. Priority from 1–10 scale set in Data Manager." />}
-                {view === "ecosystem" && <InfoTooltip title="Ecosystem View" content="Card grid showing all institutions. Hover for details, click to open the detail panel. Sort by energy score (engagement momentum), pipeline value, or priority." formula="Energy Score = weighted composite of priority, pipeline, contact count, and recency of action." />}
-                {view === "timeline" && <InfoTooltip title="Project Timeline" content="Gantt-style view of capital projects by fiscal year (FY2026–2030). Each bar is a project. Color = project type. Click a bar or institution name to open the detail panel." />}
-                {view === "list" && <InfoTooltip title="Action List" content="CRM-style table sorted by priority. Shows next action, owner, due date, and status for each institution. Overdue items are flagged in red." formula="Urgency = days until next_action_date. Priority from 1–10 set in Data Manager." />}
-                {view === "funding" && <InfoTooltip title="Funding Sources" content="Breakdown of Texas capital funding sources from THECB FY2026–2030 report. Hover segments to highlight. Bottom section shows HKS pipeline by university system." formula="Source: THECB Capital Expenditure Plan FY2026–2030, Table 1." />}
-                {view === "types" && <InfoTooltip title="Project Types" content="Distribution of capital projects by type across all institutions. Click a bar to drill into which institutions have that project type." formula="Pipeline share = institution project budget ÷ total type budget × 100%." />}
-                {view === "space" && <InfoTooltip title="Space Analysis" content="GSF (Gross Square Feet) and NASF (Net Assignable Square Feet) for institutions with space data. Click a row to open the institution detail panel." formula="Efficiency = NASF ÷ GSF × 100%. Higher % = more usable space relative to total." />}
-                {view === "growth" && <InfoTooltip title="Practice Area Pipeline" content="Pipeline value attributed to each HKS practice area based on project type inference. Click a bar to see which institutions drive that practice." formula="Practice inferred from project name keywords. Pipeline = sum of matching project budgets." />}
-                <span style={{
-                  marginLeft: T.sp4,
-                  padding: `1px ${T.sp6}`,
-                  background: T.borderSub,
-                  borderRadius: "10px",
-                  fontSize: "11px",
-                  color: T.textMuted,
-                }}>
-                  {visible.length} institutions · {visibleProjects} projects · {fmtMoney(visiblePipeline)}
-                </span>
-              </div>
+        {/* Hide sidebar in Data Manager — it takes full width */}
+        {!isDataView && (
+          <Sidebar
+            globalEdit={globalEdit}
+            onToggleEdit={() => setGlobalEdit(g => !g)}
+            filters={filters}
+            onFiltersChange={setFilters}
+            visible={visible}
+            total={institutions.length}
+            onExportPDF={() => setShowExport(true)}
+            onResetData={resetToDefaults}
+          />
+        )}
 
-              {/* Edit mode banner */}
-              {globalEdit && <EditModeBanner onClose={() => setGlobalEdit(false)} />}
-
-              {/* View content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
-                {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
-                {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
-                {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
-                {view === "funding"   && <FundingSources  institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} editState={editState} setEditState={setEditState} />}
-                {view === "types"     && <ProjectTypes    institutions={visible}      onSelect={setSelectedInst} />}
-                {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
-                {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
-              </div>
+        <main style={{ flex: 1, padding: isDataView ? "0" : "24px 32px", minWidth: 0 }}>
+          {!isDataView && globalEdit && (
+            <div style={{ marginBottom: 20, padding: "12px 18px", background: "#FFF8E7", border: "2px solid #D97706", borderRadius: 6, fontSize: 14, color: "#92400E", display: "flex", alignItems: "center", gap: 10 }}>
+              <Edit3 size={16} />
+              <strong>Edit Mode is ON.</strong> Tap any institution card or row to edit all its fields. Changes auto-save every 60 s.
             </div>
           )}
 
-          {isDataView && (
+          {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
+          {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
+          {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
+          {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
+          {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
+          {view === "types"     && <ProjectTypes    institutions={institutions} />}
+          {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
+          {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
+          {view === "data"      && (
             <DataManager
               institutions={institutions}
               editState={editState}
@@ -698,31 +341,7 @@ export default function BDCommandCenter() {
         </main>
       </div>
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      {!isDataView && (
-        <footer style={{
-          background: T.surface,
-          borderTop: `1px solid ${T.border}`,
-          padding: `${T.sp12} ${T.sp32}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          fontSize: "11px",
-          color: T.textMuted,
-          flexShrink: 0,
-          gap: T.sp12,
-          flexWrap: "wrap",
-        }}>
-          <span>
-            THECB Capital Expenditure Plan FY 2026–2030 (Sep 2025) · HKS BD Session 05/19–20/26
-          </span>
-          <span>
-            {visible.length} of {institutions.length} institutions displayed
-          </span>
-        </footer>
-      )}
-
-      {/* ── Detail Panel ──────────────────────────────────────────────── */}
+      {/* ── Detail panel ─────────────────────────────────────────── */}
       {selectedInst && (
         <DetailPanel
           inst={institutions.find(i => i._rawName === selectedInst || i.name === selectedInst)}
@@ -738,13 +357,25 @@ export default function BDCommandCenter() {
         />
       )}
 
-      {/* ── Export Modal ───────────────────────────────────────────────── */}
+      {/* ── Export modal ─────────────────────────────────────────── */}
       {showExport && (
         <ExportModal
           institutions={institutions}
           visible={visible}
           onClose={() => setShowExport(false)}
         />
+      )}
+
+      {/* ── Footer ──────────────────────────────────────────────── */}
+      {!isDataView && (
+        <footer style={{ borderTop: "1px solid #E5E0D5", padding: "16px 32px", background: "#FFFFFF", fontSize: 13, color: "#52525B" }}>
+          <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>Sources: THECB Cap Ex Plan FY26–30 (Sept 2025) · HKS BD Session 05/19–20/26</div>
+            <div>
+              Showing {visible.length} institutions · {visible.reduce((s,i)=>s+i.projects.length,0)} projects · {fmtMoney(visible.reduce((s,i)=>s+i.pipeline,0))} pipeline
+            </div>
+          </div>
+        </footer>
       )}
     </div>
   );

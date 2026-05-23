@@ -1,366 +1,287 @@
 "use client";
-import React, { useState } from "react";
-import {
-  X, Plus, Trash2, Building2, Users, FolderOpen,
-  Star, Percent, Activity, Calendar, User, FileText,
-} from "lucide-react";
-import { PRACTICE_COLORS, ALL_PRACTICES, PROJECT_TYPES } from "@/lib/constants";
-import { fmtMoney } from "@/lib/helpers";
-import type { EnrichedInstitution, RawContact, RawProject } from "@/lib/types";
+import React from "react";
+import { X, Edit3, Users, Target, Star } from "lucide-react";
+import InfoTip from "./InfoTip";
+import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, SHARED_STYLES } from "@/lib/constants";
+import { fmtMoney, inferPractice } from "@/lib/helpers";
+import type { EnrichedInstitution, RawContact } from "@/lib/types";
 
-const T = {
-  navy: "#0F172A", amber: "#B45309",
-  bg: "#F8F7F4", surface: "#FFFFFF",
-  border: "#E4E2DD", borderSub: "#F0EEE9",
-  textPri: "#0F172A", textSec: "#64748B", textMuted: "#94A3B8",
-  red: "#DC2626",
-  fontSans: "'Inter', system-ui, sans-serif",
-  r4: "4px", r6: "6px", r8: "8px",
-  sp4: "4px", sp6: "6px", sp8: "8px", sp10: "10px",
-  sp12: "12px", sp16: "16px", sp20: "20px", sp24: "24px",
-};
+const fieldStyle = (_editing: boolean) => SHARED_STYLES.fieldActive;
 
-interface DetailPanelProps {
-  inst: EnrichedInstitution | undefined;
-  onClose: () => void;
-  globalEdit: boolean;
-  updateEdit: (rawName: string, patch: Record<string, unknown>) => void;
-  updateProject: (rawName: string, projId: string, patch: Record<string, unknown>) => void;
-  addProject: (rawName: string) => void;
-  removeProject: (rawName: string, projId: string) => void;
-  addContact: (rawName: string) => void;
-  removeContact: (rawName: string, idx: number) => void;
-  updateContact: (rawName: string, idx: number, patch: Partial<RawContact>) => void;
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: T.sp12 }}>
-      <div style={{ fontSize: "10.5px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.textMuted, marginBottom: T.sp4, fontFamily: T.fontSans }}>
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function EditInput({ value, onChange, type = "text", placeholder, min, max, step }: {
-  value: string | number | null | undefined;
-  onChange: (v: string | number | null) => void;
-  type?: "text" | "number" | "textarea" | "date";
-  placeholder?: string; min?: number; max?: number; step?: number;
-}) {
-  const base: React.CSSProperties = {
-    width: "100%", padding: `${T.sp6} ${T.sp8}`,
-    fontSize: "13px", fontFamily: T.fontSans, color: T.textPri,
-    border: `1px solid ${T.border}`, borderRadius: T.r6,
-    background: T.surface, outline: "none", boxSizing: "border-box" as const,
-  };
-  if (type === "textarea") {
-    return (
-      <textarea value={String(value ?? "")} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} rows={3}
-        style={{ ...base, resize: "vertical", lineHeight: 1.5 }} />
-    );
-  }
-  if (type === "number") {
-    return (
-      <input type="number" value={value ?? ""} placeholder={placeholder}
-        min={min} max={max} step={step ?? 1}
-        onChange={e => onChange(e.target.value === "" ? null : Number(e.target.value))}
-        style={base} />
-    );
-  }
-  if (type === "date") {
-    return <input type="date" value={String(value ?? "")} onChange={e => onChange(e.target.value)} style={base} />;
-  }
-  return <input type="text" value={String(value ?? "")} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={base} />;
-}
-
-function ReadValue({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: "13px", color: T.textPri, fontFamily: T.fontSans }}>{children || <span style={{ color: T.textMuted }}>—</span>}</div>;
-}
-
-export default function DetailPanel({
-  inst, onClose, globalEdit,
-  updateEdit, updateProject, addProject, removeProject,
-  addContact, removeContact, updateContact,
-}: DetailPanelProps) {
-  const [tab, setTab] = useState<"overview" | "projects" | "contacts">("overview");
-
+export default function DetailPanel({ inst, onClose, updateEdit, updateProject, addProject, removeProject, addContact, removeContact, updateContact, globalEdit }) {
   if (!inst) return null;
-  const rn = inst._rawName;
-  const e  = inst.edit;
+  const rawName = inst._rawName || inst.name;
+  const e = inst.edit || {};
 
-  const STATUS_CFG: Record<string, { bg: string; color: string }> = {
-    Active:   { bg: "#DCFCE7", color: "#15803D" },
-    Watching: { bg: "#FEF9C3", color: "#A16207" },
-    Dormant:  { bg: "#F3F4F6", color: "#6B7280" },
-    Won:      { bg: "#E0F2FE", color: "#0369A1" },
-    Lost:     { bg: "#FEE2E2", color: "#B91C1C" },
-  };
-  const status = e.hks_status ?? "Active";
-  const sc = STATUS_CFG[status] ?? { bg: T.borderSub, color: T.textSec };
+  const Stars = ({ value, onChange }) => (
+    <span style={{ display: "inline-flex", gap: 4 }}>
+      {[1,2,3,4,5].map(n => (
+        <button key={n} onClick={() => onChange(n)}
+          style={{ background: "none", border: "none", padding: 4, cursor: "pointer", color: n <= value ? "#D97706" : "#D1D5DB" }}>
+          <Star size={22} fill={n <= value ? "#D97706" : "none"} />
+        </button>
+      ))}
+    </span>
+  );
 
-  const TabBtn = ({ id, label }: { id: typeof tab; label: string }) => (
-    <button onClick={() => setTab(id)}
-      style={{
-        padding: `${T.sp8} ${T.sp12}`, background: "none", border: "none",
-        borderBottom: tab === id ? `2px solid ${T.amber}` : "2px solid transparent",
-        cursor: "pointer", fontSize: "13px",
-        fontWeight: tab === id ? 600 : 400, fontFamily: T.fontSans,
-        color: tab === id ? T.textPri : T.textSec,
-      }}>
-      {label}
-    </button>
+  const statusColors = { Active: "#15803D", Watching: "#D97706", Dormant: "#9CA3AF", Won: "#1a2744", Lost: "#B91C1C" };
+
+  const Row = ({ label, children, info = undefined }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #F0EDE7" }}>
+      <span style={{ fontSize: 14, color: "#52525B", flexShrink: 0, marginRight: 12 }}>
+        {label}{info && <InfoTip term={info} side="left" />}
+      </span>
+      <div style={{ flex: 1, textAlign: "right" }}>{children}</div>
+    </div>
   );
 
   return (
     <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.3)", zIndex: 100, backdropFilter: "blur(2px)" }} />
+      <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(26,39,68,0.5)", zIndex: 200 }} />
+      <aside style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "min(620px, 100%)", background: "#FAF8F3", zIndex: 201, overflowY: "auto", boxShadow: "-10px 0 40px rgba(0,0,0,0.18)", fontFamily: "Georgia, serif", color: "#1a2744" }}>
 
-      {/* Panel */}
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0,
-        width: "480px", maxWidth: "90vw",
-        background: T.surface,
-        borderLeft: `1px solid ${T.border}`,
-        zIndex: 101,
-        display: "flex", flexDirection: "column",
-        boxShadow: "-8px 0 32px rgba(0,0,0,0.12)",
-      }}>
         {/* Header */}
-        <div style={{ padding: `${T.sp20} ${T.sp24}`, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: T.sp12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "10.5px", color: T.textMuted, marginBottom: T.sp4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>
-                {inst.system}
-              </div>
-              <h2 style={{ fontSize: "17px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans, margin: 0, lineHeight: 1.3 }}>
-                {inst.name}
-              </h2>
-              <div style={{ display: "flex", alignItems: "center", gap: T.sp8, marginTop: T.sp8, flexWrap: "wrap" }}>
-                <span style={{ padding: "2px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: 600, background: sc.bg, color: sc.color, fontFamily: T.fontSans }}>
-                  {status}
-                </span>
-                {inst.lead_practice && (
-                  <span style={{ fontSize: "11.5px", color: PRACTICE_COLORS[inst.lead_practice] ?? T.textSec, fontWeight: 500, fontFamily: T.fontSans }}>
-                    {inst.lead_practice}
-                  </span>
-                )}
-                <span style={{ fontSize: "13px", fontWeight: 700, color: T.amber, fontFamily: T.fontSans }}>
-                  {fmtMoney(inst.pipeline)}
-                </span>
-              </div>
+        <div style={{ padding: "18px 24px", background: "#1a2744", color: "#FFFFFF", display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ flex: 1, marginRight: 12 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D97706", marginBottom: 3 }}>
+              {e.system || inst.system} {inst.lead_practice && `· ${inst.lead_practice} lead`}
+              {globalEdit && <span style={{ marginLeft: 8, background: "#D97706", color: "#FFF", padding: "1px 6px", borderRadius: 2, fontSize: 10 }}>EDIT MODE</span>}
             </div>
-            <button onClick={onClose}
-              style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, padding: T.sp4, borderRadius: T.r6, display: "flex" }}>
-              <X size={18} />
-            </button>
+            {globalEdit ? (
+              <input value={e.displayName || inst.name}
+                onChange={ev => updateEdit(rawName, { displayName: ev.target.value })}
+                style={{ fontSize: 22, fontWeight: 700, background: "transparent", border: "none", borderBottom: "2px solid #D97706", color: "#FFFFFF", fontFamily: "Georgia, serif", width: "100%", outline: "none" }} />
+            ) : (
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{inst.name}</h2>
+            )}
           </div>
-
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 0, marginTop: T.sp16, marginBottom: `-${T.sp16}` }}>
-            <TabBtn id="overview"  label="Overview" />
-            <TabBtn id="projects"  label={`Projects (${inst.projects.length})`} />
-            <TabBtn id="contacts"  label={`Contacts (${inst.contacts?.length ?? 0})`} />
-          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "1.5px solid #FFFFFF", color: "#FFFFFF", borderRadius: 4, padding: 8, cursor: "pointer", minWidth: 44, minHeight: 44 }}>
+            <X size={20} />
+          </button>
         </div>
 
-        {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: T.sp24 }}>
+        <div style={{ padding: "20px 24px" }}>
 
-          {/* ── OVERVIEW TAB ─────────────────────────────────────────── */}
-          {tab === "overview" && (
-            <div>
-              {/* Stats row */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.sp12, marginBottom: T.sp24 }}>
-                {[
-                  { label: "Priority",   value: `${e.priority ?? inst.strategy_priority ?? "—"} / 10` },
-                  { label: "Relationship",value: `${e.relationship ?? 1} ★` },
-                  { label: "Energy",     value: inst.energy_score.toFixed(1) },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ background: T.bg, borderRadius: T.r8, padding: T.sp12, textAlign: "center" }}>
-                    <div style={{ fontSize: "10.5px", color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: T.sp4, fontFamily: T.fontSans }}>{label}</div>
-                    <div style={{ fontSize: "16px", fontWeight: 700, color: T.textPri, fontFamily: T.fontSans }}>{value}</div>
+          {/* Stats strip */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
+            <div style={{ background: "#FFFFFF", padding: 12, border: "1px solid #E5E0D5", borderRadius: 4 }}>
+              <div style={{ fontSize: 11, color: "#52525B", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#1a2744", marginTop: 3 }}>{fmtMoney(inst.pipeline)}</div>
+            </div>
+            <div style={{ background: "#FFFFFF", padding: 12, border: "1px solid #E5E0D5", borderRadius: 4 }}>
+              <div style={{ fontSize: 11, color: "#52525B", textTransform: "uppercase", letterSpacing: "0.06em" }}>Energy <InfoTip term="Energy Score" side="left" /></div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#D97706", marginTop: 3 }}>{inst.energy_score.toFixed(1)}</div>
+            </div>
+            <div style={{ background: "#FFFFFF", padding: 12, border: "1px solid #E5E0D5", borderRadius: 4 }}>
+              <div style={{ fontSize: 11, color: "#52525B", textTransform: "uppercase", letterSpacing: "0.06em" }}>Projects</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#1a2744", marginTop: 3 }}>{inst.projects.length}</div>
+            </div>
+          </div>
+
+          {/* ── STRATEGY RATINGS ─────────────────────────────────────── */}
+          <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 10 }}>
+              <Edit3 size={13} style={{ display: "inline", marginRight: 6, verticalAlign: "text-bottom" }} />
+              Strategy Ratings
+            </div>
+
+            <Row label="Priority Score" info="Priority Score">
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                <button onClick={() => updateEdit(rawName, { priority: Math.max(0,(e.priority ?? inst.strategy_priority ?? 0)-1) })}
+                  style={{ width: 32, height: 32, border: "1.5px solid #1a2744", background: "#FFF", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "#1a2744", fontSize: 16 }}>−</button>
+                <strong style={{ minWidth: 32, textAlign: "center", color: "#D97706", fontSize: 20 }}>{e.priority ?? inst.strategy_priority ?? "—"}</strong>
+                <button onClick={() => updateEdit(rawName, { priority: Math.min(10,(e.priority ?? inst.strategy_priority ?? 0)+1) })}
+                  style={{ width: 32, height: 32, border: "1.5px solid #1a2744", background: "#FFF", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "#1a2744", fontSize: 16 }}>+</button>
+              </div>
+            </Row>
+
+            <Row label="Relationship" info="Relationship">
+              <Stars value={e.relationship ?? 1} onChange={v => updateEdit(rawName, { relationship: v })} />
+            </Row>
+
+            <Row label="HKS Status">
+              <select value={e.hks_status || "Active"} onChange={ev => updateEdit(rawName, { hks_status: ev.target.value })}
+                style={{ padding: "5px 10px", fontSize: 14, border: `1.5px solid ${statusColors[e.hks_status || "Active"]}`, borderRadius: 3, color: statusColors[e.hks_status || "Active"], fontWeight: 700, background: "#FFF", fontFamily: "inherit" }}>
+                {["Active","Watching","Dormant","Won","Lost"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Row>
+
+            <Row label="HKS Lead Practice">
+              {globalEdit ? (
+                <select value={e.lead_practice || ""} onChange={ev => updateEdit(rawName, { lead_practice: ev.target.value || null })}
+                  style={{ ...fieldStyle(true), width: "auto", padding: "5px 10px" }}>
+                  <option value="">— None —</option>
+                  {["Health","Education","Sports","Aviation","Hospitality","Cultural","Civic","Justice","Lab/Sci","Workplace"].map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              ) : (
+                <span style={{ padding: "2px 10px", background: inst.lead_practice ? PRACTICE_COLORS[inst.lead_practice] : "#E5E0D5", color: inst.lead_practice ? "#FFF" : "#52525B", borderRadius: 3, fontSize: 13, fontWeight: 700 }}>
+                  {inst.lead_practice || "Unassigned"}
+                </span>
+              )}
+            </Row>
+
+            <Row label="System">
+              {globalEdit ? (
+                <select value={e.system || inst.system} onChange={ev => updateEdit(rawName, { system: ev.target.value })}
+                  style={{ ...fieldStyle(true), width: "auto", padding: "5px 10px" }}>
+                  {Object.keys(SYSTEM_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              ) : (
+                <span style={{ padding: "2px 10px", background: SYSTEM_COLORS[inst.system], color: "#FFF", borderRadius: 3, fontSize: 13, fontWeight: 700 }}>{inst.system}</span>
+              )}
+            </Row>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 14 }}>
+                <span style={{ color: "#52525B" }}>Expansion probability <InfoTip term="Expansion" side="left" /></span>
+                <strong style={{ color: "#D97706" }}>{e.expansion ?? 30}%</strong>
+              </div>
+              <input type="range" min={0} max={100} step={5} value={e.expansion ?? 30}
+                onChange={ev => updateEdit(rawName, { expansion: Number(ev.target.value) })}
+                style={{ width: "100%", accentColor: "#D97706", height: 8 }} />
+            </div>
+          </div>
+
+          {/* ── NEXT ACTION (always editable) ────────────────────────── */}
+          <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 10 }}>Next Action</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10 }}>
+              <input value={e.next_action || ""} onChange={ev => updateEdit(rawName, { next_action: ev.target.value })}
+                placeholder="e.g. Call Travis Laird re: Medical Complex"
+                style={{ ...fieldStyle(true) }} />
+              <input type="date" value={e.next_action_date || ""} onChange={ev => updateEdit(rawName, { next_action_date: ev.target.value })}
+                style={{ ...fieldStyle(true), width: 150 }} />
+            </div>
+            <input value={e.owner || ""} onChange={ev => updateEdit(rawName, { owner: ev.target.value })}
+              placeholder="Owner (e.g. Ryan Swanson)"
+              style={{ ...fieldStyle(true) }} />
+          </div>
+
+          {/* ── NOTES ────────────────────────────────────────────────── */}
+          <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 8 }}>Strategy Notes</div>
+            <textarea value={e.notes || ""} onChange={ev => updateEdit(rawName, { notes: ev.target.value })}
+              rows={3} placeholder="Internal context, hunches, next steps…"
+              style={{ ...fieldStyle(true), resize: "vertical" }} />
+          </div>
+
+          {/* ── SPACE METRICS (editable in edit mode) ────────────────── */}
+          {globalEdit && (
+            <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 10 }}>Space Metrics (Appendix B)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[["GSF","gsf"],["NASF","nasf"],["E&G NASF","eg_nasf"]].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={{ display: "block", fontSize: 12, color: "#52525B", marginBottom: 4 }}>{label}</label>
+                    <input type="number" value={e[key] ?? inst[key] ?? ""} onChange={ev => updateEdit(rawName, { [key]: ev.target.value === "" ? null : Number(ev.target.value) })}
+                      placeholder="—" style={{ ...fieldStyle(true), fontSize: 13 }} />
                   </div>
                 ))}
               </div>
-
-              {globalEdit ? (
-                <>
-                  <Field label="Display Name">
-                    <EditInput value={e.displayName ?? inst.name} onChange={v => updateEdit(rn, { displayName: v })} />
-                  </Field>
-                  <Field label="Status">
-                    <select value={status} onChange={e2 => updateEdit(rn, { hks_status: e2.target.value })}
-                      style={{ width: "100%", padding: `${T.sp6} ${T.sp8}`, fontSize: "13px", fontFamily: T.fontSans, border: `1px solid ${T.border}`, borderRadius: T.r6, background: T.surface, outline: "none" }}>
-                      {["Active","Watching","Dormant","Won","Lost"].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Lead Practice">
-                    <select value={inst.lead_practice ?? ""} onChange={e2 => updateEdit(rn, { lead_practice: e2.target.value || null })}
-                      style={{ width: "100%", padding: `${T.sp6} ${T.sp8}`, fontSize: "13px", fontFamily: T.fontSans, border: `1px solid ${T.border}`, borderRadius: T.r6, background: T.surface, outline: "none" }}>
-                      <option value="">—</option>
-                      {ALL_PRACTICES.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </Field>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.sp12 }}>
-                    <Field label="Priority (0–10)">
-                      <EditInput type="number" min={0} max={10} value={e.priority ?? inst.strategy_priority} onChange={v => updateEdit(rn, { priority: v })} />
-                    </Field>
-                    <Field label="Relationship (1–5)">
-                      <EditInput type="number" min={1} max={5} value={e.relationship ?? 1} onChange={v => updateEdit(rn, { relationship: v })} />
-                    </Field>
-                    <Field label="Expansion %">
-                      <EditInput type="number" min={0} max={100} step={5} value={e.expansion ?? 30} onChange={v => updateEdit(rn, { expansion: v })} />
-                    </Field>
-                    <Field label="Pipeline Override $M">
-                      <EditInput type="number" min={0} step={0.1} value={e.pipeline_override_m} placeholder="Auto" onChange={v => updateEdit(rn, { pipeline_override_m: v })} />
-                    </Field>
-                  </div>
-                  <Field label="Next Action">
-                    <EditInput value={e.next_action} onChange={v => updateEdit(rn, { next_action: v })} placeholder="Next step…" />
-                  </Field>
-                  <Field label="Due Date">
-                    <EditInput type="date" value={e.next_action_date} onChange={v => updateEdit(rn, { next_action_date: v })} />
-                  </Field>
-                  <Field label="Owner">
-                    <EditInput value={e.owner} onChange={v => updateEdit(rn, { owner: v })} placeholder="BD Lead…" />
-                  </Field>
-                  <Field label="Notes">
-                    <EditInput type="textarea" value={e.notes} onChange={v => updateEdit(rn, { notes: v })} placeholder="Strategic context…" />
-                  </Field>
-                </>
-              ) : (
-                <>
-                  {e.next_action && (
-                    <div style={{ background: "#FEF9C3", border: "1px solid rgba(180,83,9,0.2)", borderRadius: T.r8, padding: T.sp12, marginBottom: T.sp16 }}>
-                      <div style={{ fontSize: "10.5px", color: "#92400E", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: T.sp4, fontFamily: T.fontSans }}>Next Action</div>
-                      <div style={{ fontSize: "13px", color: T.textPri, fontFamily: T.fontSans }}>{e.next_action}</div>
-                      {e.next_action_date && <div style={{ fontSize: "11.5px", color: "#92400E", marginTop: T.sp4, fontFamily: T.fontSans }}>Due: {e.next_action_date}</div>}
-                      {e.owner && <div style={{ fontSize: "11.5px", color: T.textSec, marginTop: "2px", fontFamily: T.fontSans }}>Owner: {e.owner}</div>}
-                    </div>
-                  )}
-                  <Field label="Notes">
-                    <ReadValue>{e.notes || inst.strategy_notes}</ReadValue>
-                  </Field>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.sp12, marginTop: T.sp16 }}>
-                    {inst.gsf  && <Field label="GSF" ><ReadValue>{inst.gsf.toLocaleString()}</ReadValue></Field>}
-                    {inst.nasf && <Field label="NASF"><ReadValue>{inst.nasf.toLocaleString()}</ReadValue></Field>}
-                    {inst.thecb_total_m != null && <Field label="THECB $M"><ReadValue>{fmtMoney(inst.thecb_total_m)}</ReadValue></Field>}
-                  </div>
-                </>
-              )}
             </div>
           )}
 
-          {/* ── PROJECTS TAB ─────────────────────────────────────────── */}
-          {tab === "projects" && (
-            <div>
-              {inst.projects.map((p, i) => {
-                const pid = p._id ?? String(i);
-                return (
-                  <div key={pid} style={{ border: `1px solid ${T.border}`, borderRadius: T.r8, padding: T.sp16, marginBottom: T.sp12, background: T.bg }}>
-                    {globalEdit ? (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.sp10 }}>
-                          <EditInput value={p.name} onChange={v => updateProject(rn, pid, { name: v })} />
-                          <button onClick={() => { if (window.confirm(`Delete "${p.name}"?`)) removeProject(rn, pid); }}
-                            style={{ marginLeft: T.sp8, background: "none", border: "none", cursor: "pointer", color: T.textMuted, display: "flex", flexShrink: 0 }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.sp8 }}>
-                          <div>
-                            <div style={{ fontSize: "10.5px", color: T.textMuted, marginBottom: T.sp4, fontFamily: T.fontSans }}>Budget $M</div>
-                            <EditInput type="number" min={0} step={0.1} value={p.budget_m} onChange={v => updateProject(rn, pid, { budget_m: v })} placeholder="TBD" />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "10.5px", color: T.textMuted, marginBottom: T.sp4, fontFamily: T.fontSans }}>FY Start</div>
-                            <EditInput type="number" min={2024} max={2035} value={p.year} onChange={v => updateProject(rn, pid, { year: v })} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "10.5px", color: T.textMuted, marginBottom: T.sp4, fontFamily: T.fontSans }}>Type</div>
-                            <select value={p.type} onChange={e2 => updateProject(rn, pid, { type: e2.target.value })}
-                              style={{ width: "100%", padding: `${T.sp6} ${T.sp8}`, fontSize: "12.5px", fontFamily: T.fontSans, border: `1px solid ${T.border}`, borderRadius: T.r6, background: T.surface }}>
-                              {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "10.5px", color: T.textMuted, marginBottom: T.sp4, fontFamily: T.fontSans }}>Notes</div>
-                            <EditInput value={p.notes} onChange={v => updateProject(rn, pid, { notes: v })} placeholder="Notes…" />
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: T.sp6 }}>
-                          <div style={{ fontSize: "13px", fontWeight: 600, color: T.textPri, fontFamily: T.fontSans, lineHeight: 1.4 }}>{p.name}</div>
-                          <div style={{ fontSize: "14px", fontWeight: 700, color: T.amber, fontFamily: T.fontSans, flexShrink: 0, marginLeft: T.sp8 }}>
-                            {p.budget_m != null ? fmtMoney(p.budget_m) : "TBD"}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: T.sp8, flexWrap: "wrap" }}>
-                          {p.year && <span style={{ fontSize: "11px", color: T.textSec, background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r4, padding: "1px 7px", fontFamily: T.fontSans }}>FY{p.year}</span>}
-                          <span style={{ fontSize: "11px", color: T.textSec, background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r4, padding: "1px 7px", fontFamily: T.fontSans }}>{p.type}</span>
-                          <span style={{ fontSize: "10.5px", fontWeight: 700, background: p.source === "thecb" ? "#E0F2FE" : "#FEF9C3", color: p.source === "thecb" ? "#0369A1" : "#854D0E", borderRadius: T.r4, padding: "1px 7px", fontFamily: T.fontSans }}>{p.source}</span>
-                        </div>
-                        {p.notes && <div style={{ marginTop: T.sp6, fontSize: "12px", color: T.textSec, fontFamily: T.fontSans }}>{p.notes}</div>}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+          {/* ── CONTACTS ─────────────────────────────────────────────── */}
+          <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span><Users size={13} style={{ display: "inline", marginRight: 6, verticalAlign: "text-bottom" }} />Contacts</span>
               {globalEdit && (
-                <button onClick={() => addProject(rn)}
-                  style={{ width: "100%", padding: T.sp12, background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r8, cursor: "pointer", fontSize: "12.5px", color: T.textSec, fontFamily: T.fontSans, display: "flex", alignItems: "center", justifyContent: "center", gap: T.sp6 }}>
-                  <Plus size={14} /> Add project
-                </button>
+                <button onClick={() => addContact(rawName)}
+                  style={{ background: "#1a2744", color: "#FFF", border: "none", borderRadius: 3, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add</button>
               )}
             </div>
-          )}
+            {(inst.contacts?.length === 0 || !inst.contacts) && !globalEdit && (
+              <div style={{ fontSize: 13, color: "#9CA3AF", fontStyle: "italic" }}>No named contacts yet.</div>
+            )}
+            {inst.contacts?.map((c, idx) => (
+              <div key={idx} style={{ padding: "8px 0", borderBottom: idx < inst.contacts.length - 1 ? "1px solid #F0EDE7" : "none", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                {globalEdit ? (
+                  <>
+                    <div style={{ flex: 1 }}>
+                      <input value={c.name} onChange={ev => updateContact(rawName, idx, { name: ev.target.value })}
+                        placeholder="Name" style={{ ...fieldStyle(true), marginBottom: 6, fontSize: 14 }} />
+                      <input value={c.notes || ""} onChange={ev => updateContact(rawName, idx, { notes: ev.target.value })}
+                        placeholder="Role / context" style={{ ...fieldStyle(true), fontSize: 13 }} />
+                    </div>
+                    <button onClick={() => removeContact(rawName, idx)}
+                      style={{ background: "none", border: "1.5px solid #B91C1C", color: "#B91C1C", borderRadius: 3, padding: "4px 8px", cursor: "pointer", fontSize: 14, minWidth: 32 }}>✕</button>
+                  </>
+                ) : (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
+                    {c.notes && <div style={{ fontSize: 13, color: "#52525B" }}>{c.notes}</div>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-          {/* ── CONTACTS TAB ─────────────────────────────────────────── */}
-          {tab === "contacts" && (
-            <div>
-              {(inst.contacts ?? []).map((c, idx) => (
-                <div key={idx} style={{ border: `1px solid ${T.border}`, borderRadius: T.r8, padding: T.sp16, marginBottom: T.sp12, background: T.bg }}>
-                  {globalEdit ? (
+          {/* ── PROJECTS ─────────────────────────────────────────────── */}
+          <div style={{ background: "#FFFFFF", border: "1px solid #E5E0D5", borderRadius: 4, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#52525B", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span><Target size={13} style={{ display: "inline", marginRight: 6, verticalAlign: "text-bottom" }} />
+                {inst.projects.length} Projects <InfoTip term="Verified Pipeline" side="left" /></span>
+              {globalEdit && (
+                <button onClick={() => addProject(rawName)}
+                  style={{ background: "#D97706", color: "#FFF", border: "none", borderRadius: 3, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add project</button>
+              )}
+            </div>
+            {inst.projects.length === 0 && !globalEdit && (
+              <div style={{ fontSize: 13, color: "#9CA3AF", fontStyle: "italic" }}>No projects on file. Community college or pre-pipeline.</div>
+            )}
+            {[...inst.projects].sort((a,b) => (b.budget_m??0) - (a.budget_m??0)).map((p, i) => {
+              const practice = inferPractice(p.name, inst.lead_practice);
+              const pid = p._id || i;
+              if (globalEdit) return (
+                <div key={pid} style={{ padding: "12px 0", borderBottom: i < inst.projects.length-1 ? "1px solid #F0EDE7" : "none" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8, alignItems: "start" }}>
+                    <input value={p.name} onChange={ev => updateProject(rawName, pid, { name: ev.target.value })}
+                      placeholder="Project name" style={{ ...fieldStyle(true), fontWeight: 700 }} />
+                    <button onClick={() => removeProject(rawName, pid)}
+                      style={{ background: "none", border: "1.5px solid #B91C1C", color: "#B91C1C", borderRadius: 3, padding: "4px 8px", cursor: "pointer", fontSize: 14, minWidth: 32 }}>✕</button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: T.sp8, marginBottom: T.sp8 }}>
-                        <EditInput value={c.name} onChange={v => updateContact(rn, idx, { name: String(v) })} placeholder="Contact name…" />
-                        <button onClick={() => removeContact(rn, idx)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, display: "flex", flexShrink: 0 }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <EditInput type="textarea" value={c.notes} onChange={v => updateContact(rn, idx, { notes: String(v) })} placeholder="Notes about this contact…" />
+                      <label style={{ fontSize: 11, color: "#52525B", display: "block", marginBottom: 3 }}>Budget ($M)</label>
+                      <input type="number" value={p.budget_m ?? ""} onChange={ev => updateProject(rawName, pid, { budget_m: ev.target.value === "" ? null : Number(ev.target.value) })}
+                        placeholder="TBD" style={{ ...fieldStyle(true), fontSize: 13 }} />
                     </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: T.textPri, marginBottom: T.sp4, fontFamily: T.fontSans }}>{c.name}</div>
-                      {c.notes && <div style={{ fontSize: "12px", color: T.textSec, fontFamily: T.fontSans }}>{c.notes}</div>}
-                    </>
-                  )}
+                    <div>
+                      <label style={{ fontSize: 11, color: "#52525B", display: "block", marginBottom: 3 }}>FY Start</label>
+                      <input type="number" value={p.year ?? ""} onChange={ev => updateProject(rawName, pid, { year: ev.target.value === "" ? null : Number(ev.target.value) })}
+                        min={2024} max={2035} placeholder="2027" style={{ ...fieldStyle(true), fontSize: 13 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: "#52525B", display: "block", marginBottom: 3 }}>Type</label>
+                      <select value={p.type || "New Construction"} onChange={ev => updateProject(rawName, pid, { type: ev.target.value })}
+                        style={{ ...fieldStyle(true), fontSize: 12, padding: "7px 6px" }}>
+                        {["New Construction","Repair and Renovation","Addition","Infrastructure","Land Acquisition","Information Resources","Leased Space"].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <input value={p.notes || ""} onChange={ev => updateProject(rawName, pid, { notes: ev.target.value })}
+                    placeholder="Notes / HKS opportunity…" style={{ ...fieldStyle(true), fontSize: 13, width: "100%" }} />
                 </div>
-              ))}
-              {globalEdit && (
-                <button onClick={() => addContact(rn)}
-                  style={{ width: "100%", padding: T.sp12, background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r8, cursor: "pointer", fontSize: "12.5px", color: T.textSec, fontFamily: T.fontSans, display: "flex", alignItems: "center", justifyContent: "center", gap: T.sp6 }}>
-                  <Plus size={14} /> Add contact
-                </button>
-              )}
-              {!globalEdit && !inst.contacts?.length && (
-                <div style={{ textAlign: "center", padding: `${T.sp24} 0`, color: T.textMuted, fontSize: "13px", fontFamily: T.fontSans }}>
-                  No contacts yet. Enable edit mode to add.
+              );
+              return (
+                <div key={pid} style={{ padding: "10px 0", borderBottom: i < inst.projects.length-1 ? "1px solid #F0EDE7" : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>{p.name}</div>
+                    <div style={{ fontWeight: 700, color: "#D97706", whiteSpace: "nowrap" }}>{fmtMoney(p.budget_m)}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#52525B", marginTop: 4, display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center" }}>
+                    <span>FY{p.year}</span><span>·</span><span>{p.type}</span>
+                    <span style={{ padding: "1px 7px", background: PRACTICE_COLORS[practice], color: "#FFF", fontSize: 10, borderRadius: 2, fontWeight: 700 }}>{practice}</span>
+                  </div>
+                  {p.notes && <div style={{ fontSize: 12, color: "#92400E", marginTop: 4, fontStyle: "italic" }}>{p.notes}</div>}
                 </div>
-              )}
-            </div>
-          )}
+              );
+            })}
+          </div>
+
+          <div style={{ height: 32 }} />
         </div>
-      </div>
+      </aside>
     </>
   );
 }
