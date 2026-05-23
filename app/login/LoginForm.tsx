@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -43,46 +44,30 @@ export default function LoginForm() {
       {/* ── LEFT — Photo Panel ───────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[58%] xl:w-[62%] relative overflow-hidden flex-col">
 
-        {/* Photo */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/login-bg.jpg')" }}
+        {/* Hero image via Next.js Image (fills the panel) */}
+        <Image
+          src="/login-bg.jpg"
+          alt="HKS architectural project"
+          fill
+          priority
+          quality={90}
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
         />
 
         {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/5" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/5" />
 
-        {/* Top-left wordmark */}
+        {/* Top-left — HKS logo */}
         <div className="relative z-10 p-10">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-white/90 rounded-sm flex items-center justify-center">
-              {/* HKS monogram */}
-              <span
-                style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: '-0.03em',
-                  color: '#111',
-                  lineHeight: 1,
-                }}
-              >
-                HKS
-              </span>
-            </div>
-            <span
-              style={{
-                color: 'rgba(255,255,255,0.85)',
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Inc.
-            </span>
-          </div>
+          <Image
+            src="/hks-logo.png"
+            alt="HKS"
+            width={72}
+            height={28}
+            style={{ objectFit: 'contain', objectPosition: 'left' }}
+            priority
+          />
         </div>
 
         {/* Bottom caption */}
@@ -91,11 +76,12 @@ export default function LoginForm() {
             style={{
               display: 'inline-block',
               background: 'rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(12px)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
               border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 12,
-              padding: '14px 20px',
-              maxWidth: 420,
+              borderRadius: 14,
+              padding: '16px 22px',
+              maxWidth: 400,
             }}
           >
             <p
@@ -104,7 +90,7 @@ export default function LoginForm() {
                 fontSize: 18,
                 fontWeight: 700,
                 letterSpacing: '-0.02em',
-                lineHeight: 1.3,
+                lineHeight: 1.35,
                 margin: 0,
               }}
             >
@@ -112,37 +98,29 @@ export default function LoginForm() {
             </p>
             <p
               style={{
-                color: 'rgba(255,255,255,0.5)',
+                color: 'rgba(255,255,255,0.45)',
                 fontSize: 11,
                 marginTop: 8,
-                letterSpacing: '0.06em',
+                letterSpacing: '0.07em',
                 textTransform: 'uppercase',
                 fontWeight: 500,
               }}
             >
-              HKS Inc. · BD Command Center · FY 2026–2030
+              BD Command Center · FY 2026–2030
             </p>
           </div>
         </div>
-
       </div>
 
       {/* ── RIGHT — Form Panel ───────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col bg-white relative">
 
-        {/* Fine top accent line */}
-        <div className="h-[3px] w-full bg-gradient-to-r from-gray-900 via-gray-500 to-gray-200" />
+        {/* Top accent line */}
+        <div className="h-[3px] w-full bg-gradient-to-r from-gray-900 via-gray-400 to-gray-100" />
 
-        {/* Mobile-only header */}
-        <div className="lg:hidden px-8 pt-8 pb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
-              <span style={{ color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '-0.03em' }}>HKS</span>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Inc.
-            </span>
-          </div>
+        {/* Mobile header */}
+        <div className="lg:hidden px-8 pt-8 pb-2 flex items-center gap-3">
+          <Image src="/hks-logo.png" alt="HKS" width={56} height={22} style={{ objectFit: 'contain' }} />
         </div>
 
         {/* Centered form */}
@@ -151,38 +129,13 @@ export default function LoginForm() {
 
             {/* Heading */}
             <div className="mb-10">
-              <p
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.22em',
-                  textTransform: 'uppercase',
-                  color: '#aaa',
-                  marginBottom: 10,
-                }}
-              >
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#aaa', marginBottom: 10 }}>
                 Internal Access
               </p>
-              <h1
-                style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  letterSpacing: '-0.035em',
-                  color: '#0f0f0f',
-                  lineHeight: 1.2,
-                  margin: 0,
-                }}
-              >
+              <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.035em', color: '#0f0f0f', lineHeight: 1.2, margin: 0 }}>
                 BD Command<br />Center
               </h1>
-              <p
-                style={{
-                  marginTop: 10,
-                  fontSize: 13,
-                  color: '#999',
-                  lineHeight: 1.5,
-                }}
-              >
+              <p style={{ marginTop: 10, fontSize: 13, color: '#999', lineHeight: 1.5 }}>
                 Texas Higher Education Pipeline<br />FY 2026–2030
               </p>
             </div>
@@ -195,27 +148,12 @@ export default function LoginForm() {
               <div className="mb-4">
                 <label
                   htmlFor="password"
-                  style={{
-                    display: 'block',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '0.18em',
-                    textTransform: 'uppercase',
-                    color: '#bbb',
-                    marginBottom: 8,
-                  }}
+                  style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#bbb', marginBottom: 8 }}
                 >
                   Password
                 </label>
 
-                {/* Input wrapper */}
-                <div
-                  style={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <input
                     id="password"
                     type={showPw ? 'text' : 'password'}
@@ -236,42 +174,23 @@ export default function LoginForm() {
                       transition: 'border-color 0.15s, background 0.15s',
                       letterSpacing: '0.05em',
                     }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = '#111';
-                      e.currentTarget.style.background = '#fff';
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = error ? '#ef4444' : '#e8e8e8';
-                      e.currentTarget.style.background = '#fafafa';
-                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#111'; e.currentTarget.style.background = '#fff'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#ef4444' : '#e8e8e8'; e.currentTarget.style.background = '#fafafa'; }}
                   />
-                  {/* Show/hide toggle */}
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => setShowPw((v) => !v)}
-                    style={{
-                      position: 'absolute',
-                      right: 14,
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                      color: '#ccc',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
+                    style={{ position: 'absolute', right: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ccc', display: 'flex', alignItems: 'center' }}
                     aria-label={showPw ? 'Hide password' : 'Show password'}
                   >
                     {showPw ? (
-                      /* eye-off */
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
                         <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
                         <line x1="1" y1="1" x2="23" y2="23"/>
                       </svg>
                     ) : (
-                      /* eye */
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
@@ -280,19 +199,8 @@ export default function LoginForm() {
                   </button>
                 </div>
 
-                {/* Error */}
                 {error && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 12,
-                      color: '#ef4444',
-                      fontWeight: 500,
-                    }}
-                  >
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#ef4444', fontWeight: 500 }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                       <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
@@ -301,7 +209,6 @@ export default function LoginForm() {
                 )}
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading || !password}
@@ -317,34 +224,18 @@ export default function LoginForm() {
                   fontWeight: 700,
                   letterSpacing: '0.04em',
                   cursor: password && !loading ? 'pointer' : 'not-allowed',
-                  transition: 'background 0.2s, color 0.2s, transform 0.1s',
+                  transition: 'background 0.2s, color 0.2s',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
                 }}
-                onMouseEnter={(e) => {
-                  if (password && !loading)
-                    (e.currentTarget as HTMLButtonElement).style.background = '#333';
-                }}
-                onMouseLeave={(e) => {
-                  if (password && !loading)
-                    (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f';
-                }}
+                onMouseEnter={(e) => { if (password && !loading) (e.currentTarget as HTMLButtonElement).style.background = '#333'; }}
+                onMouseLeave={(e) => { if (password && !loading) (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f'; }}
               >
                 {loading ? (
                   <>
-                    <span
-                      style={{
-                        width: 14,
-                        height: 14,
-                        border: '2px solid rgba(255,255,255,0.25)',
-                        borderTopColor: '#fff',
-                        borderRadius: '50%',
-                        display: 'inline-block',
-                        animation: 'spin 0.7s linear infinite',
-                      }}
-                    />
+                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
                     Verifying…
                   </>
                 ) : (
@@ -359,29 +250,15 @@ export default function LoginForm() {
             </form>
 
             {/* Footer */}
-            <div
-              style={{
-                marginTop: 40,
-                paddingTop: 20,
-                borderTop: '1px solid #f0f0f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <span style={{ fontSize: 11, color: '#ccc' }}>
-                © {new Date().getFullYear()} HKS Inc.
-              </span>
-              <span style={{ fontSize: 11, color: '#ddd', letterSpacing: '0.05em' }}>
-                CONFIDENTIAL
-              </span>
+            <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#ccc' }}>© {new Date().getFullYear()} HKS Inc.</span>
+              <span style={{ fontSize: 11, color: '#ddd', letterSpacing: '0.05em' }}>CONFIDENTIAL</span>
             </div>
+
           </div>
         </div>
-
       </div>
 
-      {/* Spin keyframe */}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
