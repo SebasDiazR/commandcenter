@@ -1,0 +1,114 @@
+export interface RawProject {
+  name: string;
+  budget_m: number | null;
+  year: number | null;
+  type: string;
+  source: "thecb" | "strategy";
+  notes?: string;
+  _id?: string;
+}
+
+export interface RawContact {
+  name: string;
+  notes?: string;
+}
+
+export interface RawInstitution {
+  name: string;
+  system: string;
+  strategy_priority: number | null;
+  thecb_total_m: number | null;
+  lead_practice?: string | null;
+  strategy_notes?: string;
+  contacts?: RawContact[];
+  projects: RawProject[];
+  gsf?: number | null;
+  nasf?: number | null;
+  eg_nasf?: number | null;
+}
+
+export interface FundingSource {
+  name: string;
+  total_m: number;
+  pct: number;
+}
+
+export interface ProjectTypeRollup {
+  name: string;
+  count: number;
+  total_b: number;
+  pct: number;
+}
+
+export interface FYExpenditure {
+  year: string;
+  total_m: number;
+  pct: number;
+}
+
+export interface RawData {
+  metadata: {
+    title: string;
+    sources: string[];
+    pipeline_total_b: number;
+    project_count: number;
+    attendees: string[];
+  };
+  funding_sources: FundingSource[];
+  project_types: ProjectTypeRollup[];
+  fy_expenditures: FYExpenditure[];
+  institutions: RawInstitution[];
+}
+
+export interface InstEditState {
+  priority: number | null;
+  relationship: number;
+  expansion: number;
+  notes: string;
+  displayName: string;
+  system: string;
+  lead_practice: string | null;
+  contacts: RawContact[];
+  projects: RawProject[];
+  gsf: number | null;
+  nasf: number | null;
+  eg_nasf: number | null;
+  thecb_total_m: number | null;
+  strategy_notes: string;
+  hks_status: string;
+  next_action: string;
+  next_action_date: string;
+  owner: string;
+  pipeline_override_m: number | null; // ← NEW: overrides computed sum when set
+}
+
+export type EditStateMap = Record<string, InstEditState>;
+
+export interface EnrichedInstitution extends RawInstitution {
+  edit: InstEditState;
+  pipeline: number;          // final pipeline (override ?? computed)
+  pipeline_computed: number; // always the sum of project budgets
+  nearestYear: number | null;
+  urgency: number;
+  energy_score: number;
+  _rawName: string;
+}
+
+export interface FilterState {
+  systems: string[];
+  practices: string[];
+  types: string[];
+  minPriority: number;
+  search: string;
+  hasContacts: boolean;
+}
+
+export interface PersistedState {
+  version: number;
+  editState: EditStateMap;
+  savedAt: number;
+}
+
+export type ViewId =
+  | "matrix" | "ecosystem" | "timeline" | "list"
+  | "funding" | "types" | "space" | "growth" | "data";
