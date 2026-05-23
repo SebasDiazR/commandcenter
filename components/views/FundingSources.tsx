@@ -92,7 +92,7 @@ function SegmentBar({ sources, total }: { sources: typeof RAW_DATA.funding_sourc
 }
 
 function FYChart({ fy }: { fy: typeof RAW_DATA.fy_expenditures }) {
-  const [hovered, setHovered] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
   const maxFY = Math.max(...fy.map(f => f.total_m), 1);
   const totalFY = fy.reduce((s, f) => s + f.total_m, 0);
 

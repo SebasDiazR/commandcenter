@@ -29,7 +29,7 @@ function InstitutionCard({ inst, onSelect }: { inst: EnrichedInstitution; onSele
   const priority = inst.edit.priority ?? inst.strategy_priority ?? 0;
   const status   = inst.edit.hks_status ?? "Active";
   const statusDot = STATUS_CFG[status]?.dot ?? T.textMuted;
-  const hasContacts = inst.contacts?.length > 0;
+  const hasContacts = (inst.contacts?.length ?? 0) > 0;
   const pipeline = inst.pipeline;
 
   // Energy bar width (0-100 mapped from 0-max energy)
@@ -116,7 +116,7 @@ function InstitutionCard({ inst, onSelect }: { inst: EnrichedInstitution; onSele
         {hasContacts && (
           <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: T.textSec, fontFamily: T.fontSans }}>
             <Users size={11} opacity={0.6} />
-            {inst.contacts.length}
+            {inst.contacts?.length ?? 0}
           </div>
         )}
         {inst.lead_practice && (
