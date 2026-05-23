@@ -2,18 +2,20 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
-  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2,
+  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, Lightbulb,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
+import { useThemeScale } from "@/lib/theme-scale";
 
 import Sidebar from "./Sidebar";
 import SaveIndicator from "./SaveIndicator";
 import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
+import ThemeScaleControls from "./ThemeScaleControls";
 import PriorityMatrix from "./views/PriorityMatrix";
 import Ecosystem from "./views/Ecosystem";
 import Timeline from "./views/Timeline";
@@ -23,10 +25,14 @@ import ProjectTypes from "./views/ProjectTypes";
 import SquareFootage from "./views/SquareFootage";
 import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
+import UXRecommendations from "./views/UXRecommendations";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
 
-const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
+// ── We extend the type locally to add "ux" without touching shared types
+type ExtViewId = ViewId | "ux";
+
+const VIEWS: { id: ExtViewId; label: string; icon: React.ElementType; color: string }[] = [
   { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
   { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
   { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
@@ -36,9 +42,14 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "space",     label: "Sq. Footage",      icon: Maximize2,  color: "#14B8A6" },
   { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
   { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
+  { id: "ux",        label: "UX Guide",         icon: Lightbulb,  color: "#A78BFA" },
 ];
 
 export default function BDCommandCenter() {
+  const { resolvedTheme } = useThemeScale();
+  const dark = resolvedTheme === "dark";
+
+  // ── Persistence ───────────────────────────────────────────────────────────
   const persisted   = useMemo(() => loadPersistedState(), []);
   const defaultEdit = useMemo(() => buildDefaultEditState(RAW_DATA.institutions), []);
 
@@ -70,7 +81,6 @@ export default function BDCommandCenter() {
     _setEditState(prev);
     setDirty(true);
   };
-
   const handleRedo = () => {
     if (!redoStack.length) return;
     const next = redoStack[0];
@@ -79,26 +89,20 @@ export default function BDCommandCenter() {
     _setEditState(next);
     setDirty(true);
   };
-
   const handleSave = () => {
-    try {
-      const ts = saveState(editState);
-      setLastSaved(ts);
-      setDirty(false);
-    } catch {
-      alert("Could not save — localStorage may be full or disabled.");
-    }
+    try { const ts = saveState(editState); setLastSaved(ts); setDirty(false); }
+    catch { alert("Could not save — localStorage may be full or disabled."); }
   };
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && !e.shiftKey && e.key === "z") { e.preventDefault(); handleUndo(); }
-      if (mod && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); handleRedo(); }
-      if (mod && e.key === "s") { e.preventDefault(); handleSave(); }
+    const h = (e: KeyboardEvent) => {
+      const m = e.ctrlKey || e.metaKey;
+      if (m && !e.shiftKey && e.key === "z") { e.preventDefault(); handleUndo(); }
+      if (m && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); handleRedo(); }
+      if (m && e.key === "s") { e.preventDefault(); handleSave(); }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
   });
 
   useEffect(() => {
@@ -108,8 +112,9 @@ export default function BDCommandCenter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty, editState]);
 
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]     = useState(false);
-  const [view, setView]                 = useState<ViewId>("matrix");
+  const [view, setView]                 = useState<ExtViewId>("matrix");
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
@@ -117,8 +122,9 @@ export default function BDCommandCenter() {
     minPriority: 0, search: "", hasContacts: false,
   });
 
-  const institutions = useMemo((): EnrichedInstitution[] => {
-    return RAW_DATA.institutions.map(raw => {
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const institutions = useMemo((): EnrichedInstitution[] =>
+    RAW_DATA.institutions.map(raw => {
       const e = (editState[raw.name] || {}) as any;
       const projects = e.projects ?? raw.projects.map(p => ({
         ...p, _id: p._id ?? Math.random().toString(36).slice(2),
@@ -140,194 +146,163 @@ export default function BDCommandCenter() {
         gsf:           e.gsf           ?? raw.gsf,
         nasf:          e.nasf          ?? raw.nasf,
         eg_nasf:       e.eg_nasf       ?? raw.eg_nasf,
-        projects,
-        edit: e as any,
-        pipeline, nearestYear: ny, urgency,
-        energy_score: energy,
+        projects, edit: e as any,
+        pipeline, nearestYear: ny, urgency, energy_score: energy,
         _rawName: raw.name,
       };
-    });
-  }, [editState]);
+    }),
+  [editState]);
 
-  const visible = useMemo(() => {
-    return institutions.filter(inst => {
-      if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
-      if ((inst.edit.priority ?? inst.strategy_priority ?? 0) < filters.minPriority) return false;
-      if (filters.hasContacts && !inst.contacts?.length) return false;
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        if (!inst.name.toLowerCase().includes(q) &&
-            !inst.projects.some(p => p.name.toLowerCase().includes(q))) return false;
-      }
-      if (filters.practices.length) {
-        const ok = inst.projects.some(p =>
-          filters.practices.includes(inferPractice(p.name, inst.lead_practice)))
-          || (inst.lead_practice && filters.practices.includes(inst.lead_practice));
-        if (!ok) return false;
-      }
-      if (filters.types.length) {
-        if (!inst.projects.some(p => filters.types.includes(p.type))) return false;
-      }
-      return true;
-    });
-  }, [institutions, filters]);
+  const visible = useMemo(() => institutions.filter(inst => {
+    if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
+    if ((inst.edit.priority ?? inst.strategy_priority ?? 0) < filters.minPriority) return false;
+    if (filters.hasContacts && !inst.contacts?.length) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!inst.name.toLowerCase().includes(q) &&
+          !inst.projects.some(p => p.name.toLowerCase().includes(q))) return false;
+    }
+    if (filters.practices.length) {
+      const ok = inst.projects.some(p =>
+        filters.practices.includes(inferPractice(p.name, inst.lead_practice)))
+        || (inst.lead_practice && filters.practices.includes(inst.lead_practice));
+      if (!ok) return false;
+    }
+    if (filters.types.length) {
+      if (!inst.projects.some(p => filters.types.includes(p.type))) return false;
+    }
+    return true;
+  }), [institutions, filters]);
 
-  const updateEdit = (rawName: string, patch: Record<string, unknown>) =>
-    setEditState(s => ({ ...s, [rawName]: { ...s[rawName], ...patch } }));
-
-  const updateProject = (rawName: string, projId: string, patch: Record<string, unknown>) =>
-    setEditState(s => ({
-      ...s, [rawName]: {
-        ...s[rawName],
-        projects: s[rawName].projects.map(p => p._id === projId ? { ...p, ...patch } : p),
-      },
-    }));
-
-  const addProject = (rawName: string) => {
-    const newP = {
+  // ── Edit helpers ──────────────────────────────────────────────────────────
+  const updateEdit    = (n: string, p: Record<string, unknown>) => setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
+  const updateProject = (n: string, id: string, p: Record<string, unknown>) =>
+    setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
+  const addProject    = (n: string) => setEditState(s => ({
+    ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
       _id: Math.random().toString(36).slice(2),
       name: "New Project", budget_m: null, year: 2027,
       type: "New Construction" as const, source: "strategy" as const, notes: "",
-    };
-    setEditState(s => ({
-      ...s, [rawName]: { ...s[rawName], projects: [...(s[rawName].projects || []), newP] },
-    }));
-  };
-
-  const removeProject = (rawName: string, projId: string) =>
-    setEditState(s => ({
-      ...s, [rawName]: {
-        ...s[rawName],
-        projects: s[rawName].projects.filter(p => p._id !== projId),
-      },
-    }));
-
-  const addContact = (rawName: string) =>
-    setEditState(s => ({
-      ...s, [rawName]: {
-        ...s[rawName],
-        contacts: [...(s[rawName].contacts || []), { name: "New Contact", notes: "" }],
-      },
-    }));
-
-  const removeContact = (rawName: string, idx: number) =>
-    setEditState(s => ({
-      ...s, [rawName]: {
-        ...s[rawName],
-        contacts: s[rawName].contacts.filter((_, i) => i !== idx),
-      },
-    }));
-
-  const updateContact = (rawName: string, idx: number, patch: Partial<RawContact>) =>
-    setEditState(s => ({
-      ...s, [rawName]: {
-        ...s[rawName],
-        contacts: s[rawName].contacts.map((c, i) => i === idx ? { ...c, ...patch } : c),
-      },
-    }));
-
+    }] },
+  }));
+  const removeProject = (n: string, id: string) =>
+    setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.filter(p => p._id !== id) } }));
+  const addContact    = (n: string) => setEditState(s => ({
+    ...s, [n]: { ...s[n], contacts: [...(s[n].contacts || []), { name: "New Contact", notes: "" }] },
+  }));
+  const removeContact  = (n: string, i: number) =>
+    setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.filter((_, j) => j !== i) } }));
+  const updateContact  = (n: string, i: number, p: Partial<RawContact>) =>
+    setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.map((c, j) => j === i ? { ...c, ...p } : c) } }));
   const resetToDefaults = () => {
-    if (!window.confirm("Reset ALL edits to original source data? This cannot be undone.")) return;
+    if (!window.confirm("Reset ALL edits to original source data?")) return;
     _setEditState(buildDefaultEditState(RAW_DATA.institutions));
-    setUndoStack([]); setRedoStack([]);
-    clearState();
+    setUndoStack([]); setRedoStack([]); clearState();
     setLastSaved(null); setDirty(false);
   };
 
-  const isDataView = view === "data";
-  const activeView = VIEWS.find(v => v.id === view)!;
+  const isDataView   = view === "data";
+  const isUxView     = view === "ux";
+  const isFullWidth  = isDataView || isUxView;
+  const activeView   = VIEWS.find(v => v.id === view)!;
+
+  // Colours driven by CSS vars
+  const bgBase    = "var(--bg-base)";
+  const headerBg  = "var(--bg-header)";
+  const border    = "var(--border)";
+  const text1     = "var(--text-1)";
+  const text2     = "var(--text-2)";
+  const text3     = "var(--text-3)";
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(160deg, #0A0F1E 0%, #0D1425 60%, #111827 100%)",
-      fontFamily: FONT,
-      color: "#E2E8F0",
-      fontSize: 14,
-      lineHeight: 1.5,
-    }}>
+    <div style={{ minHeight: "100vh", background: bgBase, fontFamily: FONT, color: text1, fontSize: 14, lineHeight: 1.5 }}>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header style={{
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <header className="app-header" style={{
         position: "sticky", top: 0, zIndex: 50,
-        background: "rgba(10, 15, 30, 0.85)",
+        background: headerBg,
         backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-        boxShadow: "0 4px 32px rgba(0,0,0,0.4)",
+        borderBottom: `1px solid ${border}`,
+        boxShadow: "var(--shadow-md)",
       }}>
-        <div style={{ maxWidth: 1700, margin: "0 auto", padding: "0 28px" }}>
+        <div style={{ maxWidth: 1700, margin: "0 auto", padding: "0 24px" }}>
 
           {/* Top row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 10px", flexWrap: "wrap", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              {/* Logo mark */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 8px", flexWrap: "wrap", gap: 10 }}>
+
+            {/* Brand */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{
-                width: 38, height: 38, borderRadius: 10,
+                width: 36, height: 36, borderRadius: 9,
                 background: "linear-gradient(135deg, #6366F1, #0EA5E9)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18, fontWeight: 900, color: "#FFF",
-                boxShadow: "0 0 16px rgba(99,102,241,0.5)",
-                flexShrink: 0,
+                fontSize: 17, fontWeight: 900, color: "#FFF",
+                boxShadow: "0 0 14px rgba(99,102,241,0.45)",
+                flexShrink: 0, letterSpacing: "-0.02em",
               }}>H</div>
               <div>
-                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "#6366F1", fontWeight: 700, marginBottom: 1 }}>
-                  Texas Higher Education · FY 2026–2030
+                <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 1 }}>
+                  Texas Higher Ed · FY 2026–2030
                 </div>
-                <h1 style={{ fontSize: 22, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: "#F1F5F9" }}>
+                <h1 style={{ fontSize: 20, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: text1 }}>
                   BD Command Center
                 </h1>
               </div>
             </div>
 
-            {/* Stats pills */}
+            {/* Right controls */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {/* Stats pills */}
               {[
-                { label: "Pipeline", value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
-                { label: "Projects", value: RAW_DATA.metadata.project_count, color: "#6366F1" },
-                { label: "Institutions", value: institutions.length, color: "#F59E0B" },
-                { label: "Visible", value: visible.length, color: "#0EA5E9" },
+                { label: "Pipeline",     value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
+                { label: "Projects",     value: RAW_DATA.metadata.project_count,            color: "#6366F1" },
+                { label: "Institutions", value: institutions.length,                         color: "#F59E0B" },
+                { label: "Visible",      value: visible.length,                              color: "#0EA5E9" },
               ].map(s => (
-                <div key={s.label} style={{
-                  padding: "5px 12px", borderRadius: 20,
-                  background: `${s.color}15`,
-                  border: `1px solid ${s.color}35`,
+                <div key={s.label} className="hide-mobile" style={{
+                  padding: "4px 12px", borderRadius: 20,
+                  background: `${s.color}14`,
+                  border: `1px solid ${s.color}30`,
                   display: "flex", flexDirection: "column", alignItems: "center",
                 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</span>
-                  <span style={{ fontSize: 9.5, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{s.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: s.color, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</span>
+                  <span style={{ fontSize: 9, color: text3, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{s.label}</span>
                 </div>
               ))}
-              <div style={{ marginLeft: 8 }}>
-                <SaveIndicator
-                  dirty={dirty} lastSaved={lastSaved}
-                  onSave={handleSave}
-                  onUndo={handleUndo} onRedo={handleRedo}
-                  canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
-                />
-              </div>
+
+              {/* Theme + scale controls */}
+              <ThemeScaleControls />
+
+              {/* Save indicator */}
+              <SaveIndicator
+                dirty={dirty} lastSaved={lastSaved}
+                onSave={handleSave}
+                onUndo={handleUndo} onRedo={handleRedo}
+                canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
+              />
             </div>
           </div>
 
           {/* Nav tabs */}
-          <div style={{ display: "flex", gap: 2, overflowX: "auto", paddingBottom: 1, scrollbarWidth: "none" }}>
+          <div style={{ display: "flex", gap: 1, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" }}>
             {VIEWS.map(v => {
               const Icon = v.icon;
               const active = view === v.id;
               return (
                 <button key={v.id} onClick={() => setView(v.id)} style={{
-                  padding: "9px 16px",
-                  background: active ? `${v.color}20` : "transparent",
-                  color: active ? v.color : "#64748B",
+                  padding: "8px 14px",
+                  background: active ? `${v.color}18` : "transparent",
+                  color: active ? v.color : text3,
                   border: "none",
                   borderBottom: active ? `2px solid ${v.color}` : "2px solid transparent",
-                  cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
+                  cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 500,
                   fontFamily: FONT,
                   display: "inline-flex", alignItems: "center", gap: 6,
                   whiteSpace: "nowrap",
-                  transition: "all 0.15s ease",
-                  borderRadius: active ? "6px 6px 0 0" : "6px 6px 0 0",
+                  transition: "color 0.15s, border-color 0.15s, background 0.15s",
+                  borderRadius: "6px 6px 0 0",
                 }}>
-                  <Icon size={13} />
+                  <Icon size={12} />
                   {v.label}
                 </button>
               );
@@ -336,10 +311,10 @@ export default function BDCommandCenter() {
         </div>
       </header>
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
+      {/* ── Body ─────────────────────────────────────────────────────────── */}
+      <div className="app-shell" style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
 
-        {!isDataView && (
+        {!isFullWidth && (
           <Sidebar
             globalEdit={globalEdit}
             onToggleEdit={() => setGlobalEdit(g => !g)}
@@ -352,58 +327,62 @@ export default function BDCommandCenter() {
           />
         )}
 
-        <main style={{ flex: 1, padding: isDataView ? "0" : "24px 28px", minWidth: 0 }}>
-          {!isDataView && globalEdit && (
+        <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? (isUxView ? "24px 28px" : "0") : "22px 26px", minWidth: 0 }}>
+
+          {!isFullWidth && globalEdit && (
             <div style={{
-              marginBottom: 18, padding: "12px 18px",
-              background: "rgba(245,158,11,0.1)",
-              border: "1px solid rgba(245,158,11,0.4)",
-              borderLeft: "4px solid #F59E0B",
-              borderRadius: 8, fontSize: 13, color: "#FCD34D",
-              display: "flex", alignItems: "center", gap: 10,
+              marginBottom: 16, padding: "10px 16px",
+              background: "rgba(245,158,11,0.09)",
+              border: "1px solid rgba(245,158,11,0.35)",
+              borderLeft: "3px solid #F59E0B",
+              borderRadius: 8, fontSize: 12.5, color: "#FCD34D",
+              display: "flex", alignItems: "center", gap: 9,
             }}>
-              <Edit3 size={15} />
+              <Edit3 size={13} />
               <strong>Edit Mode ON</strong> — tap any institution card to edit all fields. Changes auto-save every 60 s.
             </div>
           )}
 
-          {/* Active view label */}
-          {!isDataView && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <activeView.icon size={16} color={activeView.color} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: activeView.color, letterSpacing: "0.02em" }}>
-                {activeView.label}
-              </span>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
-              <span style={{ fontSize: 11, color: "#475569" }}>
+          {/* View breadcrumb */}
+          {!isFullWidth && (
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
+              <activeView.icon size={14} color={activeView.color} />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: activeView.color }}>{activeView.label}</span>
+              <div style={{ flex: 1, height: 1, background: border }} />
+              <span style={{ fontSize: 11, color: text3 }}>
                 {visible.length} institutions · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))}
               </span>
             </div>
           )}
 
-          {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
-          {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
-          {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
-          {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
-          {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
-          {view === "types"     && <ProjectTypes    institutions={institutions} />}
-          {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
-          {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
-          {view === "data"      && (
-            <DataManager
-              institutions={institutions}
-              editState={editState}
-              updateEdit={updateEdit}
-              updateProject={updateProject}
-              addProject={addProject}
-              removeProject={removeProject}
-              onSave={handleSave}
-              dirty={dirty}
-            />
-          )}
+          {/* Views — each wrapped for fade-in */}
+          <div key={view} className="animate-fade-in">
+            {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
+            {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
+            {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
+            {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
+            {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
+            {view === "types"     && <ProjectTypes    institutions={institutions} />}
+            {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "ux"        && <UXRecommendations />}
+            {view === "data"      && (
+              <DataManager
+                institutions={institutions}
+                editState={editState}
+                updateEdit={updateEdit}
+                updateProject={updateProject}
+                addProject={addProject}
+                removeProject={removeProject}
+                onSave={handleSave}
+                dirty={dirty}
+              />
+            )}
+          </div>
         </main>
       </div>
 
+      {/* ── Detail panel ─────────────────────────────────────────────────── */}
       {selectedInst && (
         <DetailPanel
           inst={institutions.find(i => i._rawName === selectedInst || i.name === selectedInst)}
@@ -427,17 +406,18 @@ export default function BDCommandCenter() {
         />
       )}
 
-      {!isDataView && (
+      {/* ── Footer ───────────────────────────────────────────────────────── */}
+      {!isFullWidth && (
         <footer style={{
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          padding: "12px 32px",
-          background: "rgba(10,15,30,0.6)",
-          fontSize: 11.5, color: "#475569",
+          borderTop: `1px solid ${border}`,
+          padding: "10px 28px",
+          background: dark ? "rgba(10,15,30,0.7)" : "var(--bg-surface)",
+          fontSize: 11, color: text3,
         }}>
           <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div>Sources: THECB Cap Ex Plan FY26–30 (Sept 2025) · HKS BD Session 05/19–20/26</div>
             <div>
-              Showing {visible.length} institutions · {visible.reduce((s,i) => s+i.projects.length, 0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline, 0))} pipeline
+              {visible.length} inst · {visible.reduce((s,i) => s+i.projects.length,0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline,0))}
             </div>
           </div>
         </footer>

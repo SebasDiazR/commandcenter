@@ -1,97 +1,217 @@
+/* ── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 html { overflow-x: hidden; }
-body {
-  background: #0A0F1E;
-  overflow-x: hidden;
+
+/* ── Global smooth theme transition ──────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.28s ease,
+    border-color     0.28s ease,
+    color            0.28s ease,
+    box-shadow       0.28s ease,
+    opacity          0.2s ease;
+}
+/* Exceptions — keep interaction transitions snappy */
+button, a, input, select, textarea {
+  transition:
+    background-color 0.15s ease,
+    border-color     0.15s ease,
+    color            0.15s ease,
+    box-shadow       0.15s ease,
+    transform        0.15s ease,
+    opacity          0.15s ease;
+}
+
+/* ── Design token CSS variables ───────────────────────────────────────────── */
+:root {
+  /* Scale (set by JS) */
+  --ui-scale: 1;
+
+  /* Fonts */
+  --font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  /* Accent palette (theme-invariant) */
+  --indigo:  #6366F1;
+  --sky:     #0EA5E9;
+  --emerald: #10B981;
+  --amber:   #F59E0B;
+  --rose:    #F43F5E;
+  --violet:  #8B5CF6;
+  --teal:    #14B8A6;
+  --green:   #22C55E;
+  --orange:  #F97316;
+  --amber-brand: #B45309;
+}
+
+/* ── DARK theme (default) ─────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
+
+  --bg-base:      #0A0F1E;
+  --bg-base-2:    #0D1425;
+  --bg-surface:   rgba(255,255,255,0.045);
+  --bg-raised:    rgba(255,255,255,0.08);
+  --bg-overlay:   rgba(0, 0, 0, 0.70);
+  --bg-header:    rgba(10, 15, 30, 0.88);
+  --bg-input:     rgba(255,255,255,0.06);
+  --bg-card-hov:  rgba(255,255,255,0.07);
+  --bg-sidebar:   rgba(13, 20, 37, 0.98);
+  --bg-chip:      rgba(255,255,255,0.05);
+  --bg-chip-act:  rgba(99,102,241,0.2);   /* active chip fallback */
+  --bg-detail:    #0D1425;
+
+  --border:       rgba(255,255,255,0.07);
+  --border-sub:   rgba(255,255,255,0.04);
+  --border-strong:rgba(255,255,255,0.15);
+
+  --text-1:    #F1F5F9;
+  --text-2:    #94A3B8;
+  --text-3:    #475569;
+  --text-inv:  #0F172A;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.35);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.45);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.55);
+  --shadow-glow-amber: 0 0 16px rgba(245,158,11,0.25);
+
+  --chart-grid: rgba(255,255,255,0.06);
+  --chart-axis: #475569;
+  --chart-tooltip-bg: #1E293B;
+  --chart-tooltip-border: rgba(255,255,255,0.1);
+  --scrollbar-thumb: rgba(255,255,255,0.12);
+  --scrollbar-track: rgba(255,255,255,0.03);
+}
+
+/* ── LIGHT theme ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-base:      #F8F7F4;
+  --bg-base-2:    #F0EEE9;
+  --bg-surface:   #FFFFFF;
+  --bg-raised:    #FAFAF8;
+  --bg-overlay:   rgba(15, 23, 42, 0.45);
+  --bg-header:    rgba(255,255,255,0.92);
+  --bg-input:     #FFFFFF;
+  --bg-card-hov:  #FAFAFA;
+  --bg-sidebar:   #FFFFFF;
+  --bg-chip:      #F1F5F9;
+  --bg-chip-act:  rgba(99,102,241,0.1);
+  --bg-detail:    #FFFFFF;
+
+  --border:       #E4E2DD;
+  --border-sub:   #F0EEE9;
+  --border-strong:#D1D5DB;
+
+  --text-1:    #0F172A;
+  --text-2:    #64748B;
+  --text-3:    #94A3B8;
+  --text-inv:  #F1F5F9;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.10);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.15);
+  --shadow-glow-amber: 0 0 12px rgba(180,83,9,0.15);
+
+  --chart-grid: #E4E2DD;
+  --chart-axis: #94A3B8;
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: #E4E2DD;
+  --scrollbar-thumb: rgba(0,0,0,0.15);
+  --scrollbar-track: rgba(0,0,0,0.04);
+}
+
+/* ── Base body ────────────────────────────────────────────────────────────── */
+body {
+  background: var(--bg-base);
+  color: var(--text-1);
+  overflow-x: hidden;
+  font-family: var(--font);
 }
 input[type="range"] { cursor: pointer; }
 textarea { box-sizing: border-box; }
-button { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+button, input, select, textarea {
+  font-family: var(--font);
+}
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-/* Hide scrollbar but keep scroll */
-.scrollbar-none { scrollbar-width: none; }
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar            { width: 6px; height: 6px; }
+::-webkit-scrollbar-track      { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb      { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover{ background: var(--border-strong); }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
+/* ── Focus rings ──────────────────────────────────────────────────────────── */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid rgba(99,102,241,0.8);
+  outline: 2px solid rgba(99,102,241,0.75);
   outline-offset: 2px;
 }
 
-/* Pulse animation for edit mode indicator */
+/* ── Scale zoom wrapper ───────────────────────────────────────────────────── */
+.scale-wrap {
+  zoom: var(--ui-scale, 1);
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.35; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
 }
 
-input[type="range"] {
-  min-height: 44px;
-}
+.animate-fade-in    { animation: fadeIn 0.22s ease forwards; }
+.animate-slide-in   { animation: slideInRight 0.25s ease forwards; }
 
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
+  *, *::before, *::after {
+    animation-duration:     0.001ms !important;
+    animation-iteration-count: 1    !important;
+    transition-duration:    0.001ms !important;
+    scroll-behavior:        auto    !important;
   }
 }
 
+/* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
-  .app-header {
-    padding: 18px 16px !important;
-  }
-
-  .app-title {
-    font-size: 26px !important;
-  }
-
-  .app-view-tabs {
-    gap: 8px !important;
-  }
-
-  .app-view-tab {
-    min-height: 44px !important;
-  }
-
-  .app-shell {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
+  .app-header  { padding: 12px 16px !important; }
+  .app-shell   { display: block !important; }
   .app-sidebar {
     width: 100% !important;
     min-width: 0 !important;
-    border-right: 0 !important;
-    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
     position: static !important;
     max-height: none !important;
   }
-
-  .app-main {
-    width: 100% !important;
-    padding: 20px 16px !important;
-  }
+  .app-main    { padding: 16px !important; }
+  .hide-mobile { display: none !important; }
 }
 
+/* ── Print ────────────────────────────────────────────────────────────────── */
 @media print {
   @page { size: A3 landscape; margin: 14mm 12mm; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body  { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .no-print, aside { display: none !important; }
   header { position: static !important; }
 }

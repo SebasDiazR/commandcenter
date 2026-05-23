@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { FONT } from "@/lib/constants";
 import { GLOSSARY } from "@/lib/data";
 
 interface InfoTipProps {
@@ -12,20 +13,22 @@ export default function InfoTip({ term, label, side = "right" }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const text = GLOSSARY[term] || label || term;
   return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: 6 }}>
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: 5 }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         aria-label={`Info: ${term}`}
         style={{
-          background: open ? "#1a2744" : "transparent",
-          color: open ? "#FFFFFF" : "#52525B",
-          border: `1.5px solid ${open ? "#1a2744" : "#9CA3AF"}`,
-          borderRadius: "50%", width: 44, height: 44, minWidth: 44,
+          background: open ? "var(--indigo)" : "var(--bg-chip)",
+          color: open ? "#FFFFFF" : "var(--text-3)",
+          border: `1px solid ${open ? "var(--indigo)" : "var(--border)"}`,
+          borderRadius: "50%", width: 18, height: 18, minWidth: 18,
           cursor: "pointer", padding: 0,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1,
+          fontFamily: FONT, fontSize: 11, fontWeight: 700, lineHeight: 1,
+          transition: "background 0.15s, border-color 0.15s",
+          verticalAlign: "middle",
         }}
       >i</button>
       {open && (
@@ -33,14 +36,17 @@ export default function InfoTip({ term, label, side = "right" }: InfoTipProps) {
           position: "absolute",
           [side === "right" ? "left" : "right"]: "calc(100% + 8px)",
           top: "50%", transform: "translateY(-50%)",
-          background: "#1a2744", color: "#FFFFFF",
-          padding: "12px 14px", borderRadius: 4,
-          fontSize: 14, lineHeight: 1.5, width: 320, zIndex: 9999,
-          boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+          background: "var(--chart-tooltip-bg)",
+          color: "var(--text-1)",
+          border: "1px solid var(--border)",
+          padding: "10px 13px", borderRadius: 8,
+          fontSize: 12.5, lineHeight: 1.5, width: 280, zIndex: 9999,
+          boxShadow: "var(--shadow-md)",
           fontStyle: "normal", fontWeight: 400,
           textTransform: "none", letterSpacing: 0,
+          fontFamily: FONT,
         }}>
-          <strong style={{ display: "block", marginBottom: 4 }}>{term}</strong>
+          <strong style={{ display: "block", marginBottom: 4, color: "var(--indigo)", fontSize: 11.5 }}>{term}</strong>
           {text}
         </span>
       )}
