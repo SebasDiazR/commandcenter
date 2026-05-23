@@ -1,4 +1,5 @@
-import type { RawData } from "./types";
+import type { RawData, RawInstitution } from "./types";
+import { THECB_INSTITUTIONS } from "./thecb-data";
 
 export const RAW_DATA: RawData = {
   metadata: {
@@ -7,8 +8,8 @@ export const RAW_DATA: RawData = {
       "THECB Capital Expenditure Plan FY2026–2030 (September 2025)",
       "HKS BD Session 05/19–20/26",
     ],
-    pipeline_total_b: 12.4,
-    project_count: 87,
+    pipeline_total_b: 50.0,
+    project_count: 689,
     attendees: ["BD Team", "Practice Leaders"],
   },
 
@@ -452,3 +453,24 @@ export const RAW_DATA: RawData = {
     },
   ],
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALL_INSTITUTIONS — curated list merged with THECB data
+// Curated institutions take priority (they have contacts, strategy notes, etc.)
+// THECB-only institutions are appended for full market coverage.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function normName(n: string): string {
+  return n.toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]/g, "");
+}
+
+const _curatedNames = new Set(RAW_DATA.institutions.map(i => normName(i.name)));
+
+const _thecbOnly: RawInstitution[] = THECB_INSTITUTIONS.filter(
+  t => !_curatedNames.has(normName(t.name))
+);
+
+export const ALL_INSTITUTIONS: RawInstitution[] = [
+  ...RAW_DATA.institutions,
+  ..._thecbOnly,
+];

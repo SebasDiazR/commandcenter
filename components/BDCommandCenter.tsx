@@ -7,7 +7,7 @@ import {
   PencilLine, X, Check, AlertCircle, Type,
 } from "lucide-react";
 
-import { RAW_DATA } from "@/lib/data";
+import { RAW_DATA, ALL_INSTITUTIONS } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 
@@ -173,7 +173,7 @@ function EditModeBanner({ onClose }: { onClose: () => void }) {
 export default function BDCommandCenter() {
   // ── Persistence & undo ────────────────────────────────────────────────────
   const persisted   = useMemo(() => loadPersistedState(), []);
-  const defaultEdit = useMemo(() => buildDefaultEditState(RAW_DATA.institutions), []);
+  const defaultEdit = useMemo(() => buildDefaultEditState(ALL_INSTITUTIONS), []);
 
   const [editState, _setEditState] = useState<EditStateMap>(
     () => persisted?.editState ?? defaultEdit
@@ -254,7 +254,7 @@ export default function BDCommandCenter() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const institutions = useMemo((): EnrichedInstitution[] => {
-    return RAW_DATA.institutions.map(raw => {
+    return ALL_INSTITUTIONS.map(raw => {
       const e = editState[raw.name] || {};
       const projects = e.projects ?? raw.projects.map(p => ({
         ...p, _id: p._id ?? Math.random().toString(36).slice(2),
@@ -367,7 +367,7 @@ export default function BDCommandCenter() {
 
   const resetToDefaults = () => {
     if (!window.confirm("Reset ALL edits to original source data? This cannot be undone.")) return;
-    _setEditState(buildDefaultEditState(RAW_DATA.institutions));
+    _setEditState(buildDefaultEditState(ALL_INSTITUTIONS));
     setUndoStack([]); setRedoStack([]);
     clearState();
     setLastSaved(null); setDirty(false);
