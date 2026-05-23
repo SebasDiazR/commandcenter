@@ -33,7 +33,7 @@ export default function DetailPanel({
 }) {
   if (!inst) return null;
   const rawName  = inst._rawName || inst.name;
-  const e        = inst.edit || {};
+  const e        = inst.edit;
   const sysColor = SYSTEM_COLORS[inst.system] ?? "#6366F1";
 
   const Stars = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
@@ -313,7 +313,7 @@ export default function DetailPanel({
             )}
             {[...inst.projects].sort((a,b) => (b.budget_m??0) - (a.budget_m??0)).map((p, i) => {
               const practice = inferPractice(p.name, inst.lead_practice);
-              const pid = p._id || i;
+              const pid = String(p._id ?? i);
               if (globalEdit) return (
                 <div key={pid} style={{ padding: "12px 0", borderBottom: i < inst.projects.length-1 ? "1px solid var(--border-sub)" : "none" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8, alignItems: "start" }}>

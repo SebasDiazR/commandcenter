@@ -329,9 +329,9 @@ export default function UXRecommendations() {
           UX Recommendations
         </h2>
         <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.6 }}>
-          A living audit of the BD Command Center's usability, visual design, and accessibility.
+          A living audit of the BD Command Center&apos;s usability, visual design, and accessibility.
           Each recommendation includes the problem identified, the proposed or implemented solution,
-          and why it matters for the platform's goal of being <em>presentation-ready for leadership audiences</em>.
+          and why it matters for the platform&apos;s goal of being <em>presentation-ready for leadership audiences</em>.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {[

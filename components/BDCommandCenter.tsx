@@ -17,6 +17,7 @@ import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
 import ThemeScaleControls from "./ThemeScaleControls";
 import HKSLogo from "./HKSLogo";
+import AuthUserMenu from "./AuthUserMenu";
 import PriorityMatrix from "./views/PriorityMatrix";
 import Ecosystem from "./views/Ecosystem";
 import Timeline from "./views/Timeline";
@@ -243,6 +244,8 @@ export default function BDCommandCenter() {
 
             {/* Right controls */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <AuthUserMenu />
+
               {/* Stats pills */}
               {[
                 { label: "Pipeline",     value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
