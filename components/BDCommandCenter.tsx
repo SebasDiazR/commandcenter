@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
-  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2,
+  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -272,6 +272,35 @@ export default function BDCommandCenter() {
                 onUndo={handleUndo} onRedo={handleRedo}
                 canUndo={undoStack.length > 0} canRedo={redoStack.length > 0}
               />
+
+              {/* Logout */}
+              <button
+                title="Log out"
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                  window.location.href = '/login';
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 8,
+                  border: `1px solid ${border}`,
+                  background: "transparent",
+                  color: text2,
+                  fontSize: 12, fontWeight: 600,
+                  cursor: "pointer",
+                  letterSpacing: "0.02em",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <LogOut size={13} />
+                <span className="hide-mobile">Log out</span>
+              </button>
             </div>
           </div>
 
