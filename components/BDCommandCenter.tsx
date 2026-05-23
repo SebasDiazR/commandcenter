@@ -641,8 +641,8 @@ export default function BDCommandCenter() {
                 {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
                 {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
                 {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
-                {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
-                {view === "types"     && <ProjectTypes    institutions={institutions} />}
+                {view === "funding"   && <FundingSources  institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} editState={editState} setEditState={setEditState} />}
+                {view === "types"     && <ProjectTypes    institutions={visible}      onSelect={setSelectedInst} />}
                 {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
                 {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
               </div>
