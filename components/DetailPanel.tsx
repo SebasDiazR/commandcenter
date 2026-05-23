@@ -240,7 +240,7 @@ export default function DetailPanel({
                       <div style={{ fontSize: "10.5px", color: "#92400E", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: T.sp4, fontFamily: T.fontSans }}>Next Action</div>
                       <div style={{ fontSize: "13px", color: T.textPri, fontFamily: T.fontSans }}>{e.next_action}</div>
                       {e.next_action_date && <div style={{ fontSize: "11.5px", color: "#92400E", marginTop: T.sp4, fontFamily: T.fontSans }}>Due: {e.next_action_date}</div>}
-                      {e.owner && <div style={{ fontSize: "11.5px", color: T.textSec, marginTop: T.sp2, fontFamily: T.fontSans }}>Owner: {e.owner}</div>}
+                      {e.owner && <div style={{ fontSize: "11.5px", color: T.textSec, marginTop: "2px", fontFamily: T.fontSans }}>Owner: {e.owner}</div>}
                     </div>
                   )}
                   <Field label="Notes">

@@ -10,7 +10,7 @@ const T = {
   border: "#E4E2DD", textPri: "#0F172A", textSec: "#64748B", textMuted: "#94A3B8",
   fontSans: "'Inter', system-ui, sans-serif",
   r8: "8px", r12: "12px",
-  sp8: "8px", sp12: "12px", sp16: "16px", sp20: "20px", sp24: "24px",
+  sp6: "6px", sp8: "8px", sp12: "12px", sp16: "16px", sp20: "20px", sp24: "24px",
 };
 
 interface ExportModalProps {

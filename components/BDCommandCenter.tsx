@@ -4,7 +4,7 @@ import {
   LayoutGrid, Network, Calendar, ListChecks,
   Building2, PieChart as PieIcon, Maximize2, Sprout, Table2,
   Download, RotateCcw, Undo2, Redo2, Save, ChevronRight,
-  PencilLine, X, Check, AlertCircle,
+  PencilLine, X, Check, AlertCircle, Type,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -13,6 +13,7 @@ import { inferPractice, fmtMoney } from "@/lib/helpers";
 
 import Sidebar from "./Sidebar";
 import SaveIndicator from "./SaveIndicator";
+import InfoTooltip from "./InfoTooltip";
 import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
 import PriorityMatrix from "./views/PriorityMatrix";
@@ -243,6 +244,7 @@ export default function BDCommandCenter() {
   // ── UI state ──────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]     = useState(false);
   const [view, setView]                 = useState<ViewId>("matrix");
+  const [textScale, setTextScale]       = useState(1.0);
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
@@ -388,7 +390,8 @@ export default function BDCommandCenter() {
       lineHeight: 1.5,
       display: "flex",
       flexDirection: "column",
-    }}>
+      "--text-scale": textScale,
+    } as React.CSSProperties}>
 
       {/* ── Top Bar ──────────────────────────────────────────────────── */}
       <header style={{
@@ -400,19 +403,21 @@ export default function BDCommandCenter() {
         gap: T.sp16,
         position: "sticky",
         top: 0,
-        zIndex: 50,
+        zIndex: 100,
         flexShrink: 0,
       }}>
         {/* Logo + Wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: T.sp10, marginRight: T.sp8 } as React.CSSProperties}>
-          <div style={{
-            width: "28px", height: "28px",
-            background: T.amber,
-            borderRadius: T.r4,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "11px", fontWeight: 700, color: "#FFFFFF",
-            letterSpacing: "0.04em", flexShrink: 0,
-          }}>HKS</div>
+        <div
+          onClick={() => setView("matrix")}
+          style={{ display: "flex", alignItems: "center", gap: T.sp8, marginRight: T.sp8, cursor: "pointer" }}
+        >
+          {/* HKS Logo SVG — 32px, white fill */}
+          <svg width="32" height="32" viewBox="0 0 512 512" fill="white" style={{ flexShrink: 0 }}>
+            {/* HKS wordmark paths — stylized letterforms */}
+            <text x="50%" y="58%" dominantBaseline="middle" textAnchor="middle"
+              fontFamily="'Inter', system-ui, sans-serif" fontWeight="800"
+              fontSize="210" letterSpacing="-8" fill="white">HKS</text>
+          </svg>
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
             <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
               BD Command Center
@@ -480,6 +485,25 @@ export default function BDCommandCenter() {
             </span>
           ) : null}
 
+          {/* Text scale */}
+          <div style={{ display: "flex", alignItems: "center", gap: T.sp6, padding: `0 ${T.sp8}` }}>
+            <Type size={13} style={{ color: "rgba(255,255,255,0.45)", flexShrink: 0 }} />
+            <input
+              type="range"
+              min={0.8}
+              max={1.3}
+              step={0.05}
+              value={textScale}
+              onChange={e => setTextScale(Number(e.target.value))}
+              title={`Text scale: ${(textScale * 100).toFixed(0)}%`}
+              style={{
+                width: "60px",
+                accentColor: T.amber,
+                cursor: "pointer",
+              }}
+            />
+          </div>
+
           {/* Edit toggle */}
           <button onClick={() => setGlobalEdit(g => !g)}
             style={{
@@ -517,18 +541,19 @@ export default function BDCommandCenter() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
 
         {/* ── Left Nav ───────────────────────────────────────────────── */}
-        {!isDataView && (
-          <nav style={{
-            width: "220px",
-            flexShrink: 0,
-            background: T.surface,
-            borderRight: `1px solid ${T.border}`,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}>
+        <nav style={{
+          width: "220px",
+          flexShrink: 0,
+          background: T.surface,
+          borderRight: `1px solid ${T.border}`,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          zIndex: 90,
+        }}>
 
-            {/* Filters section */}
+          {/* Filters section — only for non-data views */}
+          {!isDataView && (
             <div style={{ borderBottom: `1px solid ${T.borderSub}`, flexShrink: 0 }}>
               <Sidebar
                 globalEdit={globalEdit}
@@ -541,59 +566,59 @@ export default function BDCommandCenter() {
                 onResetData={resetToDefaults}
               />
             </div>
+          )}
 
-            {/* View navigation */}
-            <div style={{ flex: 1, overflowY: "auto", padding: `${T.sp12} ${T.sp8}` }}>
-              {VIEW_GROUPS.map(group => {
-                const groupViews = VIEWS.filter(v => v.group === group);
-                return (
-                  <div key={group} style={{ marginBottom: T.sp16 }}>
-                    <div style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: T.textMuted,
-                      padding: `${T.sp4} ${T.sp12}`,
-                      marginBottom: T.sp4,
-                    }}>
-                      {group}
-                    </div>
-                    {groupViews.map(v => (
-                      <NavItem
-                        key={v.id}
-                        view={v}
-                        active={view === v.id}
-                        onClick={() => setView(v.id)}
-                      />
-                    ))}
+          {/* View navigation */}
+          <div style={{ flex: 1, overflowY: "auto", padding: `${T.sp12} ${T.sp8}` }}>
+            {VIEW_GROUPS.map(group => {
+              const groupViews = VIEWS.filter(v => v.group === group);
+              return (
+                <div key={group} style={{ marginBottom: T.sp16 }}>
+                  <div style={{
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: T.textMuted,
+                    padding: `${T.sp4} ${T.sp12}`,
+                    marginBottom: T.sp4,
+                  }}>
+                    {group}
                   </div>
-                );
-              })}
-            </div>
+                  {groupViews.map(v => (
+                    <NavItem
+                      key={v.id}
+                      view={v}
+                      active={view === v.id}
+                      onClick={() => setView(v.id)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
 
-            {/* Footer actions */}
-            <div style={{
-              borderTop: `1px solid ${T.borderSub}`,
-              padding: T.sp12,
-              display: "flex",
-              flexDirection: "column",
-              gap: T.sp4,
-            }}>
-              <button onClick={resetToDefaults}
-                style={{
-                  display: "flex", alignItems: "center", gap: T.sp8,
-                  padding: `${T.sp6} ${T.sp8}`,
-                  background: "none", border: "none", borderRadius: T.r6,
-                  cursor: "pointer", fontSize: "12px", color: T.textMuted,
-                  fontFamily: T.fontSans, textAlign: "left",
-                  transition: "all 0.15s",
-                }}>
-                <RotateCcw size={13} /> Reset to source data
-              </button>
-            </div>
-          </nav>
-        )}
+          {/* Footer actions */}
+          <div style={{
+            borderTop: `1px solid ${T.borderSub}`,
+            padding: T.sp12,
+            display: "flex",
+            flexDirection: "column",
+            gap: T.sp4,
+          }}>
+            <button onClick={resetToDefaults}
+              style={{
+                display: "flex", alignItems: "center", gap: T.sp8,
+                padding: `${T.sp6} ${T.sp8}`,
+                background: "none", border: "none", borderRadius: T.r6,
+                cursor: "pointer", fontSize: "12px", color: T.textMuted,
+                fontFamily: T.fontSans, textAlign: "left",
+                transition: "all 0.15s",
+              }}>
+              <RotateCcw size={13} /> Reset to source data
+            </button>
+          </div>
+        </nav>
 
         {/* ── Main Content ───────────────────────────────────────────── */}
         <main style={{
@@ -602,6 +627,7 @@ export default function BDCommandCenter() {
           minWidth: 0,
           display: "flex",
           flexDirection: "column",
+          fontSize: `${textScale}em`,
         }}>
           {!isDataView && (
             <div style={{
@@ -620,6 +646,14 @@ export default function BDCommandCenter() {
                 <span style={{ fontSize: "12px", fontWeight: 600, color: T.textSec }}>
                   {currentView?.label}
                 </span>
+                {view === "matrix" && <InfoTooltip title="Priority Matrix" content="Plots each institution by Strategic Priority (x-axis, 0–10) vs. Pipeline Value (y-axis, log scale). Circle size = number of projects. Color = university system." formula="Pipeline = Σ project budgets. Priority from 1–10 scale set in Data Manager." />}
+                {view === "ecosystem" && <InfoTooltip title="Ecosystem View" content="Card grid showing all institutions. Hover for details, click to open the detail panel. Sort by energy score (engagement momentum), pipeline value, or priority." formula="Energy Score = weighted composite of priority, pipeline, contact count, and recency of action." />}
+                {view === "timeline" && <InfoTooltip title="Project Timeline" content="Gantt-style view of capital projects by fiscal year (FY2026–2030). Each bar is a project. Color = project type. Click a bar or institution name to open the detail panel." />}
+                {view === "list" && <InfoTooltip title="Action List" content="CRM-style table sorted by priority. Shows next action, owner, due date, and status for each institution. Overdue items are flagged in red." formula="Urgency = days until next_action_date. Priority from 1–10 set in Data Manager." />}
+                {view === "funding" && <InfoTooltip title="Funding Sources" content="Breakdown of Texas capital funding sources from THECB FY2026–2030 report. Hover segments to highlight. Bottom section shows HKS pipeline by university system." formula="Source: THECB Capital Expenditure Plan FY2026–2030, Table 1." />}
+                {view === "types" && <InfoTooltip title="Project Types" content="Distribution of capital projects by type across all institutions. Click a bar to drill into which institutions have that project type." formula="Pipeline share = institution project budget ÷ total type budget × 100%." />}
+                {view === "space" && <InfoTooltip title="Space Analysis" content="GSF (Gross Square Feet) and NASF (Net Assignable Square Feet) for institutions with space data. Click a row to open the institution detail panel." formula="Efficiency = NASF ÷ GSF × 100%. Higher % = more usable space relative to total." />}
+                {view === "growth" && <InfoTooltip title="Practice Area Pipeline" content="Pipeline value attributed to each HKS practice area based on project type inference. Click a bar to see which institutions drive that practice." formula="Practice inferred from project name keywords. Pipeline = sum of matching project budgets." />}
                 <span style={{
                   marginLeft: T.sp4,
                   padding: `1px ${T.sp6}`,
