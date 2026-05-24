@@ -218,20 +218,21 @@ export default function LoginForm() {
                   marginTop: 8,
                   borderRadius: 10,
                   border: 'none',
-                  background: password && !loading ? '#0f0f0f' : '#e0e0e0',
-                  color: password && !loading ? '#fff' : '#bbb',
+                  background: loading ? '#e0e0e0' : '#0f0f0f',
+                  color: loading ? '#bbb' : '#fff',
                   fontSize: 13,
                   fontWeight: 700,
                   letterSpacing: '0.04em',
-                  cursor: password && !loading ? 'pointer' : 'not-allowed',
-                  transition: 'background 0.2s, color 0.2s',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s, color 0.2s, opacity 0.2s',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
+                  opacity: !password && !loading ? 0.45 : 1,
                 }}
-                onMouseEnter={(e) => { if (password && !loading) (e.currentTarget as HTMLButtonElement).style.background = '#333'; }}
-                onMouseLeave={(e) => { if (password && !loading) (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f'; }}
+                onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#333'; }}
+                onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f'; }}
               >
                 {loading ? (
                   <>
@@ -240,7 +241,7 @@ export default function LoginForm() {
                   </>
                 ) : (
                   <>
-                    Enter Dashboard
+                    Enter
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                     </svg>
