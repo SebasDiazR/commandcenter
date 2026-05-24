@@ -106,7 +106,8 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
       return y_start;
     };
 
-    for (const [idx, sectionId] of orderedIds.entries()) {
+    for (let idx = 0; idx < orderedIds.length; idx++) {
+      const sectionId = orderedIds[idx];
       setProgress(10 + Math.round((idx / orderedIds.length) * 80));
       setProgressLabel(`Rendering: ${SECTIONS.find(s => s.id === sectionId)?.label}…`);
       await new Promise(r => setTimeout(r, 20));
