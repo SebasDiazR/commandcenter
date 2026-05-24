@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
-import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState } from "@/lib/persistence";
+import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
 import { useThemeScale } from "@/lib/theme-scale";
@@ -60,6 +60,19 @@ export default function BDCommandCenter() {
     persisted ? new Date(persisted.savedAt).toLocaleTimeString() : null
   );
   const [dirty, setDirty] = useState(false);
+  const [dbLoaded, setDbLoaded] = useState(false);
+
+  // Load from Supabase on mount — overrides localStorage if DB has data
+  useEffect(() => {
+    loadFromSupabase().then(dbState => {
+      if (dbState && Object.keys(dbState).length > 0) {
+        _setEditState(prev => ({ ...prev, ...dbState }));
+        setLastSaved(new Date().toLocaleTimeString());
+      }
+      setDbLoaded(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setEditState = (updater: EditStateMap | ((prev: EditStateMap) => EditStateMap)) => {
     _setEditState(prev => {
@@ -88,8 +101,13 @@ export default function BDCommandCenter() {
     setDirty(true);
   };
   const handleSave = () => {
-    try { const ts = saveState(editState); setLastSaved(ts); setDirty(false); }
-    catch { alert("Could not save — localStorage may be full or disabled."); }
+    saveToSupabase(editState)
+      .then(ts => { setLastSaved(ts); setDirty(false); })
+      .catch(() => {
+        // Fallback to localStorage if Supabase fails
+        try { const ts = saveState(editState); setLastSaved(ts); setDirty(false); }
+        catch { alert("Could not save — database unavailable and localStorage is full."); }
+      });
   };
 
   useEffect(() => {
@@ -195,9 +213,11 @@ export default function BDCommandCenter() {
     setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.map((c, j) => j === i ? { ...c, ...p } : c) } }));
   const resetToDefaults = () => {
     if (!window.confirm("Reset ALL edits to original source data?")) return;
-    _setEditState(buildDefaultEditState(RAW_DATA.institutions));
+    const fresh = buildDefaultEditState(RAW_DATA.institutions);
+    _setEditState(fresh);
     setUndoStack([]); setRedoStack([]); clearState();
     setLastSaved(null); setDirty(false);
+    saveToSupabase(fresh).catch(() => {});
   };
 
   const isDataView   = view === "data";

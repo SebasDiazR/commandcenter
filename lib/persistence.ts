@@ -3,6 +3,8 @@ import type { EditStateMap, PersistedState, RawInstitution, InstEditState } from
 export const STORAGE_KEY = "hks_bd_command_center_v2";
 export const UNDO_LIMIT  = 40;
 
+// ── LocalStorage (fallback / offline) ────────────────────────────────────────
+
 export function loadPersistedState(): PersistedState | null {
   try {
     if (typeof window === "undefined") return null;
@@ -25,6 +27,34 @@ export function saveState(editState: EditStateMap): string {
 export function clearState(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
+
+// ── Supabase (primary persistence) ───────────────────────────────────────────
+
+export async function loadFromSupabase(): Promise<EditStateMap | null> {
+  try {
+    const res = await fetch("/api/edits");
+    if (!res.ok) return null;
+    const { editState } = await res.json();
+    return editState ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveToSupabase(editState: EditStateMap): Promise<string> {
+  const res = await fetch("/api/edits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ editState }),
+  });
+  if (!res.ok) throw new Error("Failed to save to Supabase");
+  const { savedAt } = await res.json();
+  // Also mirror to localStorage as offline cache
+  saveState(editState);
+  return new Date(savedAt).toLocaleTimeString();
+}
+
+// ── Default state builder ─────────────────────────────────────────────────────
 
 export function buildDefaultEditState(institutions: RawInstitution[]): EditStateMap {
   return Object.fromEntries(
