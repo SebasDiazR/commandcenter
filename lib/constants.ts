@@ -70,15 +70,15 @@ export const PROJECT_TYPES = [
 
 export const ESTABLISHED_PRACTICES = new Set(["Health","Education","Sports","Hospitality"]);
 
-// ─── Shared UI styles (Inter-based modern) ────────────────────────────────────
+// ─── Shared UI styles (theme-aware via CSS vars) ──────────────────────────────
 export const SHARED_STYLES = {
   card: {
-    background: "#FFFFFF",
-    border: "1px solid #E4E2DD",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
     borderRadius: 10,
     padding: "20px 24px",
     marginBottom: 20,
-    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+    boxShadow: "var(--shadow-sm)",
   } as React.CSSProperties,
   th: {
     padding: "11px 12px",
@@ -87,33 +87,35 @@ export const SHARED_STYLES = {
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
     fontWeight: 700,
-    color: "#94A3B8",
+    color: "var(--text-3)",
     fontFamily: FONT,
+    whiteSpace: "nowrap" as const,
   } as React.CSSProperties,
   td: {
     padding: "12px 12px",
     verticalAlign: "middle" as const,
     fontSize: 13,
     fontFamily: FONT,
+    color: "var(--text-1)",
   } as React.CSSProperties,
   sectionTitle: {
     fontFamily: FONT,
     fontSize: 22,
     fontWeight: 700,
-    color: "#0F172A",
+    color: "var(--text-1)",
     margin: "0 0 4px 0",
     letterSpacing: "-0.02em",
   } as React.CSSProperties,
   sectionSub: {
     fontFamily: FONT,
     fontSize: 13,
-    color: "#64748B",
+    color: "var(--text-2)",
     marginBottom: 20,
   } as React.CSSProperties,
   insightCard: {
-    background: "#FFFBEB",
-    border: "1px solid #FCD34D",
-    borderLeft: "4px solid #B45309",
+    background: "rgba(245,158,11,0.07)",
+    border: "1px solid rgba(245,158,11,0.3)",
+    borderLeft: "4px solid var(--amber)",
     borderRadius: 8,
     padding: "14px 18px",
     marginBottom: 18,
@@ -123,11 +125,11 @@ export const SHARED_STYLES = {
     width: "100%",
     padding: "7px 10px",
     fontSize: 13,
-    border: "1.5px solid #B45309",
+    border: "1.5px solid var(--amber-brand)",
     borderRadius: 6,
     fontFamily: FONT,
-    color: "#0F172A",
-    background: "#FFFBF0",
+    color: "var(--text-1)",
+    background: "var(--bg-input)",
     outline: "none",
     transition: "all 0.15s ease",
   } as React.CSSProperties,

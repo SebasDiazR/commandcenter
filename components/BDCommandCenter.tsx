@@ -101,7 +101,8 @@ export default function BDCommandCenter() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoStack, redoStack, editState, dirty]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -275,6 +276,7 @@ export default function BDCommandCenter() {
 
               {/* Logout */}
               <button
+                aria-label="Log out"
                 title="Log out"
                 onClick={async () => {
                   await fetch('/api/auth/logout', { method: 'POST' });
@@ -292,13 +294,17 @@ export default function BDCommandCenter() {
                   transition: "all 0.15s",
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                  el.style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)";
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = "transparent";
+                  el.style.borderColor = border;
                 }}
               >
-                <LogOut size={13} />
+                <LogOut size={13} aria-hidden="true" />
                 <span className="hide-mobile">Log out</span>
               </button>
             </div>
@@ -351,16 +357,17 @@ export default function BDCommandCenter() {
         <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
 
           {!isFullWidth && globalEdit && (
-            <div style={{
+            <div role="status" style={{
               marginBottom: 16, padding: "10px 16px",
               background: "rgba(245,158,11,0.09)",
               border: "1px solid rgba(245,158,11,0.35)",
               borderLeft: "3px solid #F59E0B",
-              borderRadius: 8, fontSize: 12.5, color: "#FCD34D",
+              borderRadius: 8, fontSize: 12.5, color: "var(--amber)",
               display: "flex", alignItems: "center", gap: 9,
             }}>
-              <Edit3 size={13} />
-              <strong>Edit Mode ON</strong> — tap any institution card to edit all fields. Changes auto-save every 60 s.
+              <Edit3 size={13} aria-hidden="true" />
+              <strong>Edit Mode active</strong>
+              <span style={{ color: "var(--text-2)", fontWeight: 400 }}>— click any institution card to edit all fields. Changes auto-save every 60 s.</span>
             </div>
           )}
 

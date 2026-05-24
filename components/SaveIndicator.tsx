@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { Save, Undo2, Redo2, CheckCircle } from "lucide-react";
 import { FONT } from "@/lib/constants";
 
 interface SaveIndicatorProps {
@@ -27,40 +28,71 @@ export default function SaveIndicator({
   const iconBtn: React.CSSProperties = {
     background: "var(--bg-chip)",
     border: "1px solid var(--border)",
-    borderRadius: 6, padding: "5px 10px", fontSize: 12.5,
+    borderRadius: 6, padding: "5px 10px", fontSize: 12,
     cursor: "pointer", fontFamily: FONT, color: "var(--text-2)",
     display: "inline-flex", alignItems: "center", gap: 4,
     transition: "all 0.15s",
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5 }}>
-      <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo"
-        style={{ ...iconBtn, color: canUndo ? "var(--text-1)" : "var(--text-3)", cursor: canUndo ? "pointer" : "default", opacity: canUndo ? 1 : 0.45 }}>
-        ↩ <span className="hide-mobile">Undo</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+      <button
+        onClick={onUndo} disabled={!canUndo}
+        title="Undo (Ctrl+Z)" aria-label="Undo last change"
+        style={{
+          ...iconBtn,
+          color: canUndo ? "var(--text-1)" : "var(--text-3)",
+          cursor: canUndo ? "pointer" : "default",
+          opacity: canUndo ? 1 : 0.4,
+        }}
+      >
+        <Undo2 size={12} aria-hidden="true" />
+        <span className="hide-mobile">Undo</span>
       </button>
-      <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" aria-label="Redo"
-        style={{ ...iconBtn, color: canRedo ? "var(--text-1)" : "var(--text-3)", cursor: canRedo ? "pointer" : "default", opacity: canRedo ? 1 : 0.45 }}>
-        ↪ <span className="hide-mobile">Redo</span>
+      <button
+        onClick={onRedo} disabled={!canRedo}
+        title="Redo (Ctrl+Y)" aria-label="Redo last change"
+        style={{
+          ...iconBtn,
+          color: canRedo ? "var(--text-1)" : "var(--text-3)",
+          cursor: canRedo ? "pointer" : "default",
+          opacity: canRedo ? 1 : 0.4,
+        }}
+      >
+        <Redo2 size={12} aria-hidden="true" />
+        <span className="hide-mobile">Redo</span>
       </button>
+
       {dirty ? (
-        <button onClick={onSave} style={{
-          background: "var(--amber)", color: "#FFF", border: "none",
-          borderRadius: 6, padding: "5px 13px", cursor: "pointer",
-          fontWeight: 700, fontSize: 12.5, fontFamily: FONT,
-          display: "flex", alignItems: "center", gap: 5,
-          boxShadow: "var(--shadow-glow-amber)",
-        }}>
-          💾 <span className="hide-mobile">Save</span>
+        <button
+          onClick={onSave}
+          aria-label="Save changes"
+          title="Save (Ctrl+S)"
+          style={{
+            background: "var(--amber)", color: "#FFF", border: "none",
+            borderRadius: 6, padding: "5px 12px", cursor: "pointer",
+            fontWeight: 700, fontSize: 12, fontFamily: FONT,
+            display: "flex", alignItems: "center", gap: 5,
+            boxShadow: "var(--shadow-glow-amber)",
+          }}
+        >
+          <Save size={12} aria-hidden="true" />
+          <span className="hide-mobile">Save</span>
         </button>
       ) : (
-        <span style={{
-          fontSize: 11.5, fontFamily: FONT,
-          color: flash ? "var(--emerald)" : "var(--text-3)",
-          transition: "color 0.5s",
-          minWidth: 90,
-        }}>
-          {flash ? "✓ Saved" : lastSaved ? `Saved ${lastSaved}` : "No changes"}
+        <span
+          aria-live="polite"
+          aria-label={flash ? "Changes saved" : lastSaved ? `Last saved at ${lastSaved}` : "No unsaved changes"}
+          style={{
+            fontSize: 11.5, fontFamily: FONT,
+            color: flash ? "var(--emerald)" : "var(--text-3)",
+            transition: "color 0.5s",
+            minWidth: 88,
+            display: "flex", alignItems: "center", gap: 4,
+          }}
+        >
+          {flash && <CheckCircle size={11} aria-hidden="true" />}
+          {flash ? "Saved" : lastSaved ? `Saved ${lastSaved}` : "No changes"}
         </span>
       )}
     </div>

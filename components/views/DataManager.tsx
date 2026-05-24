@@ -26,26 +26,26 @@ interface DataManagerProps {
   dirty: boolean;
 }
 
-// ── Shared cell styles ─────────────────────────────────────────────────────────
+// ── Shared cell styles (theme-aware) ──────────────────────────────────────────
 const cell: React.CSSProperties = {
   padding: "0 10px", height: 38, fontSize: 13,
-  border: "none", borderBottom: "1px solid #F0EDE7",
-  fontFamily: "Georgia, serif", color: "#1a2744",
+  border: "none", borderBottom: "1px solid var(--border-sub)",
+  fontFamily: "var(--font)", color: "var(--text-1)",
   background: "transparent", width: "100%",
   outline: "none",
 };
-const cellFocus: React.CSSProperties = { ...cell, background: "#FFFBF0" };
+const cellFocus: React.CSSProperties = { ...cell, background: "rgba(245,158,11,0.06)" };
 const hdr: React.CSSProperties = {
   padding: "10px 10px", fontSize: 11, fontWeight: 700,
   textTransform: "uppercase", letterSpacing: "0.07em",
-  color: "#52525B", background: "#F5F2ED",
-  borderBottom: "2px solid #E5E0D5", whiteSpace: "nowrap",
+  color: "var(--text-2)", background: "var(--bg-base-2)",
+  borderBottom: "2px solid var(--border)", whiteSpace: "nowrap",
   position: "sticky", top: 0, zIndex: 5, cursor: "pointer",
   userSelect: "none",
 };
 const rowStyle = (i: number, selected?: boolean): React.CSSProperties => ({
-  background: selected ? "#FFFBF0" : i % 2 === 0 ? "#FFFFFF" : "#FAFAF7",
-  borderBottom: "1px solid #F0EDE7",
+  background: selected ? "rgba(245,158,11,0.07)" : i % 2 === 0 ? "var(--bg-surface)" : "var(--bg-raised)",
+  borderBottom: "1px solid var(--border-sub)",
 });
 
 // ── Inline editable cell ───────────────────────────────────────────────────────
