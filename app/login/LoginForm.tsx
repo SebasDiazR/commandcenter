@@ -217,22 +217,21 @@ export default function LoginForm() {
                   padding: '13px 20px',
                   marginTop: 8,
                   borderRadius: 10,
-                  border: 'none',
-                  background: loading ? '#e0e0e0' : '#0f0f0f',
-                  color: loading ? '#bbb' : '#fff',
+                  border: '1.5px solid #0f0f0f',
+                  background: loading || !password ? '#fff' : '#0f0f0f',
+                  color: loading || !password ? '#0f0f0f' : '#fff',
                   fontSize: 13,
                   fontWeight: 700,
                   letterSpacing: '0.04em',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.2s, color 0.2s, opacity 0.2s',
+                  cursor: loading || !password ? 'default' : 'pointer',
+                  transition: 'background 0.15s, color 0.15s',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  opacity: !password && !loading ? 0.45 : 1,
                 }}
-                onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#333'; }}
-                onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f'; }}
+                onMouseEnter={(e) => { if (!loading && password) (e.currentTarget as HTMLButtonElement).style.background = '#333'; }}
+                onMouseLeave={(e) => { if (!loading && password) (e.currentTarget as HTMLButtonElement).style.background = '#0f0f0f'; }}
               >
                 {loading ? (
                   <>
