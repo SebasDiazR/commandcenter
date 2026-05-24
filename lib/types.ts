@@ -6,6 +6,8 @@ export interface RawProject {
   source: "thecb" | "strategy";
   notes?: string;
   _id?: string;
+  win_probability?: number | null;   // 0–100 confidence %
+  outcome?: "Active" | "Won" | "Lost"; // pursuit result
 }
 
 export interface RawContact {
@@ -79,6 +81,7 @@ export interface InstEditState {
   next_action: string;
   next_action_date: string;
   owner: string;
+  pursuit_stage: string; // Tracking → Shortlist → Interview → Award
 }
 
 export type EditStateMap = Record<string, InstEditState>;
@@ -86,6 +89,7 @@ export type EditStateMap = Record<string, InstEditState>;
 export interface EnrichedInstitution extends RawInstitution {
   edit: InstEditState;
   pipeline: number;
+  weighted_pipeline: number; // confidence-weighted
   nearestYear: number | null;
   urgency: number;
   energy_score: number;
@@ -109,4 +113,5 @@ export interface PersistedState {
 
 export type ViewId =
   | "matrix" | "ecosystem" | "timeline" | "list"
+  | "forecast" | "scenario"
   | "funding" | "types" | "space" | "growth" | "data";

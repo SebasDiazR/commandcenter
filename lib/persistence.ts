@@ -79,6 +79,7 @@ export function buildDefaultEditState(institutions: RawInstitution[]): EditState
         next_action:      "",
         next_action_date: "",
         owner:            "",
+        pursuit_stage:    "Tracking",
       } satisfies InstEditState,
     ])
   );

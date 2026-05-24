@@ -70,6 +70,29 @@ export const PROJECT_TYPES = [
 
 export const ESTABLISHED_PRACTICES = new Set(["Health","Education","Sports","Hospitality"]);
 
+// ─── Pursuit stages ────────────────────────────────────────────────────────────
+export const PURSUIT_STAGES = ["Tracking","Shortlist","Interview","Award","Won","Lost"] as const;
+export type PursuitStage = typeof PURSUIT_STAGES[number];
+
+export const PURSUIT_STAGE_COLORS: Record<string, string> = {
+  Tracking:  "#64748B",
+  Shortlist: "#D97706",
+  Interview: "#2563EB",
+  Award:     "#7C3AED",
+  Won:       "#16A34A",
+  Lost:      "#DC2626",
+};
+
+// Default win probability per pursuit stage (used for confidence-weighted pipeline)
+export const STAGE_WIN_PROBABILITY: Record<string, number> = {
+  Tracking:  10,
+  Shortlist: 25,
+  Interview: 50,
+  Award:     75,
+  Won:       100,
+  Lost:      0,
+};
+
 // ─── Shared UI styles (theme-aware via CSS vars) ──────────────────────────────
 export const SHARED_STYLES = {
   card: {

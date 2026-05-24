@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
   Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
+  BarChart2, Sliders,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -26,16 +27,19 @@ import ProjectTypes from "./views/ProjectTypes";
 import SquareFootage from "./views/SquareFootage";
 import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
+import ForecastView from "./views/ForecastView";
+import ScenarioPlanner from "./views/ScenarioPlanner";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
+import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
 
-type ExtViewId = ViewId;
-
-const VIEWS: { id: ExtViewId; label: string; icon: React.ElementType; color: string }[] = [
+const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
   { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
   { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
   { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
   { id: "list",      label: "Action List",      icon: ListChecks, color: "#F59E0B" },
+  { id: "forecast",  label: "Rev. Forecast",    icon: BarChart2,  color: "#10B981" },
+  { id: "scenario",  label: "Scenario Planner", icon: Sliders,    color: "#A855F7" },
   { id: "funding",   label: "Funding",          icon: PieIcon,    color: "#EC4899" },
   { id: "types",     label: "Proj. Types",      icon: Building2,  color: "#8B5CF6" },
   { id: "space",     label: "Sq. Footage",      icon: Maximize2,  color: "#14B8A6" },
@@ -131,7 +135,7 @@ export default function BDCommandCenter() {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]     = useState(false);
-  const [view, setView]                 = useState<ExtViewId>("matrix");
+  const [view, setView]                 = useState<ViewId>("matrix");
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
@@ -146,7 +150,14 @@ export default function BDCommandCenter() {
       const projects = e.projects ?? raw.projects.map(p => ({
         ...p, _id: p._id ?? Math.random().toString(36).slice(2),
       }));
-      const pipeline = projects.reduce((s, p) => s + (p.budget_m || 0), 0);
+      const activeProjects = projects.filter(p => p.outcome !== "Lost");
+      const pipeline = activeProjects.reduce((s, p) => s + (p.budget_m || 0), 0);
+      const stage = (e.pursuit_stage as string) || "Tracking";
+      const stageProb = STAGE_WIN_PROBABILITY[stage] ?? 10;
+      const weighted_pipeline = activeProjects.reduce((s, p) => {
+        const prob = (p.win_probability != null ? p.win_probability : stageProb) / 100;
+        return s + (p.budget_m || 0) * prob;
+      }, 0);
       const ys       = projects.map(p => p.year).filter(Boolean) as number[];
       const ny       = ys.length ? Math.min(...ys) : null;
       const urgency  = ny ? Math.max(0.3, 1 - (ny - 2026) * 0.15) : 0.4;
@@ -164,7 +175,7 @@ export default function BDCommandCenter() {
         nasf:          e.nasf          ?? raw.nasf,
         eg_nasf:       e.eg_nasf       ?? raw.eg_nasf,
         projects, edit: e as any,
-        pipeline, nearestYear: ny, urgency, energy_score: energy,
+        pipeline, weighted_pipeline, nearestYear: ny, urgency, energy_score: energy,
         _rawName: raw.name,
       };
     }),
@@ -268,6 +279,7 @@ export default function BDCommandCenter() {
               {/* Stats pills */}
               {[
                 { label: "Pipeline",     value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
+                { label: "Wtd. Pipeline", value: fmtMoney(visible.reduce((s,i) => s + i.weighted_pipeline, 0)), color: "#A855F7" },
                 { label: "Projects",     value: RAW_DATA.metadata.project_count,            color: "#6366F1" },
                 { label: "Institutions", value: institutions.length,                         color: "#F59E0B" },
                 { label: "Visible",      value: visible.length,                              color: "#0EA5E9" },
@@ -409,6 +421,8 @@ export default function BDCommandCenter() {
             {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
+            {view === "forecast"  && <ForecastView    institutions={visible} />}
+            {view === "scenario"  && <ScenarioPlanner institutions={visible} />}
             {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
             {view === "types"     && <ProjectTypes    institutions={institutions} />}
             {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}

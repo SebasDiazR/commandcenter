@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, AlertCircle } from "lucide-react";
 import InfoTip from "../InfoTip";
-import { SYSTEM_COLORS, ALL_STATUSES, STATUS_COLORS, SHARED_STYLES, FONT } from "@/lib/constants";
+import { SYSTEM_COLORS, ALL_STATUSES, STATUS_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGES, PURSUIT_STAGE_COLORS } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 
@@ -104,8 +104,11 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                 <th style={thStyle}>#</th>
                 <th style={thStyle}>Institution</th>
                 <th style={thStyle}>System</th>
+                <th style={thStyle}>Stage</th>
                 <th style={thStyle}>Status</th>
+                <th style={thStyle}>Action Due</th>
                 <th style={{ ...thStyle, textAlign: "right" as const }}>Pipeline</th>
+                <th style={{ ...thStyle, textAlign: "right" as const }}>Wtd. Pipeline</th>
                 <th style={thStyle}>
                   Priority <InfoTip term="Priority Score" />
                 </th>
@@ -122,6 +125,14 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                 const focus  = top10.has(inst._rawName);
                 const status = (inst.edit.hks_status as string) || "Active";
                 const statusColor = STATUS_COLORS[status] ?? "var(--text-2)";
+                const pursuitStage = (inst.edit.pursuit_stage as string) || "Tracking";
+                const stageColor = PURSUIT_STAGE_COLORS[pursuitStage] ?? "var(--text-3)";
+                const actionDate = inst.edit.next_action_date;
+                const today = new Date(); today.setHours(0,0,0,0);
+                const actionDue = actionDate ? new Date(actionDate) : null;
+                const isOverdue = actionDue && actionDue < today;
+                const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
+
                 return (
                   <HoverRow key={inst._rawName} onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0}>
                     <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>
@@ -146,6 +157,23 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                     </td>
                     <td style={tdStyle}>
                       <select
+                        value={pursuitStage}
+                        onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { pursuit_stage: e.target.value }); }}
+                        onClick={e => e.stopPropagation()}
+                        aria-label={`Pursuit stage for ${inst.name}`}
+                        style={{
+                          padding: "4px 8px", fontSize: 12,
+                          border: `1.5px solid ${stageColor}`,
+                          borderRadius: 4, color: stageColor,
+                          fontWeight: 700, background: "var(--bg-input)",
+                          fontFamily: FONT, cursor: "pointer",
+                        }}
+                      >
+                        {PURSUIT_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td style={tdStyle}>
+                      <select
                         value={status}
                         onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { hks_status: e.target.value }); }}
                         onClick={e => e.stopPropagation()}
@@ -161,8 +189,27 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                         {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                      {actionDate ? (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "3px 8px", borderRadius: 5, fontSize: 12, fontWeight: 600,
+                          background: isOverdue ? "#FEE2E2" : isDueToday ? "#FEF3C7" : "var(--bg-raised)",
+                          color: isOverdue ? "#DC2626" : isDueToday ? "#B45309" : "var(--text-2)",
+                          border: `1px solid ${isOverdue ? "#FCA5A5" : isDueToday ? "#FDE68A" : "var(--border)"}`,
+                        }}>
+                          {(isOverdue || isDueToday) && <AlertCircle size={11} />}
+                          {actionDate}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-3)", fontSize: 12 }}>—</span>
+                      )}
+                    </td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap" }}>
                       {fmtMoney(inst.pipeline)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap", color: "#A855F7" }}>
+                      {fmtMoney(inst.weighted_pipeline)}
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>

@@ -40,6 +40,7 @@ export async function GET() {
       next_action:      row.next_action,
       next_action_date: row.next_action_date,
       owner:            row.owner,
+      pursuit_stage:    row.pursuit_stage ?? "Tracking",
     } satisfies InstEditState;
   }
 
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
     next_action:      e.next_action,
     next_action_date: e.next_action_date,
     owner:            e.owner,
+    pursuit_stage:    e.pursuit_stage ?? "Tracking",
     updated_at:       new Date().toISOString(),
   }));
 

@@ -54,10 +54,10 @@ const D = {
   transition: "all 0.15s ease",
 };
 
-const PIPELINE_STAGES = ["Prospect","Qualifying","Proposal","Negotiation","Won","Lost"] as const;
+const PIPELINE_STAGES = ["Tracking","Shortlist","Interview","Award","Won","Lost"] as const;
 const STAGE_COLORS: Record<string, string> = {
-  Prospect: "#64748B", Qualifying: "#D97706", Proposal: "#2563EB",
-  Negotiation: "#7C3AED", Won: "#16A34A", Lost: "#DC2626",
+  Tracking: "#64748B", Shortlist: "#D97706", Interview: "#2563EB",
+  Award: "#7C3AED", Won: "#16A34A", Lost: "#DC2626",
 };
 
 // ─── Utility: CSV ─────────────────────────────────────────────────────────────
@@ -731,6 +731,7 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
               <SortHdr col="projects" label="Projs"        sort={sort} onSort={handleSort} width={55} align="center" />
               <SortHdr col="energy"   label="Energy"       sort={sort} onSort={handleSort} width={60} align="center" />
               <SortHdr col="status"   label="Status"       sort={sort} onSort={handleSort} width={100} />
+              <th style={{ ...hdrCell, width: 110 }}>Pursuit Stage</th>
               <th style={{ ...hdrCell, width: 120 }}>Lead Practice</th>
               <th style={{ ...hdrCell, width: 70, textAlign: "center" }}>Rel. ★</th>
               <th style={{ ...hdrCell, width: 80, textAlign: "center" }}>Expand %</th>
@@ -787,6 +788,12 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
                         onChange={v => updateEdit(rn, { hks_status: v })}
                         options={[...ALL_STATUSES].map(s => ({ value: s }))}
                         colors={STATUS_COLORS} />
+                    </td>
+                    <td style={{ padding: "4px 0" }}>
+                      <InlineSelect value={inst.edit.pursuit_stage ?? "Tracking"}
+                        onChange={v => updateEdit(rn, { pursuit_stage: v })}
+                        options={["Tracking","Shortlist","Interview","Award","Won","Lost"].map(s => ({ value: s }))}
+                        colors={{ Tracking:"#64748B",Shortlist:"#D97706",Interview:"#2563EB",Award:"#7C3AED",Won:"#16A34A",Lost:"#DC2626" }} />
                     </td>
                     <td style={{ padding: 0 }}>
                       <InlineSelect value={lp ?? ""}
@@ -1067,6 +1074,8 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
               <SortHdr col="year"   label="FY Start"     sort={sort} onSort={handleSort} width={80} align="center" />
               <SortHdr col="type"   label="Type"         sort={sort} onSort={handleSort} width={170} />
               <th style={{ ...hdrCell, width: 70, textAlign: "center" }}>Source</th>
+              <th style={{ ...hdrCell, width: 80, textAlign: "center" }}>Win %</th>
+              <th style={{ ...hdrCell, width: 90, textAlign: "center" }}>Outcome</th>
               <th style={{ ...hdrCell, width: 260 }}>Notes</th>
               <th style={{ ...hdrCell, width: 44 }} />
             </tr>
@@ -1111,6 +1120,22 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
                       label={p.source === "thecb" ? "THECB" : "Strategy"}
                       color={p.source === "thecb" ? "#0369A1" : "#7C3AED"}
                       bg={p.source === "thecb" ? "#E0F2FE" : "#EDE9FE"}
+                    />
+                  </td>
+                  <td style={{ padding: 0 }}>
+                    <InlineInput value={p.win_probability ?? ""} type="number" min={0} max={100} step={5}
+                      onChange={v => updateProject(p._rawName, pid, { win_probability: v === "" ? null : Number(v) })}
+                      align="center" placeholder="—" />
+                  </td>
+                  <td style={{ padding: "0 6px", textAlign: "center" }}>
+                    <InlineSelect
+                      value={p.outcome ?? "Active"}
+                      onChange={v => updateProject(p._rawName, pid, { outcome: v })}
+                      options={[
+                        { value: "Active", label: "Active" },
+                        { value: "Won",    label: "Won" },
+                        { value: "Lost",   label: "Lost" },
+                      ]}
                     />
                   </td>
                   <td style={{ padding: 0 }}>
@@ -1198,14 +1223,12 @@ function PipelineTab({ institutions, updateEdit, onSave, dirty }: {
 
   // Derive pipeline_stage from hks_status + priority for display
   const getStage = (inst: EnrichedInstitution): string => {
+    // Prefer explicit pursuit_stage if set
+    if (inst.edit.pursuit_stage && inst.edit.pursuit_stage !== "Tracking") return inst.edit.pursuit_stage;
     const status = inst.edit.hks_status ?? "Active";
     if (status === "Won")  return "Won";
     if (status === "Lost") return "Lost";
-    const p = inst.edit.priority ?? inst.strategy_priority ?? 10;
-    if (p <= 2) return "Proposal";
-    if (p <= 4) return "Qualifying";
-    if (p <= 7) return "Prospect";
-    return "Prospect";
+    return inst.edit.pursuit_stage ?? "Tracking";
   };
 
   const rows = useMemo(() => {
