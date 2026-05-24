@@ -5,7 +5,6 @@
     "skipLibCheck": true,
     "strict": true,
     "noImplicitAny": false,
-    "downlevelIteration": true,
     "strictNullChecks": false,
     "noEmit": true,
     "esModuleInterop": true,
