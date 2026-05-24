@@ -42,7 +42,7 @@ export default function LoginForm() {
     <div className="min-h-screen flex">
 
       {/* ── LEFT — Photo Panel ───────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[58%] xl:w-[62%] relative overflow-hidden flex-col">
+      <div className="hidden lg:flex lg:w-[58%] xl:w-[62%] flex-col" style={{ position: 'relative', overflow: 'hidden' }}>
 
         {/* Hero image via Next.js Image (fills the panel) */}
         <Image
@@ -51,7 +51,7 @@ export default function LoginForm() {
           fill
           priority
           quality={90}
-          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          style={{ objectFit: 'cover', objectPosition: 'center', zIndex: 0 }}
         />
 
         {/* Gradient overlays */}
@@ -113,7 +113,7 @@ export default function LoginForm() {
       </div>
 
       {/* ── RIGHT — Form Panel ───────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white relative">
+      <div className="flex-1 flex flex-col bg-white" style={{ position: 'relative', zIndex: 1 }}>
 
         {/* Top accent line */}
         <div className="h-[3px] w-full bg-gradient-to-r from-gray-900 via-gray-400 to-gray-100" />
