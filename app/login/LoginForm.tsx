@@ -170,12 +170,12 @@ export default function LoginForm() {
                       background: '#fafafa',
                       border: error ? '1.5px solid #ef4444' : '1.5px solid #e8e8e8',
                       borderRadius: 10,
-                      outline: 'none',
+                      outline: '2px solid transparent',
                       transition: 'border-color 0.15s, background 0.15s',
                       letterSpacing: '0.05em',
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#111'; e.currentTarget.style.background = '#fff'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#ef4444' : '#e8e8e8'; e.currentTarget.style.background = '#fafafa'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#111'; e.currentTarget.style.background = '#fff'; e.currentTarget.style.outline = '2px solid rgba(15,15,15,0.15)'; e.currentTarget.style.outlineOffset = '2px'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = error ? '#ef4444' : '#e8e8e8'; e.currentTarget.style.background = '#fafafa'; e.currentTarget.style.outline = '2px solid transparent'; }}
                   />
                   <button
                     type="button"
@@ -185,13 +185,13 @@ export default function LoginForm() {
                     aria-label={showPw ? 'Hide password' : 'Show password'}
                   >
                     {showPw ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
                         <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
                         <line x1="1" y1="1" x2="23" y2="23"/>
                       </svg>
                     ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                       </svg>
@@ -199,14 +199,16 @@ export default function LoginForm() {
                   </button>
                 </div>
 
-                {error && (
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#ef4444', fontWeight: 500 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    {error}
-                  </div>
-                )}
+                <div aria-live="polite" style={{ minHeight: 20 }}>
+                  {error && (
+                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#ef4444', fontWeight: 500 }}>
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      {error}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button
@@ -235,7 +237,7 @@ export default function LoginForm() {
               >
                 {loading ? (
                   <>
-                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                    <span aria-hidden="true" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
                     Verifying…
                   </>
                 ) : (
@@ -251,7 +253,7 @@ export default function LoginForm() {
 
             {/* Footer */}
             <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#ccc' }}>© {new Date().getFullYear()} HKS Inc.</span>
+              <span suppressHydrationWarning style={{ fontSize: 11, color: '#ccc' }}>© {new Date().getFullYear()} HKS Inc.</span>
               <span style={{ fontSize: 11, color: '#ddd', letterSpacing: '0.05em' }}>CONFIDENTIAL</span>
             </div>
 
