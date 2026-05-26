@@ -139,7 +139,7 @@ export default function BDCommandCenter() {
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
-    systems: [], practices: [], types: [],
+    systems: [], practices: [], types: [], pursuitStages: [],
     minPriority: 0, search: "", hasContacts: false,
   });
 
@@ -198,6 +198,10 @@ export default function BDCommandCenter() {
     }
     if (filters.types.length) {
       if (!inst.projects.some(p => filters.types.includes(p.type))) return false;
+    }
+    if (filters.pursuitStages.length) {
+      const stage = (inst.edit.pursuit_stage as string) || "Tracking";
+      if (!filters.pursuitStages.includes(stage)) return false;
     }
     return true;
   }), [institutions, filters]);

@@ -100,6 +100,7 @@ export interface FilterState {
   systems: string[];
   practices: string[];
   types: string[];
+  pursuitStages: string[];
   minPriority: number;
   search: string;
   hasContacts: boolean;

@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { Search, Filter, Edit3, X, Download, RotateCcw } from "lucide-react";
-import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_PRACTICES, FONT } from "@/lib/constants";
+import { SYSTEM_COLORS, PRACTICE_COLORS, PURSUIT_STAGE_COLORS, PURSUIT_STAGES, ALL_PRACTICES, FONT } from "@/lib/constants";
 import { RAW_DATA } from "@/lib/data";
 import type { FilterState, EnrichedInstitution } from "@/lib/types";
 
@@ -34,15 +34,16 @@ export default function Sidebar({
   const allTypes   = RAW_DATA.project_types.map(t => t.name);
   const activeCount =
     filters.systems.length + filters.practices.length + filters.types.length +
+    filters.pursuitStages.length +
     (filters.minPriority > 0 ? 1 : 0) + (filters.search ? 1 : 0);
 
-  const toggle = (key: "systems" | "practices" | "types", val: string) => {
+  const toggle = (key: "systems" | "practices" | "types" | "pursuitStages", val: string) => {
     const arr = filters[key] as string[];
     onFiltersChange({ ...filters, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] });
   };
 
   const clearFilters = () => onFiltersChange({
-    systems: [], practices: [], types: [], minPriority: 0, search: "", hasContacts: false,
+    systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", hasContacts: false,
   });
 
   const chip = (active: boolean, color: string): React.CSSProperties => ({
@@ -153,6 +154,21 @@ export default function Sidebar({
             <button key={s} onClick={() => toggle("systems", s)}
               aria-pressed={filters.systems.includes(s)}
               style={chip(filters.systems.includes(s), c)}>
+              {s}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Pursuit stage chips */}
+      <SectionLabel>Pursuit Stage</SectionLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {(PURSUIT_STAGES.filter(s => s !== "Lost") as string[]).map(s => {
+          const c = PURSUIT_STAGE_COLORS[s] ?? "var(--indigo)";
+          return (
+            <button key={s} onClick={() => toggle("pursuitStages", s)}
+              aria-pressed={filters.pursuitStages.includes(s)}
+              style={chip(filters.pursuitStages.includes(s), c)}>
               {s}
             </button>
           );
