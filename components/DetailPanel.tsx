@@ -1,8 +1,8 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, Edit3, Users, Target, Star } from "lucide-react";
 import InfoTip from "./InfoTip";
-import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT } from "@/lib/constants";
+import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT, PURSUIT_STAGE_COLORS } from "@/lib/constants";
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution, RawContact } from "@/lib/types";
 
@@ -31,10 +31,15 @@ export default function DetailPanel({
   removeContact: (n: string, i: number) => void;
   updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
 }) {
+  // Local notes state prevents scroll-jump on every keystroke
+  const [localNotes, setLocalNotes] = useState(inst?.edit?.notes || "");
+  useEffect(() => { setLocalNotes(inst?.edit?.notes || ""); }, [inst?._rawName]);
+
   if (!inst) return null;
   const rawName  = inst._rawName || inst.name;
   const e        = inst.edit;
   const sysColor = SYSTEM_COLORS[inst.system] ?? "#6366F1";
+  const PROJ_STAGES = ["Tracking","Shortlist","Interview","Award","Won","Lost"];
 
   const Stars = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
     <span style={{ display: "inline-flex", gap: 3 }}>
@@ -237,11 +242,15 @@ export default function DetailPanel({
               style={fieldStyle} />
           </Section>
 
-          {/* Notes */}
+          {/* Notes — local state prevents page-scroll-jump on each keystroke */}
           <Section title="Strategy Notes">
-            <textarea value={e.notes || ""} onChange={ev => updateEdit(rawName, { notes: ev.target.value })}
+            <textarea
+              value={localNotes}
+              onChange={ev => setLocalNotes(ev.target.value)}
+              onBlur={() => updateEdit(rawName, { notes: localNotes })}
               rows={3} placeholder="Internal context, hunches, next steps…"
-              style={{ ...fieldStyle, resize: "vertical" }} />
+              style={{ ...fieldStyle, resize: "vertical" }}
+            />
           </Section>
 
           {/* Space metrics (edit mode only) */}
@@ -323,8 +332,8 @@ export default function DetailPanel({
                       style={{ background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
                         borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    {[["Budget ($M)","budget_m","number"],["FY Start","year","number"],].map(([lbl,k,t]) => (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    {[["Budget ($M)","budget_m","number"],["FY Start","year","number"]].map(([lbl,k,t]) => (
                       <div key={k}>
                         <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>{lbl}</label>
                         <input type={t} value={p[k] ?? ""} onChange={ev => updateProject(rawName, pid, { [k]: ev.target.value === "" ? null : Number(ev.target.value) })}
@@ -336,6 +345,13 @@ export default function DetailPanel({
                       <select value={p.type || "New Construction"} onChange={ev => updateProject(rawName, pid, { type: ev.target.value })}
                         style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px" }}>
                         {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Status</label>
+                      <select value={p.pursuit_stage || "Tracking"} onChange={ev => updateProject(rawName, pid, { pursuit_stage: ev.target.value })}
+                        style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px", color: PURSUIT_STAGE_COLORS[p.pursuit_stage || "Tracking"] ?? "inherit", fontWeight: 700 }}>
+                        {PROJ_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
@@ -352,6 +368,9 @@ export default function DetailPanel({
                   <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 4, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontFamily: FONT }}>
                     <span>FY{p.year}</span><span>·</span><span>{p.type}</span>
                     <span style={{ padding: "1px 6px", background: PRACTICE_COLORS[practice], color: "#FFF", fontSize: 10, borderRadius: 3, fontWeight: 700 }}>{practice}</span>
+                    {p.pursuit_stage && (
+                      <span style={{ padding: "1px 6px", background: `${PURSUIT_STAGE_COLORS[p.pursuit_stage] ?? "#64748B"}22`, color: PURSUIT_STAGE_COLORS[p.pursuit_stage] ?? "#64748B", border: `1px solid ${PURSUIT_STAGE_COLORS[p.pursuit_stage] ?? "#64748B"}44`, fontSize: 10, borderRadius: 3, fontWeight: 700 }}>{p.pursuit_stage}</span>
+                    )}
                   </div>
                   {p.notes && <div style={{ fontSize: 11.5, color: "var(--amber-brand)", marginTop: 4, fontStyle: "italic" }}>{p.notes}</div>}
                 </div>

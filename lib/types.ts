@@ -8,6 +8,7 @@ export interface RawProject {
   _id?: string;
   win_probability?: number | null;   // 0–100 confidence %
   outcome?: "Active" | "Won" | "Lost"; // pursuit result
+  pursuit_stage?: string; // Tracking | Shortlist | Interview | Award | Won | Lost
 }
 
 export interface RawContact {

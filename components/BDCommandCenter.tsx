@@ -152,10 +152,11 @@ export default function BDCommandCenter() {
       }));
       const activeProjects = projects.filter(p => p.outcome !== "Lost");
       const pipeline = activeProjects.reduce((s, p) => s + (p.budget_m || 0), 0);
-      const stage = (e.pursuit_stage as string) || "Tracking";
-      const stageProb = STAGE_WIN_PROBABILITY[stage] ?? 10;
+      const instStage = (e.pursuit_stage as string) || "Tracking";
+      const instStageProb = STAGE_WIN_PROBABILITY[instStage] ?? 10;
       const weighted_pipeline = activeProjects.reduce((s, p) => {
-        const prob = (p.win_probability != null ? p.win_probability : stageProb) / 100;
+        const projStageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instStageProb) : instStageProb;
+        const prob = (p.win_probability != null ? p.win_probability : projStageProb) / 100;
         return s + (p.budget_m || 0) * prob;
       }, 0);
       const ys       = projects.map(p => p.year).filter(Boolean) as number[];

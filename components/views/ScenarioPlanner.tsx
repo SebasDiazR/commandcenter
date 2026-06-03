@@ -50,9 +50,10 @@ function computeRevenue(
   feeRate: number,
 ): number {
   return institutions.reduce((total, inst) => {
+    const instStageProb = STAGE_WIN_PROBABILITY[inst.edit.pursuit_stage ?? "Tracking"] ?? 10;
     inst.projects.forEach(p => {
       if (p.outcome === "Lost") return;
-      const stageProb = STAGE_WIN_PROBABILITY[inst.edit.pursuit_stage ?? "Tracking"] ?? 10;
+      const stageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instStageProb) : instStageProb;
       const basePct = p.win_probability != null ? p.win_probability : stageProb;
       const prob = Math.min(100, basePct * winMultiplier) / 100;
       total += (p.budget_m ?? 0) * prob * (feeRate / 100);
@@ -64,10 +65,16 @@ function computeRevenue(
 export default function ScenarioPlanner({ institutions }: ScenarioPlannerProps) {
   const [winMultiplier, setWinMultiplier] = useState(1.0);
   const [feeRate, setFeeRate] = useState(6.5);
+  const [netFeeRate, setNetFeeRate] = useState(4.5);
 
   const feeRevenue = useMemo(
     () => computeRevenue(institutions, winMultiplier, feeRate),
     [institutions, winMultiplier, feeRate]
+  );
+
+  const netFeeRevenue = useMemo(
+    () => computeRevenue(institutions, winMultiplier, netFeeRate),
+    [institutions, winMultiplier, netFeeRate]
   );
 
   const presetRevenues = useMemo(
@@ -116,27 +123,42 @@ export default function ScenarioPlanner({ institutions }: ScenarioPlannerProps) 
             value={feeRate} min={3} max={12} step={0.5} unit="%"
             onChange={setFeeRate} color="#0EA5E9"
           />
+          <SliderRow
+            label="Net Fee Rate"
+            value={netFeeRate} min={1} max={10} step={0.25} unit="%"
+            onChange={setNetFeeRate} color="#10B981"
+          />
 
-          {/* Result */}
+          {/* Results */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
+            <div style={{ padding: "14px 16px", borderRadius: 10, background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text-3)", fontFamily: FONT, fontWeight: 700 }}>
+                Gross Fee Revenue
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#0EA5E9", fontFamily: FONT, letterSpacing: "-0.03em", margin: "6px 0 4px" }}>
+                {fmtMoney(feeRevenue)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", fontFamily: FONT }}>{feeRate}% of wtd. pipeline</div>
+            </div>
+            <div style={{ padding: "14px 16px", borderRadius: 10, background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text-3)", fontFamily: FONT, fontWeight: 700 }}>
+                Net Fee Revenue
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "#10B981", fontFamily: FONT, letterSpacing: "-0.03em", margin: "6px 0 4px" }}>
+                {fmtMoney(netFeeRevenue)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", fontFamily: FONT }}>{netFeeRate}% of wtd. pipeline</div>
+            </div>
+          </div>
           <div style={{
-            marginTop: 20, padding: "16px 20px", borderRadius: 10,
-            background: "var(--bg-raised)", border: "1px solid var(--border)",
+            marginTop: 10, padding: "8px 14px", borderRadius: 8,
+            display: "inline-flex", alignItems: "center", gap: 5,
+            background: delta > 0 ? "#DCFCE7" : delta < 0 ? "#FEE2E2" : "var(--bg-raised)",
+            color: delta > 0 ? "#16A34A" : delta < 0 ? "#DC2626" : "var(--text-3)",
+            fontSize: 12, fontWeight: 700, fontFamily: FONT,
           }}>
-            <div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text-3)", fontFamily: FONT, fontWeight: 700 }}>
-              Projected Fee Revenue
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#A855F7", fontFamily: FONT, letterSpacing: "-0.03em", margin: "8px 0 4px" }}>
-              {fmtMoney(feeRevenue)}
-            </div>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, fontFamily: FONT,
-              background: delta > 0 ? "#DCFCE7" : delta < 0 ? "#FEE2E2" : "var(--bg-raised)",
-              color: delta > 0 ? "#16A34A" : delta < 0 ? "#DC2626" : "var(--text-3)",
-            }}>
-              {delta > 0 ? <TrendingUp size={12} /> : delta < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
-              {delta > 0 ? "+" : ""}{fmtMoney(Math.abs(delta))} vs base ({deltaPct > 0 ? "+" : ""}{deltaPct.toFixed(0)}%)
-            </div>
+            {delta > 0 ? <TrendingUp size={12} /> : delta < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
+            Gross: {delta > 0 ? "+" : ""}{fmtMoney(Math.abs(delta))} vs base ({deltaPct > 0 ? "+" : ""}{deltaPct.toFixed(0)}%)
           </div>
         </div>
 
@@ -195,7 +217,7 @@ export default function ScenarioPlanner({ institutions }: ScenarioPlannerProps) 
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: FONT }}>
             <thead>
               <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
-                {["Stage", "Institutions", "Total Pipeline", "Wtd. Pipeline", "Fee Potential"].map(h => (
+                {["Stage", "Institutions", "Total Pipeline", "Wtd. Pipeline", "Gross Fee", "Net Fee"].map(h => (
                   <th key={h} style={{
                     padding: "10px 14px", textAlign: h === "Stage" || h === "Institutions" ? "left" as const : "right" as const,
                     fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.08em", fontWeight: 700, color: "var(--text-3)",
@@ -221,7 +243,8 @@ export default function ScenarioPlanner({ institutions }: ScenarioPlannerProps) 
                     <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 600 }}>{row.count}</td>
                     <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 600 }}>{fmtMoney(row.pipeline)}</td>
                     <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 600, color: "#A855F7" }}>{fmtMoney(row.wtd)}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 700, color: "#10B981" }}>{fmtMoney(row.wtd * (feeRate / 100))}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 700, color: "#0EA5E9" }}>{fmtMoney(row.wtd * (feeRate / 100))}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right" as const, fontWeight: 700, color: "#10B981" }}>{fmtMoney(row.wtd * (netFeeRate / 100))}</td>
                   </tr>
                 );
               })}

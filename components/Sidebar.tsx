@@ -1,6 +1,6 @@
 "use client";
-import React from "react";
-import { Search, Filter, Edit3, X, Download, RotateCcw } from "lucide-react";
+import React, { useState } from "react";
+import { Search, Filter, Edit3, X, Download, RotateCcw, ShieldAlert, Settings } from "lucide-react";
 import { SYSTEM_COLORS, PRACTICE_COLORS, PURSUIT_STAGE_COLORS, PURSUIT_STAGES, ALL_PRACTICES, FONT } from "@/lib/constants";
 import { RAW_DATA } from "@/lib/data";
 import type { FilterState, EnrichedInstitution } from "@/lib/types";
@@ -30,6 +30,8 @@ export default function Sidebar({
   globalEdit, onToggleEdit, filters, onFiltersChange,
   visible, total, onExportPDF, onResetData,
 }: SidebarProps) {
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
   const allSystems = Array.from(new Set(RAW_DATA.institutions.map(i => i.system)));
   const allTypes   = RAW_DATA.project_types.map(t => t.name);
   const activeCount =
@@ -57,6 +59,7 @@ export default function Sidebar({
   });
 
   return (
+    <>
     <aside className="no-print app-sidebar" style={{
       width: 258, minWidth: 258,
       background: "var(--bg-sidebar)",
@@ -238,14 +241,74 @@ export default function Sidebar({
             <RotateCcw size={11} /> Clear filters
           </button>
         )}
-        <button onClick={onResetData} style={{
+        <button onClick={() => { setResetConfirmText(""); setShowResetModal(true); }} style={{
           padding: "7px 13px", borderRadius: 7, cursor: "pointer",
-          background: "transparent", color: "var(--rose)",
-          border: "1px solid rgba(244,63,94,0.3)", fontSize: 11, fontFamily: FONT,
+          background: "transparent", color: "var(--text-3)",
+          border: "1px solid var(--border)", fontSize: 11, fontFamily: FONT,
+          display: "flex", alignItems: "center", gap: 5,
         }}>
-          Reset to source data
+          <Settings size={11} /> Advanced
         </button>
       </div>
     </aside>
+
+    {/* Reset confirmation modal */}
+    {showResetModal && (
+      <div style={{
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)",
+        zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+      }} onClick={() => setShowResetModal(false)}>
+        <div style={{
+          background: "#fff", borderRadius: 14, width: 440, maxWidth: "100%",
+          boxShadow: "0 25px 60px rgba(15,23,42,0.3)", overflow: "hidden",
+        }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: "#FEF2F2", borderBottom: "1px solid #FECACA", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <ShieldAlert size={22} color="#DC2626" />
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#991B1B", fontFamily: FONT }}>Reset to Source Data</div>
+              <div style={{ fontSize: 12, color: "#DC2626", marginTop: 2 }}>This action cannot be undone</div>
+            </div>
+          </div>
+          <div style={{ padding: "20px 24px" }}>
+            <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6, margin: "0 0 16px", fontFamily: FONT }}>
+              This will permanently erase <strong>all your edits</strong> — priorities, notes, contacts, custom projects, pursuit stages, and all other changes — and restore the original source data.
+            </p>
+            <p style={{ fontSize: 13, color: "#374151", margin: "0 0 12px", fontFamily: FONT }}>
+              Type <strong style={{ color: "#DC2626" }}>RESET</strong> to confirm:
+            </p>
+            <input
+              value={resetConfirmText}
+              onChange={e => setResetConfirmText(e.target.value)}
+              placeholder="Type RESET here"
+              autoFocus
+              style={{
+                width: "100%", padding: "10px 12px", fontSize: 13, borderRadius: 7,
+                border: "1.5px solid #E5E7EB", fontFamily: FONT,
+                outline: "none", boxSizing: "border-box" as const,
+                borderColor: resetConfirmText === "RESET" ? "#DC2626" : "#E5E7EB",
+              }}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowResetModal(false)}
+                style={{ padding: "9px 18px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: FONT, color: "#374151" }}>
+                Cancel
+              </button>
+              <button
+                disabled={resetConfirmText !== "RESET"}
+                onClick={() => { if (resetConfirmText === "RESET") { onResetData(); setShowResetModal(false); } }}
+                style={{
+                  padding: "9px 18px", borderRadius: 7, cursor: resetConfirmText === "RESET" ? "pointer" : "not-allowed",
+                  fontSize: 13, fontWeight: 700, fontFamily: FONT, border: "none",
+                  background: resetConfirmText === "RESET" ? "#DC2626" : "#9CA3AF", color: "#fff",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                <ShieldAlert size={13} /> Reset All Data
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
