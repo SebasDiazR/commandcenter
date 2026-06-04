@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
-import { SYSTEM_COLORS, PRACTICE_COLORS, STATUS_COLORS, FONT } from "@/lib/constants";
+import { SYSTEM_COLORS, PRACTICE_COLORS, STATUS_COLORS, PURSUIT_STAGE_COLORS, FONT } from "@/lib/constants";
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 import { Users, FolderOpen } from "lucide-react";
@@ -121,36 +121,122 @@ function InstCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: () 
   );
 }
 
+// ─── Project card ─────────────────────────────────────────────────────────────
+function ProjectCard({ p, instName, color, onSelect }: {
+  p: { name: string; budget_m?: number | null; year?: number | null; type?: string; pursuit_stage?: string; notes?: string };
+  instName: string; color: string; onSelect: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  const rgb = hexRgb(color);
+  const stage = p.pursuit_stage ?? "Tracking";
+  const stageColor = PURSUIT_STAGE_COLORS[stage] ?? "#64748B";
+  return (
+    <button onClick={onSelect}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", flexDirection: "column", width: "100%",
+        background: hov ? `rgba(${rgb},0.08)` : "var(--bg-surface)",
+        border: `1px solid ${hov ? color + "55" : "var(--border)"}`,
+        borderRadius: 10, padding: "12px 14px",
+        cursor: "pointer", textAlign: "left", fontFamily: FONT,
+        transition: "background 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s",
+        transform: hov ? "translateY(-2px)" : "none",
+        boxShadow: hov ? `0 8px 24px rgba(${rgb},0.18)` : "var(--shadow-sm)",
+        position: "relative", overflow: "hidden",
+      }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, ${color}, ${color}44)`, opacity: hov ? 1 : 0.55 }} />
+
+      {/* Project name */}
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-1)", lineHeight: 1.3, marginBottom: 4 }}>
+        {p.name}
+      </div>
+      {/* Institution */}
+      <div style={{ fontSize: 10.5, color, fontWeight: 600, marginBottom: 8 }}>{instName}</div>
+
+      {/* Budget */}
+      <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.03em",
+        color: hov ? color : "var(--text-1)", marginBottom: 8 }}>
+        {fmtMoney(p.budget_m)}
+      </div>
+
+      {/* Meta */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        {p.year && <span style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 600 }}>FY{p.year}</span>}
+        {p.type && <span style={{ fontSize: 9.5, color: "var(--text-3)" }}>· {p.type}</span>}
+        <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
+          background: `${stageColor}22`, color: stageColor, border: `1px solid ${stageColor}44` }}>
+          {stage}
+        </span>
+      </div>
+      {p.notes && (
+        <div style={{ marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border-sub)",
+          fontSize: 10.5, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {p.notes}
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ─── Main view ────────────────────────────────────────────────────────────────
 type SortBy = "energy" | "pipeline" | "priority";
-type ViewMode = "grid" | "system";
+type ProjSortBy = "budget" | "year" | "stage";
+type ViewMode = "grid" | "system" | "project";
 
 export default function Ecosystem({ institutions, onSelect }: {
   institutions: EnrichedInstitution[];
   onSelect: (name: string) => void;
   globalEdit: boolean;
 }) {
-  const [view,   setView]   = useState<ViewMode>("grid");
-  const [sortBy, setSortBy] = useState<SortBy>("energy");
+  const [view,       setView]       = useState<ViewMode>("grid");
+  const [sortBy,     setSortBy]     = useState<SortBy>("energy");
+  const [projSortBy, setProjSortBy] = useState<ProjSortBy>("budget");
+  const [showAll,    setShowAll]    = useState(false);
 
-  const sorted = useMemo(() => [...institutions].sort((a, b) => {
+  // Strip lost projects (and recompute pipeline) unless showAll is on
+  const filteredInstitutions = useMemo(() => {
+    if (showAll) return institutions;
+    return institutions.map(inst => {
+      const projects = inst.projects.filter(p => p.pursuit_stage !== "Lost");
+      const pipeline = projects.reduce((s, p) => s + (p.budget_m ?? 0), 0);
+      return { ...inst, projects, pipeline };
+    }).filter(inst => inst.projects.length > 0);
+  }, [institutions, showAll]);
+
+  const sorted = useMemo(() => [...filteredInstitutions].sort((a, b) => {
     if (sortBy === "pipeline") return b.pipeline - a.pipeline;
     if (sortBy === "priority") return (b.edit?.priority ?? b.strategy_priority ?? 0) - (a.edit?.priority ?? a.strategy_priority ?? 0);
     return b.energy_score - a.energy_score;
-  }), [institutions, sortBy]);
+  }), [filteredInstitutions, sortBy]);
 
   const systems = useMemo(() => {
     const map = new Map<string, EnrichedInstitution[]>();
-    institutions.forEach(i => { if (!map.has(i.system)) map.set(i.system, []); map.get(i.system)!.push(i); });
+    filteredInstitutions.forEach(i => { if (!map.has(i.system)) map.set(i.system, []); map.get(i.system)!.push(i); });
     return Array.from(map.entries())
       .map(([sys, insts]) => ({
         sys, insts: [...insts].sort((a,b) => b.pipeline - a.pipeline),
         total: insts.reduce((s,i) => s+i.pipeline, 0),
       })).sort((a,b) => b.total - a.total);
-  }, [institutions]);
+  }, [filteredInstitutions]);
 
   const maxTotal   = Math.max(...systems.map(s => s.total), 1);
-  const grandTotal = institutions.reduce((s,i) => s+i.pipeline, 0);
+  const grandTotal = filteredInstitutions.reduce((s,i) => s+i.pipeline, 0);
+
+  // Flat project list for "By Project" view
+  const allProjects = useMemo(() => {
+    const flat = filteredInstitutions.flatMap(inst =>
+      inst.projects.map(p => ({ p, inst, color: SYSTEM_COLORS[inst.system] ?? "#6366F1" }))
+    );
+    return [...flat].sort((a, b) => {
+      if (projSortBy === "year")   return (a.p.year ?? 9999) - (b.p.year ?? 9999);
+      if (projSortBy === "stage")  return (a.p.pursuit_stage ?? "").localeCompare(b.p.pursuit_stage ?? "");
+      return (b.p.budget_m ?? 0) - (a.p.budget_m ?? 0);
+    });
+  }, [filteredInstitutions, projSortBy]);
+
+  const totalProjBudget = allProjects.reduce((s, x) => s + (x.p.budget_m ?? 0), 0);
 
   const SORT_OPTS = [
     { id: "energy",   label: "⚡ Energy",  color: "var(--amber)"   },
@@ -174,11 +260,9 @@ export default function Ecosystem({ institutions, onSelect }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         {/* View toggle */}
         <div style={{ display: "flex", gap: 2, background: "var(--bg-chip)", borderRadius: 8, padding: 3, border: "1px solid var(--border)" }}>
-          {(["grid","system"] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={tabBtn(view === v)}>
-              {v === "grid" ? "Grid" : "By System"}
-            </button>
-          ))}
+          <button onClick={() => setView("grid")}   style={tabBtn(view === "grid")}>Grid</button>
+          <button onClick={() => setView("system")} style={tabBtn(view === "system")}>By System</button>
+          <button onClick={() => setView("project")} style={tabBtn(view === "project")}>By Project</button>
         </div>
 
         {view === "grid" && (
@@ -197,8 +281,43 @@ export default function Ecosystem({ institutions, onSelect }: {
           </div>
         )}
 
+        {view === "project" && (
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "var(--text-3)" }}>Sort:</span>
+            {([
+              { id: "budget", label: "$ Budget" },
+              { id: "year",   label: "📅 FY Start" },
+              { id: "stage",  label: "📊 Stage" },
+            ] as const).map(s => (
+              <button key={s.id} onClick={() => setProjSortBy(s.id)} style={{
+                padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+                border: `1px solid ${projSortBy === s.id ? "var(--amber)" : "var(--border)"}`,
+                background: projSortBy === s.id ? "rgba(245,158,11,0.15)" : "transparent",
+                color: projSortBy === s.id ? "var(--amber)" : "var(--text-3)",
+                fontSize: 11, fontFamily: FONT, fontWeight: projSortBy === s.id ? 700 : 400,
+                transition: "all 0.15s",
+              }}>{s.label}</button>
+            ))}
+          </div>
+        )}
+
+        {/* Show All toggle */}
+        <button onClick={() => setShowAll(v => !v)} style={{
+          padding: "5px 12px", borderRadius: 6, cursor: "pointer",
+          border: `1px solid ${showAll ? "var(--text-3)" : "var(--border)"}`,
+          background: showAll ? "var(--bg-raised)" : "transparent",
+          color: showAll ? "var(--text-1)" : "var(--text-3)",
+          fontSize: 11, fontFamily: FONT, fontWeight: showAll ? 700 : 400,
+          transition: "all 0.15s",
+        }}>
+          {showAll ? "Active + Won/Lost" : "Active Only"}
+        </button>
+
         <div style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--text-3)" }}>
-          {institutions.length} institutions · <strong style={{ color: "var(--amber)" }}>{fmtMoney(grandTotal)}</strong>
+          {view === "project"
+            ? <>{allProjects.length} projects · <strong style={{ color: "var(--amber)" }}>{fmtMoney(totalProjBudget)}</strong></>
+            : <>{filteredInstitutions.length} institutions · <strong style={{ color: "var(--amber)" }}>{fmtMoney(grandTotal)}</strong></>
+          }
         </div>
       </div>
 
@@ -207,6 +326,19 @@ export default function Ecosystem({ institutions, onSelect }: {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
           {sorted.map(inst => (
             <InstCard key={inst._rawName} inst={inst} onSelect={() => onSelect(inst._rawName)} />
+          ))}
+        </div>
+      )}
+
+      {/* By Project view */}
+      {view === "project" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
+          {allProjects.map(({ p, inst, color }) => (
+            <ProjectCard
+              key={`${inst._rawName}||${p.name}`}
+              p={p} instName={inst.name} color={color}
+              onSelect={() => onSelect(inst._rawName)}
+            />
           ))}
         </div>
       )}
