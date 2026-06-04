@@ -16,6 +16,131 @@ const fieldStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+// ── Sub-components defined at module level so they don't remount on each render ──
+
+function Stars({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <span style={{ display: "inline-flex", gap: 3 }}>
+      {[1,2,3,4,5].map(n => (
+        <button key={n} onClick={() => onChange(n)}
+          style={{ background: "none", border: "none", padding: 3, cursor: "pointer",
+            color: n <= value ? "var(--amber)" : "var(--border-strong)" }}>
+          <Star size={20} fill={n <= value ? "var(--amber)" : "none"} />
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function Row({ label, children, info }: { label: string; children: React.ReactNode; info?: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+      padding: "9px 0", borderBottom: "1px solid var(--border-sub)" }}>
+      <span style={{ fontSize: 13, color: "var(--text-2)", flexShrink: 0, marginRight: 12, fontFamily: FONT }}>
+        {label}{info && <InfoTip term={info} side="left" />}
+      </span>
+      <div style={{ flex: 1, textAlign: "right" }}>{children}</div>
+    </div>
+  );
+}
+
+function Section({ title, icon: Icon, children, action }: {
+  title: string; icon?: React.ElementType;
+  children: React.ReactNode; action?: React.ReactNode;
+}) {
+  return (
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)",
+      borderRadius: 10, padding: "14px 18px", marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+        color: "var(--text-3)", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: FONT }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {Icon && <Icon size={12} />}{title}
+        </span>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function EditableContactRow({ c, idx, isLast, rawName, removeContact, updateContact }: {
+  c: RawContact; idx: number; isLast: boolean;
+  rawName: string;
+  removeContact: (n: string, i: number) => void;
+  updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
+}) {
+  const [name,  setName]  = useState(c.name  || "");
+  const [notes, setNotes] = useState(c.notes || "");
+  useEffect(() => { setName(c.name || ""); setNotes(c.notes || ""); }, [c.name, c.notes]);
+  return (
+    <div style={{ padding: "8px 0", borderBottom: isLast ? "none" : "1px solid var(--border-sub)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <div style={{ flex: 1 }}>
+        <input value={name} onChange={ev => setName(ev.target.value)}
+          onBlur={() => updateContact(rawName, idx, { name })}
+          placeholder="Name" style={{ ...fieldStyle, marginBottom: 6, fontSize: 13 }} />
+        <input value={notes} onChange={ev => setNotes(ev.target.value)}
+          onBlur={() => updateContact(rawName, idx, { notes })}
+          placeholder="Role / context" style={{ ...fieldStyle, fontSize: 12.5 }} />
+      </div>
+      <button onClick={() => removeContact(rawName, idx)}
+        style={{ background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
+          borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
+    </div>
+  );
+}
+
+const PROJ_STAGES_LIST = ["Tracking","Shortlist","Interview","Award","Won","Lost"];
+
+function EditableProjectRow({ p, i, totalCount, rawName, leadPractice, removeProject, updateProject }: {
+  p: any; i: number; totalCount: number; rawName: string; leadPractice: string | null;
+  removeProject: (n: string, id: string) => void;
+  updateProject: (n: string, id: string, p: Record<string, unknown>) => void;
+}) {
+  const pid = String(p._id ?? i);
+  const [projName,  setProjName]  = useState(p.name   || "");
+  const [projNotes, setProjNotes] = useState(p.notes  || "");
+  useEffect(() => { setProjName(p.name || ""); setProjNotes(p.notes || ""); }, [p.name, p.notes]);
+  const practice = inferPractice(p.name, leadPractice);
+  return (
+    <div style={{ padding: "12px 0", borderBottom: i < totalCount-1 ? "1px solid var(--border-sub)" : "none" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8, alignItems: "start" }}>
+        <input value={projName} onChange={ev => setProjName(ev.target.value)}
+          onBlur={() => updateProject(rawName, pid, { name: projName })}
+          placeholder="Project name" style={{ ...fieldStyle, fontWeight: 700 }} />
+        <button onClick={() => removeProject(rawName, pid)}
+          style={{ background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
+            borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+        {[["Budget ($M)","budget_m","number"],["FY Start","year","number"]].map(([lbl,k,t]) => (
+          <div key={k}>
+            <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>{lbl}</label>
+            <input type={t} value={p[k] ?? ""} onChange={ev => updateProject(rawName, pid, { [k]: ev.target.value === "" ? null : Number(ev.target.value) })}
+              style={{ ...fieldStyle, fontSize: 12.5 }} />
+          </div>
+        ))}
+        <div>
+          <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Type</label>
+          <select value={p.type || "New Construction"} onChange={ev => updateProject(rawName, pid, { type: ev.target.value })}
+            style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px" }}>
+            {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Status</label>
+          <select value={p.pursuit_stage || "Tracking"} onChange={ev => updateProject(rawName, pid, { pursuit_stage: ev.target.value })}
+            style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px", color: PURSUIT_STAGE_COLORS[p.pursuit_stage || "Tracking"] ?? "inherit", fontWeight: 700 }}>
+            {PROJ_STAGES_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <input value={projNotes} onChange={ev => setProjNotes(ev.target.value)}
+        onBlur={() => updateProject(rawName, pid, { notes: projNotes })}
+        placeholder="Notes / HKS opportunity…" style={{ ...fieldStyle, fontSize: 12.5 }} />
+    </div>
+  );
+}
+
 export default function DetailPanel({
   inst, onClose, updateEdit, updateProject, addProject,
   removeProject, addContact, removeContact, updateContact, globalEdit,
@@ -32,53 +157,24 @@ export default function DetailPanel({
   updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
 }) {
   // Local notes state prevents scroll-jump on every keystroke
-  const [localNotes, setLocalNotes] = useState(inst?.edit?.notes || "");
-  useEffect(() => { setLocalNotes(inst?.edit?.notes || ""); }, [inst?._rawName]);
+  const [localNotes,      setLocalNotes]      = useState(inst?.edit?.notes       || "");
+  const [localNextAction, setLocalNextAction] = useState(inst?.edit?.next_action  || "");
+  const [localOwner,      setLocalOwner]      = useState(inst?.edit?.owner        || "");
+  const [localDispName,   setLocalDispName]   = useState(inst?.edit?.displayName  || inst?.name || "");
+
+  useEffect(() => {
+    const name = inst?._rawName;
+    setLocalNotes(inst?.edit?.notes       || "");
+    setLocalNextAction(inst?.edit?.next_action  || "");
+    setLocalOwner(inst?.edit?.owner        || "");
+    setLocalDispName(inst?.edit?.displayName  || inst?.name || "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inst?._rawName]);
 
   if (!inst) return null;
   const rawName  = inst._rawName || inst.name;
   const e        = inst.edit;
   const sysColor = SYSTEM_COLORS[inst.system] ?? "#6366F1";
-  const PROJ_STAGES = ["Tracking","Shortlist","Interview","Award","Won","Lost"];
-
-  const Stars = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
-    <span style={{ display: "inline-flex", gap: 3 }}>
-      {[1,2,3,4,5].map(n => (
-        <button key={n} onClick={() => onChange(n)}
-          style={{ background: "none", border: "none", padding: 3, cursor: "pointer",
-            color: n <= value ? "var(--amber)" : "var(--border-strong)" }}>
-          <Star size={20} fill={n <= value ? "var(--amber)" : "none"} />
-        </button>
-      ))}
-    </span>
-  );
-
-  const Row = ({ label, children, info = undefined }: { label: string; children: React.ReactNode; info?: string }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-      padding: "9px 0", borderBottom: "1px solid var(--border-sub)" }}>
-      <span style={{ fontSize: 13, color: "var(--text-2)", flexShrink: 0, marginRight: 12, fontFamily: FONT }}>
-        {label}{info && <InfoTip term={info} side="left" />}
-      </span>
-      <div style={{ flex: 1, textAlign: "right" }}>{children}</div>
-    </div>
-  );
-
-  const Section = ({ title, icon: Icon, children, action }: {
-    title: string; icon?: React.ElementType;
-    children: React.ReactNode; action?: React.ReactNode;
-  }) => (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)",
-      borderRadius: 10, padding: "14px 18px", marginBottom: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
-        color: "var(--text-3)", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: FONT }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {Icon && <Icon size={12} />}{title}
-        </span>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
 
   return (
     <>
@@ -121,8 +217,9 @@ export default function DetailPanel({
               )}
             </div>
             {globalEdit ? (
-              <input value={e.displayName || inst.name}
-                onChange={ev => updateEdit(rawName, { displayName: ev.target.value })}
+              <input value={localDispName}
+                onChange={ev => setLocalDispName(ev.target.value)}
+                onBlur={() => updateEdit(rawName, { displayName: localDispName })}
                 style={{ fontSize: 20, fontWeight: 700, background: "transparent", border: "none",
                   borderBottom: `2px solid ${sysColor}`, color: "var(--text-1)",
                   fontFamily: FONT, width: "100%", outline: "none" }} />
@@ -231,13 +328,17 @@ export default function DetailPanel({
           {/* Next action */}
           <Section title="Next Action">
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8 }}>
-              <input value={e.next_action || ""} onChange={ev => updateEdit(rawName, { next_action: ev.target.value })}
+              <input value={localNextAction}
+                onChange={ev => setLocalNextAction(ev.target.value)}
+                onBlur={() => updateEdit(rawName, { next_action: localNextAction })}
                 placeholder="e.g. Call Travis Laird re: Medical Complex"
                 style={fieldStyle} />
               <input type="date" value={e.next_action_date || ""} onChange={ev => updateEdit(rawName, { next_action_date: ev.target.value })}
                 style={{ ...fieldStyle, width: 150 }} />
             </div>
-            <input value={e.owner || ""} onChange={ev => updateEdit(rawName, { owner: ev.target.value })}
+            <input value={localOwner}
+              onChange={ev => setLocalOwner(ev.target.value)}
+              onBlur={() => updateEdit(rawName, { owner: localOwner })}
               placeholder="Owner (e.g. Ryan Swanson)"
               style={fieldStyle} />
           </Section>
@@ -281,30 +382,15 @@ export default function DetailPanel({
               <div style={{ fontSize: 12.5, color: "var(--text-3)", fontStyle: "italic" }}>No named contacts yet.</div>
             )}
             {inst.contacts?.map((c, idx) => (
-              <div key={idx} style={{
-                padding: "8px 0",
-                borderBottom: idx < inst.contacts.length - 1 ? "1px solid var(--border-sub)" : "none",
-                display: "flex", gap: 10, alignItems: "flex-start",
-              }}>
-                {globalEdit ? (
-                  <>
-                    <div style={{ flex: 1 }}>
-                      <input value={c.name} onChange={ev => updateContact(rawName, idx, { name: ev.target.value })}
-                        placeholder="Name" style={{ ...fieldStyle, marginBottom: 6, fontSize: 13 }} />
-                      <input value={c.notes || ""} onChange={ev => updateContact(rawName, idx, { notes: ev.target.value })}
-                        placeholder="Role / context" style={{ ...fieldStyle, fontSize: 12.5 }} />
-                    </div>
-                    <button onClick={() => removeContact(rawName, idx)}
-                      style={{ background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
-                        borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
-                  </>
-                ) : (
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</div>
-                    {c.notes && <div style={{ fontSize: 12.5, color: "var(--text-2)" }}>{c.notes}</div>}
-                  </div>
-                )}
-              </div>
+              globalEdit ? (
+                <EditableContactRow key={idx} c={c} idx={idx} isLast={idx === inst.contacts.length - 1}
+                  rawName={rawName} removeContact={removeContact} updateContact={updateContact} />
+              ) : (
+                <div key={idx} style={{ padding: "8px 0", borderBottom: idx < inst.contacts.length - 1 ? "1px solid var(--border-sub)" : "none" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</div>
+                  {c.notes && <div style={{ fontSize: 12.5, color: "var(--text-2)" }}>{c.notes}</div>}
+                </div>
+              )
             ))}
           </Section>
 
@@ -324,40 +410,9 @@ export default function DetailPanel({
               const practice = inferPractice(p.name, inst.lead_practice);
               const pid = String(p._id ?? i);
               if (globalEdit) return (
-                <div key={pid} style={{ padding: "12px 0", borderBottom: i < inst.projects.length-1 ? "1px solid var(--border-sub)" : "none" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8, alignItems: "start" }}>
-                    <input value={p.name} onChange={ev => updateProject(rawName, pid, { name: ev.target.value })}
-                      placeholder="Project name" style={{ ...fieldStyle, fontWeight: 700 }} />
-                    <button onClick={() => removeProject(rawName, pid)}
-                      style={{ background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
-                        borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    {[["Budget ($M)","budget_m","number"],["FY Start","year","number"]].map(([lbl,k,t]) => (
-                      <div key={k}>
-                        <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>{lbl}</label>
-                        <input type={t} value={p[k] ?? ""} onChange={ev => updateProject(rawName, pid, { [k]: ev.target.value === "" ? null : Number(ev.target.value) })}
-                          style={{ ...fieldStyle, fontSize: 12.5 }} />
-                      </div>
-                    ))}
-                    <div>
-                      <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Type</label>
-                      <select value={p.type || "New Construction"} onChange={ev => updateProject(rawName, pid, { type: ev.target.value })}
-                        style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px" }}>
-                        {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Status</label>
-                      <select value={p.pursuit_stage || "Tracking"} onChange={ev => updateProject(rawName, pid, { pursuit_stage: ev.target.value })}
-                        style={{ ...fieldStyle, fontSize: 12, padding: "7px 6px", color: PURSUIT_STAGE_COLORS[p.pursuit_stage || "Tracking"] ?? "inherit", fontWeight: 700 }}>
-                        {PROJ_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <input value={p.notes || ""} onChange={ev => updateProject(rawName, pid, { notes: ev.target.value })}
-                    placeholder="Notes / HKS opportunity…" style={{ ...fieldStyle, fontSize: 12.5 }} />
-                </div>
+                <EditableProjectRow key={pid} p={p} i={i} totalCount={inst.projects.length}
+                  rawName={rawName} leadPractice={inst.lead_practice}
+                  removeProject={removeProject} updateProject={updateProject} />
               );
               return (
                 <div key={pid} style={{ padding: "9px 0", borderBottom: i < inst.projects.length-1 ? "1px solid var(--border-sub)" : "none" }}>
