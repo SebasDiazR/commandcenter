@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Star, AlertCircle } from "lucide-react";
+import { Star, AlertCircle, List, Building2 } from "lucide-react";
 import InfoTip from "../InfoTip";
 import { SYSTEM_COLORS, ALL_STATUSES, STATUS_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGES, PURSUIT_STAGE_COLORS } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
@@ -73,8 +73,157 @@ function HoverRow({
 }
 
 export default function ActionList({ institutions, onSelect, updateEdit }: ActionListProps) {
+  const [showTop10, setShowTop10] = useState(false);
+  const [groupByInstitution, setGroupByInstitution] = useState(false);
+
   const sorted = [...institutions].sort((a, b) => b.energy_score - a.energy_score);
   const top10  = new Set(sorted.slice(0, 10).map(i => i._rawName));
+  const displayed = showTop10 ? sorted.filter(i => top10.has(i._rawName)) : sorted;
+
+  function renderRow(inst: EnrichedInstitution, idx: number) {
+    const focus  = top10.has(inst._rawName);
+    const status = (inst.edit.hks_status as string) || "Active";
+    const statusColor = STATUS_COLORS[status] ?? "var(--text-2)";
+    const pursuitStage = (inst.edit.pursuit_stage as string) || "Tracking";
+    const stageColor = PURSUIT_STAGE_COLORS[pursuitStage] ?? "var(--text-3)";
+    const actionDate = inst.edit.next_action_date;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const actionDue = actionDate ? new Date(actionDate as string) : null;
+    const isOverdue = actionDue && actionDue < today;
+    const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
+
+    return (
+      <HoverRow key={inst._rawName} onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0}>
+        <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>
+          {focus && (
+            <span style={{
+              background: "var(--amber)", color: "#FFF",
+              padding: "1px 5px", borderRadius: 3,
+              fontSize: 10, marginRight: 5, fontWeight: 700,
+              letterSpacing: "0.05em",
+            }}>FOCUS</span>
+          )}
+          {idx + 1}
+        </td>
+        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 160 }}>{inst.name}</td>
+        <td style={tdStyle}>
+          <span style={{
+            display: "inline-block", padding: "2px 8px",
+            background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)",
+            color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}>{inst.system}</span>
+        </td>
+        <td style={tdStyle}>
+          <select
+            value={pursuitStage}
+            onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { pursuit_stage: e.target.value }); }}
+            onClick={e => e.stopPropagation()}
+            aria-label={`Pursuit stage for ${inst.name}`}
+            style={{
+              padding: "4px 8px", fontSize: 12,
+              border: `1.5px solid ${stageColor}`,
+              borderRadius: 4, color: stageColor,
+              fontWeight: 700, background: "var(--bg-input)",
+              fontFamily: FONT, cursor: "pointer",
+            }}
+          >
+            {PURSUIT_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </td>
+        <td style={tdStyle}>
+          <select
+            value={status}
+            onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { hks_status: e.target.value }); }}
+            onClick={e => e.stopPropagation()}
+            aria-label={`Status for ${inst.name}`}
+            style={{
+              padding: "4px 8px", fontSize: 12,
+              border: `1.5px solid ${statusColor}`,
+              borderRadius: 4, color: statusColor,
+              fontWeight: 700, background: "var(--bg-input)",
+              fontFamily: FONT, cursor: "pointer",
+            }}
+          >
+            {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </td>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+          {actionDate ? (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 8px", borderRadius: 5, fontSize: 12, fontWeight: 600,
+              background: isOverdue ? "#FEE2E2" : isDueToday ? "#FEF3C7" : "var(--bg-raised)",
+              color: isOverdue ? "#DC2626" : isDueToday ? "#B45309" : "var(--text-2)",
+              border: `1px solid ${isOverdue ? "#FCA5A5" : isDueToday ? "#FDE68A" : "var(--border)"}`,
+            }}>
+              {(isOverdue || isDueToday) && <AlertCircle size={11} />}
+              {actionDate as string}
+            </span>
+          ) : (
+            <span style={{ color: "var(--text-3)", fontSize: 12 }}>—</span>
+          )}
+        </td>
+        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {fmtMoney(inst.pipeline)}
+        </td>
+        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap", color: "#A855F7" }}>
+          {fmtMoney(inst.weighted_pipeline)}
+        </td>
+        <td style={tdStyle}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <button
+              onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.max(0, (inst.edit.priority ?? inst.strategy_priority ?? 0) - 1) }); }}
+              aria-label={`Decrease priority for ${inst.name}`}
+              style={{
+                width: 24, height: 24,
+                border: "1px solid var(--border-strong)",
+                background: "var(--bg-chip)",
+                borderRadius: 4, cursor: "pointer",
+                fontWeight: 700, color: "var(--text-1)", fontSize: 14,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>−</button>
+            <strong style={{ minWidth: 22, textAlign: "center", color: "var(--amber)", fontSize: 14 }}>
+              {inst.edit.priority ?? inst.strategy_priority ?? "—"}
+            </strong>
+            <button
+              onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.min(10, (inst.edit.priority ?? inst.strategy_priority ?? 0) + 1) }); }}
+              aria-label={`Increase priority for ${inst.name}`}
+              style={{
+                width: 24, height: 24,
+                border: "1px solid var(--border-strong)",
+                background: "var(--bg-chip)",
+                borderRadius: 4, cursor: "pointer",
+                fontWeight: 700, color: "var(--text-1)", fontSize: 14,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>+</button>
+          </div>
+        </td>
+        <td style={tdStyle}>
+          <Stars value={inst.edit.relationship ?? 1} onChange={v => updateEdit(inst._rawName, { relationship: v })} />
+        </td>
+        <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15, color: focus ? "var(--amber)" : "var(--text-1)", textAlign: "right", whiteSpace: "nowrap" }}>
+          {inst.energy_score.toFixed(1)}
+        </td>
+      </HoverRow>
+    );
+  }
+
+  const toggleBtn = (active: boolean, onClick: () => void, icon: React.ReactNode, label: string) => (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+        cursor: "pointer", transition: "all 0.15s",
+        border: active ? "1.5px solid var(--amber)" : "1.5px solid var(--border-strong)",
+        background: active ? "rgba(245,158,11,0.12)" : "var(--bg-chip)",
+        color: active ? "var(--amber)" : "var(--text-2)",
+      }}
+    >
+      {icon}{label}
+    </button>
+  );
 
   if (institutions.length === 0) {
     return (
@@ -91,7 +240,13 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
 
   return (
     <div>
-      <h2 style={sectionTitleStyle}>Action List</h2>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+        <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Action List</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {toggleBtn(showTop10, () => setShowTop10(v => !v), <List size={13} />, "Top 10")}
+          {toggleBtn(groupByInstitution, () => setGroupByInstitution(v => !v), <Building2 size={13} />, "By Institution")}
+        </div>
+      </div>
       <div style={sectionSubStyle}>
         Ranked by Energy Score.{" "}
         <strong style={{ color: "var(--amber)" }}>FOCUS</strong> = top 10. Edit priority and relationship inline.
@@ -121,134 +276,34 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
               </tr>
             </thead>
             <tbody>
-              {sorted.map((inst, idx) => {
-                const focus  = top10.has(inst._rawName);
-                const status = (inst.edit.hks_status as string) || "Active";
-                const statusColor = STATUS_COLORS[status] ?? "var(--text-2)";
-                const pursuitStage = (inst.edit.pursuit_stage as string) || "Tracking";
-                const stageColor = PURSUIT_STAGE_COLORS[pursuitStage] ?? "var(--text-3)";
-                const actionDate = inst.edit.next_action_date;
-                const today = new Date(); today.setHours(0,0,0,0);
-                const actionDue = actionDate ? new Date(actionDate) : null;
-                const isOverdue = actionDue && actionDue < today;
-                const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
-
-                return (
-                  <HoverRow key={inst._rawName} onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0}>
-                    <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>
-                      {focus && (
-                        <span style={{
-                          background: "var(--amber)", color: "#FFF",
-                          padding: "1px 5px", borderRadius: 3,
-                          fontSize: 10, marginRight: 5, fontWeight: 700,
-                          letterSpacing: "0.05em",
-                        }}>FOCUS</span>
-                      )}
-                      {idx + 1}
-                    </td>
-                    <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 160 }}>{inst.name}</td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        display: "inline-block", padding: "2px 8px",
-                        background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)",
-                        color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
-                        whiteSpace: "nowrap",
-                      }}>{inst.system}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <select
-                        value={pursuitStage}
-                        onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { pursuit_stage: e.target.value }); }}
-                        onClick={e => e.stopPropagation()}
-                        aria-label={`Pursuit stage for ${inst.name}`}
-                        style={{
-                          padding: "4px 8px", fontSize: 12,
-                          border: `1.5px solid ${stageColor}`,
-                          borderRadius: 4, color: stageColor,
-                          fontWeight: 700, background: "var(--bg-input)",
-                          fontFamily: FONT, cursor: "pointer",
-                        }}
-                      >
-                        {PURSUIT_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td style={tdStyle}>
-                      <select
-                        value={status}
-                        onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { hks_status: e.target.value }); }}
-                        onClick={e => e.stopPropagation()}
-                        aria-label={`Status for ${inst.name}`}
-                        style={{
-                          padding: "4px 8px", fontSize: 12,
-                          border: `1.5px solid ${statusColor}`,
-                          borderRadius: 4, color: statusColor,
-                          fontWeight: 700, background: "var(--bg-input)",
-                          fontFamily: FONT, cursor: "pointer",
-                        }}
-                      >
-                        {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      {actionDate ? (
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 4,
-                          padding: "3px 8px", borderRadius: 5, fontSize: 12, fontWeight: 600,
-                          background: isOverdue ? "#FEE2E2" : isDueToday ? "#FEF3C7" : "var(--bg-raised)",
-                          color: isOverdue ? "#DC2626" : isDueToday ? "#B45309" : "var(--text-2)",
-                          border: `1px solid ${isOverdue ? "#FCA5A5" : isDueToday ? "#FDE68A" : "var(--border)"}`,
-                        }}>
-                          {(isOverdue || isDueToday) && <AlertCircle size={11} />}
-                          {actionDate}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--text-3)", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      {fmtMoney(inst.pipeline)}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap", color: "#A855F7" }}>
-                      {fmtMoney(inst.weighted_pipeline)}
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <button
-                          onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.max(0, (inst.edit.priority ?? inst.strategy_priority ?? 0) - 1) }); }}
-                          aria-label={`Decrease priority for ${inst.name}`}
-                          style={{
-                            width: 24, height: 24,
-                            border: "1px solid var(--border-strong)",
-                            background: "var(--bg-chip)",
-                            borderRadius: 4, cursor: "pointer",
-                            fontWeight: 700, color: "var(--text-1)", fontSize: 14,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>−</button>
-                        <strong style={{ minWidth: 22, textAlign: "center", color: "var(--amber)", fontSize: 14 }}>
-                          {inst.edit.priority ?? inst.strategy_priority ?? "—"}
-                        </strong>
-                        <button
-                          onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.min(10, (inst.edit.priority ?? inst.strategy_priority ?? 0) + 1) }); }}
-                          aria-label={`Increase priority for ${inst.name}`}
-                          style={{
-                            width: 24, height: 24,
-                            border: "1px solid var(--border-strong)",
-                            background: "var(--bg-chip)",
-                            borderRadius: 4, cursor: "pointer",
-                            fontWeight: 700, color: "var(--text-1)", fontSize: 14,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>+</button>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <Stars value={inst.edit.relationship ?? 1} onChange={v => updateEdit(inst._rawName, { relationship: v })} />
-                    </td>
-                    <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15, color: focus ? "var(--amber)" : "var(--text-1)", textAlign: "right", whiteSpace: "nowrap" }}>
-                      {inst.energy_score.toFixed(1)}
-                    </td>
-                  </HoverRow>
-                );
-              })}
+              {groupByInstitution
+                ? (() => {
+                    const groups = displayed.reduce<Record<string, EnrichedInstitution[]>>((acc, inst) => {
+                      const key = inst.system || "Other";
+                      (acc[key] ??= []).push(inst);
+                      return acc;
+                    }, {});
+                    let globalIdx = 0;
+                    return Object.entries(groups).map(([system, items]) => (
+                      <React.Fragment key={system}>
+                        <tr style={{ background: "var(--bg-base-2)" }}>
+                          <td colSpan={11} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
+                            <span style={{
+                              display: "inline-block", padding: "2px 10px",
+                              background: SYSTEM_COLORS[system] ?? "var(--bg-raised)",
+                              color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}>{system}</span>
+                            <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text-3)", fontWeight: 500 }}>
+                              {items.length} institution{items.length !== 1 ? "s" : ""}
+                            </span>
+                          </td>
+                        </tr>
+                        {items.map((inst) => renderRow(inst, globalIdx++))}
+                      </React.Fragment>
+                    ));
+                  })()
+                : displayed.map((inst, idx) => renderRow(inst, idx))}
             </tbody>
           </table>
         </div>

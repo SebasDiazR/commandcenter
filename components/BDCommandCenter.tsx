@@ -173,7 +173,8 @@ export default function BDCommandCenter() {
       const priority = e.priority ?? raw.strategy_priority ?? 0;
       const rel      = e.relationship ?? 1;
       const exp      = (e.expansion ?? 30) / 100;
-      const energy   = priority * Math.log(pipeline + 1) * urgency * (rel / 5) * (0.5 + exp / 2);
+      const lostPenalty = instStage === "Lost" ? 0.05 : 1;
+      const energy   = priority * Math.log(pipeline + 1) * urgency * (rel / 5) * (0.5 + exp / 2) * lostPenalty;
       return {
         ...raw,
         name:          e.displayName   ?? raw.name,
