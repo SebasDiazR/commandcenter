@@ -26,28 +26,28 @@ const Y_SPLIT = 20;    // energy score split
 const QUADRANTS = [
   {
     x1: X_SPLIT, x2: 10000, y1: Y_SPLIT, y2: 200,
-    label: "Prime Targets", icon: "⭐",
+    label: "Prime Targets",
     fill: "rgba(16,163,74,0.06)", stroke: "rgba(16,163,74,0.15)",
     color: "#16A34A",
     desc: "High pipeline + high energy. Focus here first.",
   },
   {
     x1: 1, x2: X_SPLIT, y1: Y_SPLIT, y2: 200,
-    label: "Build Momentum", icon: "🚀",
+    label: "Build Momentum",
     fill: "rgba(37,99,235,0.05)", stroke: "rgba(37,99,235,0.12)",
     color: "#2563EB",
     desc: "Strong relationship, pipeline not yet confirmed.",
   },
   {
     x1: X_SPLIT, x2: 10000, y1: 0, y2: Y_SPLIT,
-    label: "Reactivate", icon: "⚡",
+    label: "Reactivate",
     fill: "rgba(217,119,6,0.05)", stroke: "rgba(217,119,6,0.15)",
     color: "#D97706",
     desc: "Large pipeline, low engagement. Reconnect now.",
   },
   {
     x1: 1, x2: X_SPLIT, y1: 0, y2: Y_SPLIT,
-    label: "Watch List", icon: "👁",
+    label: "Watch List",
     fill: "rgba(148,163,184,0.04)", stroke: "rgba(148,163,184,0.1)",
     color: "#94A3B8",
     desc: "Low priority. Monitor only.",
@@ -105,7 +105,6 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
       <div>
         <h2 style={sectionTitleStyle}>Priority Matrix <InfoTip term="Energy Score" /></h2>
         <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-2)", marginBottom: 6 }}>No data to display</div>
           <div style={{ fontSize: 13, color: "var(--text-3)" }}>Adjust your filters to see institutions in the matrix.</div>
         </div>
@@ -145,7 +144,7 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
             fontFamily: FONT,
           }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: q.color, marginBottom: 2 }}>
-              {q.icon} {q.label}
+              {q.label}
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-1)", letterSpacing: "-0.02em" }}>
               {q.count}
@@ -220,7 +219,7 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
                     <strong style={{ color: "var(--amber)", display: "block", marginBottom: 6, fontSize: 14 }}>{d.name}</strong>
                     {q && (
                       <div style={{ fontSize: 11, fontWeight: 700, color: q.color, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                        {q.icon} {q.label}
+                        {q.label}
                       </div>
                     )}
                     <div style={{ color: "var(--text-2)" }}>Pipeline <strong style={{ color: "var(--text-1)" }}>{fmtMoney(d.pipeline)}</strong></div>
