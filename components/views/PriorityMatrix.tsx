@@ -13,63 +13,118 @@ import type { EnrichedInstitution } from "@/lib/types";
 
 const cardStyle         = SHARED_STYLES.card;
 const sectionTitleStyle = SHARED_STYLES.sectionTitle;
-const sectionSubStyle   = SHARED_STYLES.sectionSub;
 
 interface PriorityMatrixProps {
   institutions: EnrichedInstitution[];
   onSelect: (name: string) => void;
 }
 
-const X_SPLIT = 500;   // pipeline split ($500M)
-const Y_SPLIT = 20;    // energy score split
+const X_SPLIT = 500;
+const Y_SPLIT = 20;
 
 const QUADRANTS = [
   {
     x1: X_SPLIT, x2: 10000, y1: Y_SPLIT, y2: 200,
     label: "Prime Targets",
-    fill: "rgba(16,163,74,0.06)", stroke: "rgba(16,163,74,0.15)",
+    fill: "rgba(16,163,74,0.07)", stroke: "rgba(16,163,74,0.18)",
     color: "#16A34A",
-    desc: "High pipeline + high energy. Focus here first.",
+    desc: "High pipeline · high energy. Focus here first.",
   },
   {
     x1: 1, x2: X_SPLIT, y1: Y_SPLIT, y2: 200,
     label: "Build Momentum",
-    fill: "rgba(37,99,235,0.05)", stroke: "rgba(37,99,235,0.12)",
+    fill: "rgba(37,99,235,0.06)", stroke: "rgba(37,99,235,0.15)",
     color: "#2563EB",
-    desc: "Strong relationship, pipeline not yet confirmed.",
+    desc: "Strong engagement, pipeline not yet confirmed.",
   },
   {
     x1: X_SPLIT, x2: 10000, y1: 0, y2: Y_SPLIT,
     label: "Reactivate",
-    fill: "rgba(217,119,6,0.05)", stroke: "rgba(217,119,6,0.15)",
+    fill: "rgba(217,119,6,0.06)", stroke: "rgba(217,119,6,0.18)",
     color: "#D97706",
     desc: "Large pipeline, low engagement. Reconnect now.",
   },
   {
     x1: 1, x2: X_SPLIT, y1: 0, y2: Y_SPLIT,
     label: "Watch List",
-    fill: "rgba(148,163,184,0.04)", stroke: "rgba(148,163,184,0.1)",
-    color: "#94A3B8",
+    fill: "rgba(148,163,184,0.04)", stroke: "rgba(148,163,184,0.12)",
+    color: "#64748B",
     desc: "Low priority. Monitor only.",
   },
 ];
 
-function StatPill({ label, value, color }: { label: string; value: string; color?: string }) {
+function StatCard({
+  label, value, color, sub,
+}: {
+  label: string; value: string; color?: string; sub?: string;
+}) {
   return (
     <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "10px 18px",
+      display: "flex", flexDirection: "column",
+      padding: "12px 20px",
       background: "var(--bg-surface)",
       border: "1px solid var(--border)",
       borderRadius: 10,
-      minWidth: 90,
+      minWidth: 100,
+      gap: 2,
     }}>
-      <span style={{ fontSize: 18, fontWeight: 800, color: color ?? "var(--text-1)", letterSpacing: "-0.02em", fontFamily: FONT }}>
-        {value}
-      </span>
-      <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 500, marginTop: 1, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: FONT }}>
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: "var(--text-3)",
+        textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: FONT,
+      }}>
         {label}
       </span>
+      <span style={{
+        fontSize: 22, fontWeight: 800,
+        color: color ?? "var(--text-1)",
+        letterSpacing: "-0.03em", fontFamily: FONT, lineHeight: 1.2,
+      }}>
+        {value}
+      </span>
+      {sub && (
+        <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: FONT }}>{sub}</span>
+      )}
+    </div>
+  );
+}
+
+function QuadrantCard({
+  label, count, desc, color, fill, stroke,
+}: {
+  label: string; count: number; desc: string;
+  color: string; fill: string; stroke: string;
+}) {
+  return (
+    <div style={{
+      background: "var(--bg-surface)",
+      border: `1px solid var(--border)`,
+      borderTop: `3px solid ${color}`,
+      borderRadius: 8,
+      padding: "14px 16px",
+      fontFamily: FONT,
+      display: "flex", flexDirection: "column", gap: 6,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: color,
+        textTransform: "uppercase", letterSpacing: "0.08em",
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: 28, fontWeight: 800, color: "var(--text-1)",
+        letterSpacing: "-0.04em", lineHeight: 1,
+      }}>
+        {count}
+        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-3)", marginLeft: 4 }}>
+          institution{count !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div style={{
+        fontSize: 12, color: "var(--text-2)", lineHeight: 1.5,
+        paddingTop: 4, borderTop: "1px solid var(--border-sub)",
+      }}>
+        {desc}
+      </div>
     </div>
   );
 }
@@ -87,14 +142,13 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
       pipeline: i.pipeline,
     })), [institutions]);
 
-  const sorted      = useMemo(() => [...data].sort((a, b) => b.y - a.y), [data]);
-  const top5names   = useMemo(() => new Set(sorted.slice(0, 5).map(d => d.name)), [sorted]);
+  const sorted    = useMemo(() => [...data].sort((a, b) => b.y - a.y), [data]);
+  const top5names = useMemo(() => new Set(sorted.slice(0, 5).map(d => d.name)), [sorted]);
 
   const totalPipeline = data.reduce((s, d) => s + d.pipeline, 0);
   const highEnergy    = data.filter(d => d.y >= Y_SPLIT && d.x >= X_SPLIT).length;
   const avgEnergy     = data.length ? (data.reduce((s, d) => s + d.y, 0) / data.length) : 0;
 
-  // Per-quadrant counts for the insight section
   const qCounts = QUADRANTS.map(q => ({
     ...q,
     count: data.filter(d => d.x >= q.x1 && d.x < q.x2 && d.y >= q.y1 && d.y < q.y2).length,
@@ -113,54 +167,50 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── Row 1: Title + KPI stats ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
-          <h2 style={{ ...sectionTitleStyle, marginBottom: 2 }}>
+          <h2 style={{ ...sectionTitleStyle, marginBottom: 4 }}>
             Priority Matrix <InfoTip term="Energy Score" />
           </h2>
-          <div style={sectionSubStyle}>
-            Pipeline × Energy Score — click any bubble to open details
-          </div>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--text-2)", fontFamily: FONT, lineHeight: 1.5 }}>
+            Institutions plotted by verified pipeline vs. energy score. Click any bubble to open details.
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <StatPill label="Plotted" value={String(data.length)} />
-          <StatPill label="Pipeline" value={fmtMoney(totalPipeline)} color="var(--amber)" />
-          <StatPill label="Prime Targets" value={String(highEnergy)} color="#16A34A" />
-          <StatPill label="Avg Energy" value={avgEnergy.toFixed(1)} color="#2563EB" />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <StatCard label="Institutions" value={String(data.length)} />
+          <StatCard label="Total Pipeline" value={fmtMoney(totalPipeline)} color="var(--amber)" />
+          <StatCard label="Prime Targets" value={String(highEnergy)} color="#16A34A" />
+          <StatCard label="Avg Energy" value={avgEnergy.toFixed(1)} color="#2563EB" />
         </div>
       </div>
 
-      {/* Quadrant summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
+      {/* ── Row 2: Quadrant summary ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
         {qCounts.map(q => (
-          <div key={q.label} style={{
-            background: q.fill,
-            border: `1px solid ${q.stroke}`,
-            borderLeft: `3px solid ${q.color}`,
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontFamily: FONT,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: q.color, marginBottom: 2 }}>
-              {q.label}
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-1)", letterSpacing: "-0.02em" }}>
-              {q.count}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2, lineHeight: 1.4 }}>
-              {q.desc}
-            </div>
-          </div>
+          <QuadrantCard key={q.label} {...q} />
         ))}
       </div>
 
-      {/* Chart */}
+      {/* ── Row 3: Chart ── */}
       <div style={{ ...cardStyle, paddingBottom: 16 }}>
+        {/* Chart sub-header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-sub)",
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", fontFamily: FONT, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            Scatter Plot
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-3)", fontFamily: FONT }}>
+            Bubble size = project count · Top 5 labeled
+          </span>
+        </div>
+
         <ResponsiveContainer width="100%" height={500}>
-          <ScatterChart margin={{ top: 30, right: 80, bottom: 50, left: 60 }}>
-            {/* Quadrant zone fills */}
+          <ScatterChart margin={{ top: 20, right: 90, bottom: 52, left: 60 }}>
             {QUADRANTS.map(q => (
               <ReferenceArea
                 key={q.label}
@@ -170,31 +220,38 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
               />
             ))}
 
-            <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.6} />
+            <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.5} strokeDasharray="3 3" />
 
             <XAxis
               type="number" dataKey="x" scale="log" domain={[1, 10000]}
-              tick={{ fontSize: 12, fill: "var(--chart-axis)", fontFamily: FONT }}
+              tick={{ fontSize: 12, fill: "var(--text-2)", fontFamily: FONT }}
               tickFormatter={v => v >= 1000 ? `$${v / 1000}B` : `$${v}M`}
-              label={{ value: "Verified Pipeline (log scale)", position: "insideBottom", offset: -10, fill: "var(--text-2)", fontSize: 13, fontFamily: FONT }}
+              label={{
+                value: "Verified Pipeline (log scale)",
+                position: "insideBottom", offset: -14,
+                fill: "var(--text-2)", fontSize: 12, fontFamily: FONT, fontWeight: 600,
+              }}
             />
             <YAxis
               type="number" dataKey="y" domain={[0, "auto"]}
-              tick={{ fontSize: 12, fill: "var(--chart-axis)", fontFamily: FONT }}
-              label={{ value: "Energy Score", angle: -90, position: "insideLeft", offset: 10, fill: "var(--text-2)", fontSize: 13, fontFamily: FONT }}
+              tick={{ fontSize: 12, fill: "var(--text-2)", fontFamily: FONT }}
+              label={{
+                value: "Energy Score",
+                angle: -90, position: "insideLeft", offset: 14,
+                fill: "var(--text-2)", fontSize: 12, fontFamily: FONT, fontWeight: 600,
+              }}
             />
             <ZAxis type="number" dataKey="z" range={[80, 800]} />
 
-            {/* Split lines */}
             <ReferenceLine
               x={X_SPLIT}
-              stroke="var(--border-strong)" strokeDasharray="5 4" strokeWidth={1.5}
-              label={{ value: "$500M", position: "top", fill: "var(--text-3)", fontSize: 11, fontFamily: FONT }}
+              stroke="var(--border-strong)" strokeDasharray="6 4" strokeWidth={1.5}
+              label={{ value: "$500M", position: "top", fill: "var(--text-2)", fontSize: 12, fontWeight: 600, fontFamily: FONT }}
             />
             <ReferenceLine
               y={Y_SPLIT}
-              stroke="var(--border-strong)" strokeDasharray="5 4" strokeWidth={1.5}
-              label={{ value: "Energy 20", position: "right", fill: "var(--text-3)", fontSize: 11, fontFamily: FONT }}
+              stroke="var(--border-strong)" strokeDasharray="6 4" strokeWidth={1.5}
+              label={{ value: "Energy 20", position: "right", fill: "var(--text-2)", fontSize: 12, fontWeight: 600, fontFamily: FONT }}
             />
 
             <Tooltip
@@ -208,23 +265,43 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
                     background: "var(--chart-tooltip-bg)",
                     border: "1px solid var(--chart-tooltip-border)",
                     color: "var(--text-1)",
-                    padding: "12px 16px",
+                    padding: "14px 18px",
                     borderRadius: 10,
                     fontSize: 13,
-                    lineHeight: 1.7,
+                    lineHeight: 1.75,
                     boxShadow: "var(--shadow-md)",
                     fontFamily: FONT,
-                    minWidth: 180,
+                    minWidth: 200,
                   }}>
-                    <strong style={{ color: "var(--amber)", display: "block", marginBottom: 6, fontSize: 14 }}>{d.name}</strong>
+                    <strong style={{
+                      color: "var(--text-1)", display: "block",
+                      marginBottom: 8, fontSize: 14, lineHeight: 1.3,
+                    }}>
+                      {d.name}
+                    </strong>
                     {q && (
-                      <div style={{ fontSize: 11, fontWeight: 700, color: q.color, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                      <div style={{
+                        fontSize: 11, fontWeight: 700, color: q.color,
+                        marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em",
+                        paddingBottom: 6, borderBottom: "1px solid var(--border-sub)",
+                      }}>
                         {q.label}
                       </div>
                     )}
-                    <div style={{ color: "var(--text-2)" }}>Pipeline <strong style={{ color: "var(--text-1)" }}>{fmtMoney(d.pipeline)}</strong></div>
-                    <div style={{ color: "var(--text-2)" }}>Projects <strong style={{ color: "var(--text-1)" }}>{d.projects}</strong> · Priority <strong style={{ color: "var(--text-1)" }}>{d.priority}/10</strong></div>
-                    <div style={{ color: "var(--text-2)" }}>Energy Score <strong style={{ color: "var(--amber)", fontSize: 15 }}>{d.y.toFixed(1)}</strong></div>
+                    <div style={{ color: "var(--text-2)", fontSize: 13 }}>
+                      Pipeline{" "}
+                      <strong style={{ color: "var(--text-1)" }}>{fmtMoney(d.pipeline)}</strong>
+                    </div>
+                    <div style={{ color: "var(--text-2)", fontSize: 13 }}>
+                      Projects{" "}
+                      <strong style={{ color: "var(--text-1)" }}>{d.projects}</strong>
+                      {" · "}Priority{" "}
+                      <strong style={{ color: "var(--text-1)" }}>{d.priority}/10</strong>
+                    </div>
+                    <div style={{ color: "var(--text-2)", fontSize: 13, marginTop: 4 }}>
+                      Energy Score{" "}
+                      <strong style={{ color: "var(--amber)", fontSize: 16 }}>{d.y.toFixed(1)}</strong>
+                    </div>
                   </div>
                 );
               }}
@@ -235,12 +312,14 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
                 dataKey="name"
                 content={({ x, y, value }) => {
                   if (!top5names.has(value as string)) return null;
-                  const label = (value as string).length > 18 ? (value as string).slice(0, 16) + "…" : value as string;
+                  const label = (value as string).length > 20
+                    ? (value as string).slice(0, 18) + "…"
+                    : value as string;
                   return (
                     <text
-                      x={Number(x)} y={Number(y) - 14}
+                      x={Number(x)} y={Number(y) - 16}
                       textAnchor="middle"
-                      fontSize={10} fontWeight={700} fontFamily={FONT}
+                      fontSize={11} fontWeight={700} fontFamily={FONT}
                       fill="var(--text-1)"
                       style={{ pointerEvents: "none" }}
                     >
@@ -253,9 +332,9 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
                 <Cell
                   key={i}
                   fill={SYSTEM_COLORS[d.system] || "var(--text-3)"}
-                  fillOpacity={top5names.has(d.name) ? 0.95 : 0.75}
-                  stroke={top5names.has(d.name) ? "var(--text-1)" : "var(--bg-base)"}
-                  strokeWidth={top5names.has(d.name) ? 2 : 1.5}
+                  fillOpacity={top5names.has(d.name) ? 0.95 : 0.72}
+                  stroke={top5names.has(d.name) ? "var(--text-1)" : "rgba(0,0,0,0.15)"}
+                  strokeWidth={top5names.has(d.name) ? 2 : 1}
                 />
               ))}
             </Scatter>
@@ -263,13 +342,16 @@ export default function PriorityMatrix({ institutions, onSelect }: PriorityMatri
         </ResponsiveContainer>
 
         {/* Legend */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+        <div style={{
+          display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center",
+          marginTop: 12, paddingTop: 14, borderTop: "1px solid var(--border)",
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", fontFamily: FONT, textTransform: "uppercase", letterSpacing: "0.07em", marginRight: 4 }}>
+            System
+          </span>
           {Object.entries(SYSTEM_COLORS).map(([s, c]) => (
             <LegendChip key={s} color={c} label={s} />
           ))}
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-3)", fontFamily: FONT, alignSelf: "center" }}>
-            Bubble size = project count · Top 5 labeled
-          </span>
         </div>
       </div>
     </div>
