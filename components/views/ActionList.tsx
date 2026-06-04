@@ -73,6 +73,7 @@ function HoverRow({
 }
 
 export default function ActionList({ institutions, onSelect, updateEdit }: ActionListProps) {
+  const [activeTab, setActiveTab] = useState<"institutions" | "projects">("institutions");
   const [showTop10, setShowTop10] = useState(false);
   const [groupByInstitution, setGroupByInstitution] = useState(false);
 
@@ -243,7 +244,6 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
       <div>
         <h2 style={sectionTitleStyle}>Action List</h2>
         <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-2)", marginBottom: 6 }}>No institutions match your filters</div>
           <div style={{ fontSize: 13, color: "var(--text-3)" }}>Try adjusting the filters in the sidebar to see institutions here.</div>
         </div>
@@ -253,143 +253,183 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
         <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Action List</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          {toggleBtn(showTop10, () => setShowTop10(v => !v), <List size={13} />, "Top 10")}
-          {toggleBtn(groupByInstitution, () => setGroupByInstitution(v => !v), <Building2 size={13} />, "By Institution")}
+      </div>
+
+      {/* ── Tab bar ── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        borderBottom: "2px solid var(--border)", marginBottom: 20, flexWrap: "wrap", gap: 8,
+      }}>
+        <div style={{ display: "flex", gap: 0 }}>
+          {(["institutions", "projects"] as const).map(tab => {
+            const active = activeTab === tab;
+            const Icon = tab === "institutions" ? Building2 : FolderOpen;
+            const label = tab === "institutions" ? "By Institution" : "By Project";
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 18px",
+                  fontSize: 13, fontWeight: active ? 700 : 500,
+                  color: active ? "var(--amber)" : "var(--text-2)",
+                  background: "none", border: "none",
+                  borderBottom: active ? "2px solid var(--amber)" : "2px solid transparent",
+                  marginBottom: -2,
+                  cursor: "pointer", transition: "color 0.15s",
+                  fontFamily: FONT,
+                }}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Controls — only shown on institutions tab */}
+        {activeTab === "institutions" && (
+          <div style={{ display: "flex", gap: 8, paddingBottom: 8 }}>
+            {toggleBtn(showTop10, () => setShowTop10(v => !v), <List size={13} />, "Top 10")}
+            {toggleBtn(groupByInstitution, () => setGroupByInstitution(v => !v), <Building2 size={13} />, "By System")}
+          </div>
+        )}
       </div>
-      <div style={sectionSubStyle}>
-        Ranked by Energy Score.{" "}
-        <strong style={{ color: "var(--amber)" }}>FOCUS</strong> = top 10. Edit priority and relationship inline.
-      </div>
-      <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Institution</th>
-                <th style={thStyle}>System</th>
-                <th style={thStyle}>Stage</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Action Due</th>
-                <th style={{ ...thStyle, textAlign: "right" as const }}>Pipeline</th>
-                <th style={{ ...thStyle, textAlign: "right" as const }}>Wtd. Pipeline</th>
-                <th style={thStyle}>
-                  Priority <InfoTip term="Priority Score" />
-                </th>
-                <th style={thStyle}>
-                  Relationship <InfoTip term="Relationship" />
-                </th>
-                <th style={{ ...thStyle, textAlign: "right" as const }}>
-                  Energy <InfoTip term="Energy Score" />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupByInstitution
-                ? (() => {
-                    const groups = displayed.reduce<Record<string, EnrichedInstitution[]>>((acc, inst) => {
-                      const key = inst.system || "Other";
-                      (acc[key] ??= []).push(inst);
-                      return acc;
-                    }, {});
-                    let globalIdx = 0;
-                    return Object.entries(groups).map(([system, items]) => (
-                      <React.Fragment key={system}>
-                        <tr style={{ background: "var(--bg-base-2)" }}>
-                          <td colSpan={11} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
+
+      {/* ── Tab: Institutions ── */}
+      {activeTab === "institutions" && (
+        <>
+          <div style={{ ...sectionSubStyle, marginBottom: 12 }}>
+            Ranked by Energy Score.{" "}
+            <strong style={{ color: "var(--amber)" }}>FOCUS</strong> = top 10. Edit priority and relationship inline.
+          </div>
+          <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
+                    <th style={thStyle}>#</th>
+                    <th style={thStyle}>Institution</th>
+                    <th style={thStyle}>System</th>
+                    <th style={thStyle}>Stage</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Action Due</th>
+                    <th style={{ ...thStyle, textAlign: "right" as const }}>Pipeline</th>
+                    <th style={{ ...thStyle, textAlign: "right" as const }}>Wtd. Pipeline</th>
+                    <th style={thStyle}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Priority <InfoTip term="Priority Score" /></span></th>
+                    <th style={thStyle}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Relationship <InfoTip term="Relationship" /></span></th>
+                    <th style={{ ...thStyle, textAlign: "right" as const }}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Energy <InfoTip term="Energy Score" /></span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupByInstitution
+                    ? (() => {
+                        const groups = displayed.reduce<Record<string, EnrichedInstitution[]>>((acc, inst) => {
+                          const key = inst.system || "Other";
+                          (acc[key] ??= []).push(inst);
+                          return acc;
+                        }, {});
+                        let globalIdx = 0;
+                        return Object.entries(groups).map(([system, items]) => (
+                          <React.Fragment key={system}>
+                            <tr style={{ background: "var(--bg-base-2)" }}>
+                              <td colSpan={11} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
+                                <span style={{
+                                  display: "inline-block", padding: "2px 10px",
+                                  background: SYSTEM_COLORS[system] ?? "var(--bg-raised)",
+                                  color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
+                                  whiteSpace: "nowrap",
+                                }}>{system}</span>
+                                <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text-3)", fontWeight: 500 }}>
+                                  {items.length} institution{items.length !== 1 ? "s" : ""}
+                                </span>
+                              </td>
+                            </tr>
+                            {items.map((inst) => renderRow(inst, globalIdx++))}
+                          </React.Fragment>
+                        ));
+                      })()
+                    : displayed.map((inst, idx) => renderRow(inst, idx))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Tab: Projects ── */}
+      {activeTab === "projects" && (
+        <>
+          <div style={{ ...sectionSubStyle, marginBottom: 12 }}>
+            Top 10 active projects by budget across all institutions.
+          </div>
+          <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
+                    <th style={thStyle}>#</th>
+                    <th style={thStyle}>Project</th>
+                    <th style={thStyle}>Institution</th>
+                    <th style={thStyle}>System</th>
+                    <th style={thStyle}>Stage</th>
+                    <th style={thStyle}>Year</th>
+                    <th style={{ ...thStyle, textAlign: "right" as const }}>Budget</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {top10Projects.map(({ project: p, inst }, idx) => {
+                    const stageColor = PURSUIT_STAGE_COLORS[p.pursuit_stage ?? ""] ?? "var(--text-3)";
+                    return (
+                      <HoverRow key={p._id ?? `${inst._rawName}::${idx}`} onClick={() => onSelect(inst._rawName)} isFocus={idx < 3} isEven={idx % 2 === 0}>
+                        <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12 }}>
+                          {idx < 3 && (
                             <span style={{
-                              display: "inline-block", padding: "2px 10px",
-                              background: SYSTEM_COLORS[system] ?? "var(--bg-raised)",
-                              color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
-                              whiteSpace: "nowrap",
-                            }}>{system}</span>
-                            <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text-3)", fontWeight: 500 }}>
-                              {items.length} institution{items.length !== 1 ? "s" : ""}
-                            </span>
-                          </td>
-                        </tr>
-                        {items.map((inst) => renderRow(inst, globalIdx++))}
-                      </React.Fragment>
-                    ));
-                  })()
-                : displayed.map((inst, idx) => renderRow(inst, idx))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {/* ── Top 10 Individual Projects ── */}
-      <div style={{ marginTop: 32 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-          <FolderOpen size={16} style={{ color: "var(--amber)", flexShrink: 0 }} />
-          <h3 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Top 10 Projects by Budget</h3>
-        </div>
-        <div style={sectionSubStyle}>Largest individual active projects across all institutions.</div>
-        <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
-                  <th style={thStyle}>#</th>
-                  <th style={thStyle}>Project</th>
-                  <th style={thStyle}>Institution</th>
-                  <th style={thStyle}>System</th>
-                  <th style={thStyle}>Stage</th>
-                  <th style={thStyle}>Year</th>
-                  <th style={{ ...thStyle, textAlign: "right" as const }}>Budget</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top10Projects.map(({ project: p, inst }, idx) => {
-                  const stageColor = PURSUIT_STAGE_COLORS[p.pursuit_stage ?? ""] ?? "var(--text-3)";
-                  return (
-                    <HoverRow key={p._id ?? `${inst._rawName}::${idx}`} onClick={() => onSelect(inst._rawName)} isFocus={idx < 3} isEven={idx % 2 === 0}>
-                      <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12 }}>
-                        {idx < 3 && (
-                          <span style={{
-                            background: "var(--amber)", color: "#FFF",
-                            padding: "1px 5px", borderRadius: 3,
-                            fontSize: 10, marginRight: 5, fontWeight: 700,
-                            letterSpacing: "0.05em",
-                          }}>TOP</span>
-                        )}
-                        {idx + 1}
-                      </td>
-                      <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 180 }}>{p.name}</td>
-                      <td style={{ ...tdStyle, color: "var(--text-2)" }}>{inst.name}</td>
-                      <td style={tdStyle}>
-                        <span style={{
-                          display: "inline-block", padding: "2px 8px",
-                          background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)",
-                          color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
-                          whiteSpace: "nowrap",
-                        }}>{inst.system}</span>
-                      </td>
-                      <td style={tdStyle}>
-                        {p.pursuit_stage ? (
+                              background: "var(--amber)", color: "#FFF",
+                              padding: "1px 5px", borderRadius: 3,
+                              fontSize: 10, marginRight: 5, fontWeight: 700,
+                              letterSpacing: "0.05em",
+                            }}>TOP</span>
+                          )}
+                          {idx + 1}
+                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 180 }}>{p.name}</td>
+                        <td style={{ ...tdStyle, color: "var(--text-2)" }}>{inst.name}</td>
+                        <td style={tdStyle}>
                           <span style={{
                             display: "inline-block", padding: "2px 8px",
-                            border: `1.5px solid ${stageColor}`,
-                            borderRadius: 4, color: stageColor,
-                            fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
-                          }}>{p.pursuit_stage}</span>
-                        ) : <span style={{ color: "var(--text-3)" }}>—</span>}
-                      </td>
-                      <td style={{ ...tdStyle, color: "var(--text-2)" }}>{p.year ?? "—"}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--amber)", whiteSpace: "nowrap" }}>
-                        {fmtMoney(p.budget_m ?? 0)}
-                      </td>
-                    </HoverRow>
-                  );
-                })}
-              </tbody>
-            </table>
+                            background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)",
+                            color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
+                            whiteSpace: "nowrap",
+                          }}>{inst.system}</span>
+                        </td>
+                        <td style={tdStyle}>
+                          {p.pursuit_stage ? (
+                            <span style={{
+                              display: "inline-block", padding: "2px 8px",
+                              border: `1.5px solid ${stageColor}`,
+                              borderRadius: 4, color: stageColor,
+                              fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                            }}>{p.pursuit_stage}</span>
+                          ) : <span style={{ color: "var(--text-3)" }}>—</span>}
+                        </td>
+                        <td style={{ ...tdStyle, color: "var(--text-2)" }}>{p.year ?? "—"}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--amber)", whiteSpace: "nowrap" }}>
+                          {fmtMoney(p.budget_m ?? 0)}
+                        </td>
+                      </HoverRow>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
