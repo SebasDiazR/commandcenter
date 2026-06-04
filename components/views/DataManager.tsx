@@ -849,11 +849,15 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
                       </button>
                     </td>
                   </TR>
-                  {isExp && (
-                    <tr style={{ background: "#FAFBFC" }}>
+                  <tr style={{ background: "#FAFBFC" }}>
                       <td />
-                      <td colSpan={14} style={{ padding: "12px 16px 16px" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <td colSpan={14} style={{ padding: 0, overflow: "hidden" }}>
+                        <div style={{
+                          maxHeight: isExp ? 400 : 0,
+                          overflow: "hidden",
+                          transition: "max-height 0.28s cubic-bezier(0.4,0,0.2,1)",
+                        }}>
+                        <div style={{ padding: "12px 16px 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                           <div>
                             <label style={{ fontSize: 10, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em" }}>GSF</label>
                             <InlineInput value={inst.edit.gsf ?? inst.gsf ?? ""} type="number"
@@ -880,9 +884,9 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
                             />
                           </div>
                         </div>
+                        </div>
                       </td>
                     </tr>
-                  )}
                 </React.Fragment>
               );
             })}
