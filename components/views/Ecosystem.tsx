@@ -185,25 +185,25 @@ type SortBy = "energy" | "pipeline" | "priority";
 type ProjSortBy = "budget" | "year" | "stage";
 type ViewMode = "grid" | "system" | "project";
 
-export default function Ecosystem({ institutions, onSelect }: {
+export default function Ecosystem({ institutions, onSelect, showLost = false }: {
   institutions: EnrichedInstitution[];
   onSelect: (name: string) => void;
   globalEdit: boolean;
+  showLost?: boolean;
 }) {
   const [view,       setView]       = useState<ViewMode>("grid");
   const [sortBy,     setSortBy]     = useState<SortBy>("energy");
   const [projSortBy, setProjSortBy] = useState<ProjSortBy>("budget");
-  const [showAll,    setShowAll]    = useState(false);
 
-  // Strip lost projects (and recompute pipeline) unless showAll is on
+  // Filter out Lost projects unless the global showLost filter is active
   const filteredInstitutions = useMemo(() => {
-    if (showAll) return institutions;
+    if (showLost) return institutions;
     return institutions.map(inst => {
-      const projects = inst.projects.filter(p => p.pursuit_stage !== "Lost");
+      const projects = inst.projects.filter(p => p.pursuit_stage !== "Lost" && p.outcome !== "Lost");
       const pipeline = projects.reduce((s, p) => s + (p.budget_m ?? 0), 0);
       return { ...inst, projects, pipeline };
     }).filter(inst => inst.projects.length > 0);
-  }, [institutions, showAll]);
+  }, [institutions, showLost]);
 
   const sorted = useMemo(() => [...filteredInstitutions].sort((a, b) => {
     if (sortBy === "pipeline") return b.pipeline - a.pipeline;
@@ -300,18 +300,6 @@ export default function Ecosystem({ institutions, onSelect }: {
             ))}
           </div>
         )}
-
-        {/* Show All toggle */}
-        <button onClick={() => setShowAll(v => !v)} style={{
-          padding: "5px 12px", borderRadius: 6, cursor: "pointer",
-          border: `1px solid ${showAll ? "var(--text-3)" : "var(--border)"}`,
-          background: showAll ? "var(--bg-raised)" : "transparent",
-          color: showAll ? "var(--text-1)" : "var(--text-3)",
-          fontSize: 11, fontFamily: FONT, fontWeight: showAll ? 700 : 400,
-          transition: "all 0.15s",
-        }}>
-          {showAll ? "Active + Won/Lost" : "Active Only"}
-        </button>
 
         <div style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--text-3)" }}>
           {view === "project"

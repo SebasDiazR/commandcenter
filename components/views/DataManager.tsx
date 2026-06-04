@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import {
   Plus, Trash2, Download, Upload, Search, ChevronUp, ChevronDown,
   Save, X, Check, CheckSquare, Square, Filter, MoreHorizontal,
@@ -26,7 +26,8 @@ export interface DataManagerProps {
   editState: EditStateMap;
   updateEdit: (rawName: string, patch: Record<string, unknown>) => void;
   updateProject: (rawName: string, projId: string, patch: Record<string, unknown>) => void;
-  addProject: (rawName: string) => void;
+  addProject: (rawName: string, data?: Partial<RawProject>) => void;
+  addInstitution: (data: Record<string, unknown>) => void;
   removeProject: (rawName: string, projId: string) => void;
   onSave: () => void;
   dirty: boolean;
@@ -343,6 +344,8 @@ function TR({ children, selected, onClick, style }: {
 }
 
 // ─── Inline editable cell ─────────────────────────────────────────────────────
+// Uncontrolled: typing never triggers a React re-render, so focus is never lost.
+// Parent value is synced to the DOM only when the field is not active.
 function InlineInput({
   value, onChange, type = "text", placeholder, min, max, step, align, bold,
 }: {
@@ -352,28 +355,32 @@ function InlineInput({
   placeholder?: string; min?: number; max?: number; step?: number;
   align?: "left" | "right" | "center"; bold?: boolean;
 }) {
-  const [focused, setFocused] = useState(false);
-  const style: React.CSSProperties = {
-    ...inputBase,
-    textAlign: align ?? "left",
-    fontWeight: bold ? 600 : 400,
-    border: focused ? `1.5px solid ${D.amber}` : "1.5px solid transparent",
-    background: focused ? "#FFFBEB" : "transparent",
-    borderRadius: D.radiusSm,
-  };
+  const ref = useRef<HTMLInputElement>(null);
+
+  // Sync parent value → DOM only when not focused (e.g. external reset/save)
+  useEffect(() => {
+    if (ref.current && document.activeElement !== ref.current) {
+      ref.current.value = String(value ?? "");
+    }
+  }, [value]);
+
+  function commit() {
+    const raw = ref.current?.value ?? "";
+    if (type === "number") onChange(raw === "" ? null : Number(raw));
+    else onChange(raw);
+  }
+
   return (
-    <input type={type}
-      value={value ?? ""}
+    <input ref={ref}
+      type={type}
+      defaultValue={String(value ?? "")}
       placeholder={placeholder}
       min={min} max={max} step={step ?? (type === "number" ? 0.1 : undefined)}
-      onChange={e => {
-        if (type === "number") onChange(e.target.value === "" ? null : Number(e.target.value));
-        else onChange(e.target.value);
-      }}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
       onClick={e => e.stopPropagation()}
-      style={style}
+      className="dm-inline-input"
+      style={{ ...inputBase, textAlign: align ?? "left", fontWeight: bold ? 600 : 400, borderRadius: D.radiusSm }}
     />
   );
 }
@@ -528,9 +535,10 @@ function AddProjectModal({ institutions, onClose, onAdd }: {
 // ═════════════════════════════════════════════════════════════════════════════
 // INSTITUTIONS TAB
 // ═════════════════════════════════════════════════════════════════════════════
-function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
+function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dirty }: {
   institutions: EnrichedInstitution[];
   updateEdit: (rawName: string, patch: Record<string, unknown>) => void;
+  addInstitution: (data: Record<string, unknown>) => void;
   onSave: () => void; dirty: boolean;
 }) {
   const [search, setSearch]       = useState("");
@@ -542,10 +550,21 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
   const [showAdd, setShowAdd]     = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const { toast, show: showToast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollPos = useRef({ top: 0, left: 0 });
 
-  const handleSort = (col: string) =>
+  useLayoutEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop  = scrollPos.current.top;
+      scrollRef.current.scrollLeft = scrollPos.current.left;
+    }
+  });
+
+  const handleSort = (col: string) => {
+    scrollPos.current = { top: 0, left: 0 };
     setSort(s => ({ col, dir: s.col === col && s.dir === "asc" ? "desc" : "asc" }));
+  };
 
   const rows = useMemo(() => {
     let data = institutions;
@@ -717,7 +736,9 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
       <FilterChips filters={activeFilters} onRemove={clearFilter} />
 
       {/* Table */}
-      <div style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
+      <div ref={scrollRef}
+        onScroll={e => { scrollPos.current.top = e.currentTarget.scrollTop; scrollPos.current.left = e.currentTarget.scrollLeft; }}
+        style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
@@ -886,6 +907,7 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
         <AddInstitutionModal
           onClose={() => setShowAdd(false)}
           onAdd={(data) => {
+            addInstitution(data);
             showToast("Institution added — save to persist");
           }}
         />
@@ -901,7 +923,7 @@ function InstitutionsTab({ institutions, updateEdit, onSave, dirty }: {
 function ProjectsTab({ institutions, updateProject, addProject, removeProject, onSave, dirty }: {
   institutions: EnrichedInstitution[];
   updateProject: (rawName: string, projId: string, patch: Record<string, unknown>) => void;
-  addProject: (rawName: string) => void;
+  addProject: (rawName: string, data?: Partial<RawProject>) => void;
   removeProject: (rawName: string, projId: string) => void;
   onSave: () => void; dirty: boolean;
 }) {
@@ -1202,8 +1224,8 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
           institutions={institutions}
           onClose={() => setShowAdd(false)}
           onAdd={(rawName, data) => {
-            addProject(rawName);
-            showToast("Project added — edit the new row");
+            addProject(rawName, data);
+            showToast("Project added");
           }}
         />
       )}
@@ -1593,12 +1615,35 @@ function FundingTab() {
 // ═════════════════════════════════════════════════════════════════════════════
 // COMPARE TAB
 // ═════════════════════════════════════════════════════════════════════════════
+type CompareMode = "institutions" | "projects";
+
+interface FlatProject extends RawProject {
+  _instRawName: string;
+  _instDisplayName: string;
+  _system: string;
+  _uid: string; // instRawName + "||" + project name
+}
+
 function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<CompareMode>("institutions");
+  const [selectedInsts, setSelectedInsts] = useState<Set<string>>(new Set());
+  const [selectedProjs, setSelectedProjs] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [feeRate, setFeeRate] = useState(6.5);
 
-  const filtered = useMemo(() => {
+  // flat list of all projects across institutions
+  const allProjects = useMemo<FlatProject[]>(() =>
+    institutions.flatMap(inst =>
+      inst.projects.map(p => ({
+        ...p,
+        _instRawName: inst._rawName,
+        _instDisplayName: inst.edit.displayName ?? inst.name,
+        _system: inst.system,
+        _uid: `${inst._rawName}||${p.name}`,
+      }))
+    ), [institutions]);
+
+  const filteredInsts = useMemo(() => {
     if (!search) return institutions;
     const q = search.toLowerCase();
     return institutions.filter(i =>
@@ -1607,12 +1652,25 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
     );
   }, [institutions, search]);
 
-  const toggle = (rn: string) =>
-    setSelected(s => { const n = new Set(s); n.has(rn) ? n.delete(rn) : n.add(rn); return n; });
+  const filteredProjs = useMemo(() => {
+    if (!search) return allProjects;
+    const q = search.toLowerCase();
+    return allProjects.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p._instDisplayName.toLowerCase().includes(q) ||
+      (p.type ?? "").toLowerCase().includes(q)
+    );
+  }, [allProjects, search]);
 
-  const compared = institutions.filter(i => selected.has(i._rawName));
+  const toggleInst = (rn: string) =>
+    setSelectedInsts(s => { const n = new Set(s); n.has(rn) ? n.delete(rn) : n.add(rn); return n; });
+  const toggleProj = (uid: string) =>
+    setSelectedProjs(s => { const n = new Set(s); n.has(uid) ? n.delete(uid) : n.add(uid); return n; });
 
-  const COMPARE_COLS = [
+  const comparedInsts = institutions.filter(i => selectedInsts.has(i._rawName));
+  const comparedProjs = allProjects.filter(p => selectedProjs.has(p._uid));
+
+  const INST_COLS = [
     { label: "Institution",    render: (i: EnrichedInstitution) => <strong style={{ fontSize: 13 }}>{i.edit.displayName ?? i.name}</strong> },
     { label: "System",        render: (i: EnrichedInstitution) => <Badge label={i.system} color={SYSTEM_COLORS[i.system] ?? D.text2} /> },
     { label: "Pipeline ($M)", render: (i: EnrichedInstitution) => <span style={{ fontWeight: 800, color: D.amber }}>{fmtMoney(i.pipeline)}</span> },
@@ -1623,122 +1681,212 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
     { label: "Pursuit Stage", render: (i: EnrichedInstitution) => { const s = i.edit.pursuit_stage ?? "Tracking"; return <Badge label={s} color={STAGE_COLORS[s] ?? D.text2} />; } },
     { label: "Practice",      render: (i: EnrichedInstitution) => { const lp = i.lead_practice ?? i.edit.lead_practice; return lp ? <Badge label={lp} color={PRACTICE_COLORS[lp] ?? D.text2} /> : <span style={{ color: D.text3 }}>—</span>; } },
     { label: "Energy Score",  render: (i: EnrichedInstitution) => <span style={{ fontWeight: 700, color: i.energy_score > 50 ? D.amber : D.text2 }}>{i.energy_score.toFixed(1)}</span> },
-    { label: "Relationship ★", render: (i: EnrichedInstitution) => <span>{Array.from({length: i.edit.relationship ?? 1}, (_,n) => "★").join("")}</span> },
+    { label: "Relationship ★", render: (i: EnrichedInstitution) => <span>{Array.from({length: i.edit.relationship ?? 1}, () => "★").join("")}</span> },
     { label: "Owner",         render: (i: EnrichedInstitution) => <span style={{ color: D.text2 }}>{i.edit.owner || "—"}</span> },
     { label: "Next Action",   render: (i: EnrichedInstitution) => <span style={{ fontSize: 11, color: D.text2 }}>{i.edit.next_action || "—"}</span> },
   ];
 
+  const PROJ_COLS: { label: string; render: (p: FlatProject) => React.ReactNode }[] = [
+    { label: "Project",       render: p => <strong style={{ fontSize: 13 }}>{p.name}</strong> },
+    { label: "Institution",   render: p => <span style={{ color: SYSTEM_COLORS[p._system] ?? D.text2, fontWeight: 600 }}>{p._instDisplayName}</span> },
+    { label: "System",        render: p => <Badge label={p._system} color={SYSTEM_COLORS[p._system] ?? D.text2} /> },
+    { label: "Budget ($M)",   render: p => <span style={{ fontWeight: 800, color: D.amber }}>{fmtMoney(p.budget_m)}</span> },
+    { label: "Net Fee Est.",  render: p => <span style={{ fontWeight: 700, color: "#16A34A" }}>{fmtMoney((p.budget_m ?? 0) * feeRate / 100)}</span> },
+    { label: "FY",            render: p => <span style={{ fontWeight: 600 }}>{p.year ? `FY${p.year}` : "—"}</span> },
+    { label: "Type",          render: p => <span style={{ color: D.text2 }}>{p.type || "—"}</span> },
+    { label: "Pursuit Stage", render: p => { const s = p.pursuit_stage ?? "Tracking"; return <Badge label={s} color={STAGE_COLORS[s] ?? D.text2} />; } },
+    { label: "Source",        render: p => <Badge label={p.source === "thecb" ? "THECB" : "Strategy"} color={p.source === "thecb" ? "#0369A1" : "#7C3AED"} /> },
+    { label: "Confidence",    render: p => p.win_probability != null ? <span style={{ fontWeight: 700, color: D.amber }}>{p.win_probability}%</span> : <span style={{ color: D.text3 }}>—</span> },
+    { label: "Notes",         render: p => <span style={{ fontSize: 11, color: D.text2 }}>{p.notes || "—"}</span> },
+  ];
+
+  const modeSelCount = mode === "institutions" ? selectedInsts.size : selectedProjs.size;
+
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      {/* Left: Institution picker */}
+      {/* Left: picker */}
       <div style={{ width: 260, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: D.bg }}>
         <div style={{ padding: "12px 14px", borderBottom: `1px solid ${D.border}`, background: "#fff" }}>
+          {/* Mode toggle */}
+          <div style={{ display: "flex", background: D.bg, borderRadius: D.radiusSm, padding: 2, marginBottom: 10 }}>
+            {(["institutions", "projects"] as CompareMode[]).map(m => (
+              <button key={m} onClick={() => { setMode(m); setSearch(""); }}
+                style={{
+                  flex: 1, padding: "5px 0", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                  fontFamily: "inherit", borderRadius: D.radiusSm, transition: D.transition,
+                  background: mode === m ? "#fff" : "transparent",
+                  color: mode === m ? D.text1 : D.text3,
+                  boxShadow: mode === m ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+                  textTransform: "capitalize",
+                }}>
+                {m}
+              </button>
+            ))}
+          </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-            Select to compare ({selected.size} selected)
+            Select to compare ({modeSelCount} selected)
           </div>
           <div style={{ position: "relative" }}>
             <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: D.text3, pointerEvents: "none" }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Filter institutions…"
+              placeholder={mode === "institutions" ? "Filter institutions…" : "Filter projects…"}
               style={{ width: "100%", padding: "7px 7px 7px 28px", fontSize: 12, border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, fontFamily: "inherit", color: D.text1, outline: "none", boxSizing: "border-box" }} />
           </div>
         </div>
+
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {filtered.map(inst => {
+          {mode === "institutions" ? filteredInsts.map(inst => {
             const rn = inst._rawName;
-            const sel = selected.has(rn);
+            const sel = selectedInsts.has(rn);
             return (
-              <div key={rn} onClick={() => toggle(rn)}
-                style={{
-                  padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${D.borderSub}`,
-                  background: sel ? D.amberBg : "transparent",
-                  borderLeft: sel ? `3px solid ${D.amber}` : "3px solid transparent",
-                  transition: D.transition,
-                }}>
+              <div key={rn} onClick={() => toggleInst(rn)}
+                style={{ padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${D.borderSub}`, background: sel ? D.amberBg : "transparent", borderLeft: sel ? `3px solid ${D.amber}` : "3px solid transparent", transition: D.transition }}>
                 <div style={{ fontSize: 12, fontWeight: sel ? 700 : 400, color: D.text1 }}>{inst.edit.displayName ?? inst.name}</div>
                 <div style={{ fontSize: 10, color: D.text3, marginTop: 1 }}>{inst.system} · {inst.projects.length} projects · {fmtMoney(inst.pipeline)}</div>
               </div>
             );
+          }) : filteredProjs.map(p => {
+            const sel = selectedProjs.has(p._uid);
+            return (
+              <div key={p._uid} onClick={() => toggleProj(p._uid)}
+                style={{ padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${D.borderSub}`, background: sel ? D.amberBg : "transparent", borderLeft: sel ? `3px solid ${D.amber}` : "3px solid transparent", transition: D.transition }}>
+                <div style={{ fontSize: 12, fontWeight: sel ? 700 : 400, color: D.text1 }}>{p.name}</div>
+                <div style={{ fontSize: 10, color: D.text3, marginTop: 1 }}>{p._instDisplayName} · {fmtMoney(p.budget_m)} · FY{p.year ?? "?"}</div>
+              </div>
+            );
           })}
         </div>
-        {selected.size > 0 && (
-          <button onClick={() => setSelected(new Set())}
+
+        {modeSelCount > 0 && (
+          <button onClick={() => mode === "institutions" ? setSelectedInsts(new Set()) : setSelectedProjs(new Set())}
             style={{ margin: 10, padding: "7px 12px", background: "#fff", border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 11, fontWeight: 600, color: D.text2, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
             <X size={11} /> Clear selection
           </button>
         )}
       </div>
 
-      {/* Right: Comparison table */}
+      {/* Right: comparison table */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Fee rate control */}
-        <div style={{ padding: "10px 20px", background: "#fff", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: D.text2 }}>Fee Rate for Net Fee Est.:</span>
+        <div style={{ padding: "10px 20px", background: "#fff", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          {/* Mode toggle — mirrored prominently in the top bar */}
+          <div style={{ display: "flex", background: D.bg, borderRadius: D.radiusSm, padding: 2, border: `1px solid ${D.border}` }}>
+            {(["institutions", "projects"] as CompareMode[]).map(m => (
+              <button key={m} onClick={() => { setMode(m); setSearch(""); }}
+                style={{
+                  padding: "5px 14px", fontSize: 11.5, fontWeight: 700, border: "none", cursor: "pointer",
+                  fontFamily: "inherit", borderRadius: D.radiusSm, transition: D.transition,
+                  background: mode === m ? D.amber : "transparent",
+                  color: mode === m ? "#fff" : D.text3,
+                  boxShadow: mode === m ? "0 1px 4px rgba(245,158,11,0.35)" : "none",
+                  textTransform: "capitalize",
+                }}>
+                {m === "institutions" ? "🏛 Institutions" : "📁 Projects"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ width: 1, height: 24, background: D.border }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: D.text2 }}>Fee Rate:</span>
           <input type="range" min={3} max={12} step={0.5} value={feeRate}
             onChange={e => setFeeRate(Number(e.target.value))}
-            style={{ width: 140, accentColor: D.amber }} />
+            style={{ width: 120, accentColor: D.amber }} />
           <span style={{ fontSize: 14, fontWeight: 800, color: D.amber, minWidth: 45 }}>{feeRate}%</span>
           <span style={{ fontSize: 11, color: D.text3, marginLeft: "auto" }}>
-            {compared.length === 0 ? "Select institutions from the left panel to compare." : `Comparing ${compared.length} institution${compared.length > 1 ? "s" : ""}`}
+            {modeSelCount === 0
+              ? `Select ${mode} from the left panel to compare.`
+              : `Comparing ${modeSelCount} ${mode === "institutions" ? `institution${modeSelCount > 1 ? "s" : ""}` : `project${modeSelCount > 1 ? "s" : ""}`}`}
           </span>
         </div>
 
-        {compared.length === 0 ? (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: D.text3 }}>
-            <BarChart3 size={40} color={D.border} />
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Select institutions to compare</div>
-            <div style={{ fontSize: 12 }}>Click any institution in the left panel to add it to your comparison.</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 13, fontFamily: "inherit", minWidth: "100%" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...hdrCell, width: 160, position: "sticky", left: 0, zIndex: 20, background: "#F8FAFC" }}>Metric</th>
-                  {compared.map(inst => (
-                    <th key={inst._rawName} style={{ ...hdrCell, minWidth: 180, textAlign: "left" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ color: SYSTEM_COLORS[inst.system] ?? D.text1, fontWeight: 700 }}>{inst.edit.displayName ?? inst.name}</span>
-                        <button onClick={() => toggle(inst._rawName)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: D.text3, padding: 2, display: "inline-flex" }}>
-                          <X size={12} />
-                        </button>
-                      </div>
-                    </th>
+        {mode === "institutions" ? (
+          comparedInsts.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: D.text3 }}>
+              <BarChart3 size={40} color={D.border} />
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Select institutions to compare</div>
+              <div style={{ fontSize: 12 }}>Click any institution in the left panel to add it to your comparison.</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 13, fontFamily: "inherit", minWidth: "100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...hdrCell, width: 160, position: "sticky", left: 0, zIndex: 20, background: "#F8FAFC" }}>Metric</th>
+                    {comparedInsts.map(inst => (
+                      <th key={inst._rawName} style={{ ...hdrCell, minWidth: 180, textAlign: "left" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ color: SYSTEM_COLORS[inst.system] ?? D.text1, fontWeight: 700 }}>{inst.edit.displayName ?? inst.name}</span>
+                          <button onClick={() => toggleInst(inst._rawName)} style={{ background: "none", border: "none", cursor: "pointer", color: D.text3, padding: 2, display: "inline-flex" }}><X size={12} /></button>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {INST_COLS.map((col, ri) => (
+                    <tr key={col.label} style={{ background: ri % 2 === 0 ? "#fff" : D.bg, borderBottom: `1px solid ${D.borderSub}` }}>
+                      <td style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", position: "sticky", left: 0, background: ri % 2 === 0 ? "#fff" : D.bg, zIndex: 10 }}>{col.label}</td>
+                      {comparedInsts.map(inst => (
+                        <td key={inst._rawName} style={{ padding: "10px 14px" }}>{col.render(inst)}</td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE_COLS.map((col, ri) => (
-                  <tr key={col.label} style={{ background: ri % 2 === 0 ? "#fff" : D.bg, borderBottom: `1px solid ${D.borderSub}` }}>
-                    <td style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", position: "sticky", left: 0, background: ri % 2 === 0 ? "#fff" : D.bg, zIndex: 10 }}>
-                      {col.label}
-                    </td>
-                    {compared.map(inst => (
-                      <td key={inst._rawName} style={{ padding: "10px 14px" }}>
-                        {col.render(inst)}
+                  <tr style={{ background: "#fff", borderTop: `2px solid ${D.border}` }}>
+                    <td style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", position: "sticky", left: 0, background: "#fff", zIndex: 10 }}>Top Projects</td>
+                    {comparedInsts.map(inst => (
+                      <td key={inst._rawName} style={{ padding: "10px 14px", verticalAlign: "top" }}>
+                        {[...inst.projects].sort((a, b) => (b.budget_m ?? 0) - (a.budget_m ?? 0)).slice(0, 3).map((p, pi) => (
+                          <div key={pi} style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: D.text1 }}>{p.name}</div>
+                            <div style={{ fontSize: 10, color: D.text3 }}>{fmtMoney(p.budget_m)} · FY{p.year} · {p.pursuit_stage ?? "Tracking"}</div>
+                          </div>
+                        ))}
+                        {inst.projects.length > 3 && <div style={{ fontSize: 10, color: D.text3 }}>+{inst.projects.length - 3} more</div>}
                       </td>
                     ))}
                   </tr>
-                ))}
-                {/* Projects detail */}
-                <tr style={{ background: "#fff", borderTop: `2px solid ${D.border}` }}>
-                  <td style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", position: "sticky", left: 0, background: "#fff", zIndex: 10 }}>Top Projects</td>
-                  {compared.map(inst => (
-                    <td key={inst._rawName} style={{ padding: "10px 14px", verticalAlign: "top" }}>
-                      {[...inst.projects].sort((a,b) => (b.budget_m ?? 0) - (a.budget_m ?? 0)).slice(0,3).map((p, pi) => (
-                        <div key={pi} style={{ marginBottom: 6 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: D.text1 }}>{p.name}</div>
-                          <div style={{ fontSize: 10, color: D.text3 }}>{fmtMoney(p.budget_m)} · FY{p.year} · {p.pursuit_stage ?? "Tracking"}</div>
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : (
+          comparedProjs.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: D.text3 }}>
+              <FolderOpen size={40} color={D.border} />
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Select projects to compare</div>
+              <div style={{ fontSize: 12 }}>Click any project in the left panel to add it to your comparison.</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 13, fontFamily: "inherit", minWidth: "100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...hdrCell, width: 160, position: "sticky", left: 0, zIndex: 20, background: "#F8FAFC" }}>Metric</th>
+                    {comparedProjs.map(p => (
+                      <th key={p._uid} style={{ ...hdrCell, minWidth: 180, textAlign: "left" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div>
+                            <div style={{ fontWeight: 700, color: D.text1 }}>{p.name}</div>
+                            <div style={{ fontSize: 10, fontWeight: 400, color: D.text3, marginTop: 1 }}>{p._instDisplayName}</div>
+                          </div>
+                          <button onClick={() => toggleProj(p._uid)} style={{ background: "none", border: "none", cursor: "pointer", color: D.text3, padding: 2, display: "inline-flex", flexShrink: 0 }}><X size={12} /></button>
                         </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {PROJ_COLS.map((col, ri) => (
+                    <tr key={col.label} style={{ background: ri % 2 === 0 ? "#fff" : D.bg, borderBottom: `1px solid ${D.borderSub}` }}>
+                      <td style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", position: "sticky", left: 0, background: ri % 2 === 0 ? "#fff" : D.bg, zIndex: 10 }}>{col.label}</td>
+                      {comparedProjs.map(p => (
+                        <td key={p._uid} style={{ padding: "10px 14px" }}>{col.render(p)}</td>
                       ))}
-                      {inst.projects.length > 3 && <div style={{ fontSize: 10, color: D.text3 }}>+{inst.projects.length - 3} more</div>}
-                    </td>
+                    </tr>
                   ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
     </div>
@@ -1750,7 +1898,7 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function DataManager({
   institutions, editState, updateEdit,
-  updateProject, addProject, removeProject, onSave, dirty,
+  updateProject, addProject, addInstitution, removeProject, onSave, dirty,
 }: DataManagerProps) {
   const [tab, setTab] = useState<Tab>("institutions");
   const totalProjects = institutions.reduce((s, i) => s + i.projects.length, 0);
@@ -1775,6 +1923,7 @@ export default function DataManager({
         input[type=number]::-webkit-inner-spin-button { opacity: 0 }
         input[type=number]:hover::-webkit-inner-spin-button { opacity: 1 }
         tr:hover input[type=number]::-webkit-inner-spin-button { opacity: 0.6 }
+        .dm-inline-input:focus { border-color: ${D.amber} !important; background: #FFFBEB !important; outline: none; }
       `}</style>
 
       <div style={{ background: "#fff", border: `1px solid ${D.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: D.shadow }}>
@@ -1845,7 +1994,7 @@ export default function DataManager({
         {/* Tab content — fixed height so inner tables can scroll */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, height: "calc(100vh - 230px)", overflow: "hidden" }}>
           {tab === "institutions" && (
-            <InstitutionsTab institutions={institutions} updateEdit={updateEdit} onSave={onSave} dirty={dirty} />
+            <InstitutionsTab institutions={institutions} updateEdit={updateEdit} addInstitution={addInstitution} onSave={onSave} dirty={dirty} />
           )}
           {tab === "projects" && (
             <ProjectsTab institutions={institutions} updateProject={updateProject} addProject={addProject} removeProject={removeProject} onSave={onSave} dirty={dirty} />

@@ -37,7 +37,7 @@ export default function Sidebar({
   const activeCount =
     filters.systems.length + filters.practices.length + filters.types.length +
     filters.pursuitStages.length +
-    (filters.minPriority > 0 ? 1 : 0) + (filters.search ? 1 : 0);
+    (filters.minPriority > 0 ? 1 : 0) + (filters.search ? 1 : 0) + (filters.showLost ? 1 : 0);
 
   const toggle = (key: "systems" | "practices" | "types" | "pursuitStages", val: string) => {
     const arr = filters[key] as string[];
@@ -45,7 +45,7 @@ export default function Sidebar({
   };
 
   const clearFilters = () => onFiltersChange({
-    systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", hasContacts: false,
+    systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", hasContacts: false, showLost: false,
   });
 
   const chip = (active: boolean, color: string): React.CSSProperties => ({
@@ -219,8 +219,40 @@ export default function Sidebar({
         ))}
       </div>
 
+      {/* Show Lost toggle */}
+      <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8,
+        background: filters.showLost ? "rgba(239,68,68,0.08)" : "var(--bg-chip)",
+        border: `1px solid ${filters.showLost ? "rgba(239,68,68,0.35)" : "var(--border)"}`,
+        transition: "all 0.15s", cursor: "pointer",
+      }}
+        onClick={() => onFiltersChange({ ...filters, showLost: !filters.showLost })}
+        role="button" tabIndex={0}
+        onKeyDown={e => e.key === "Enter" && onFiltersChange({ ...filters, showLost: !filters.showLost })}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 28, height: 16, borderRadius: 8,
+            background: filters.showLost ? "#EF4444" : "var(--border-strong)",
+            position: "relative", transition: "background 0.2s", flexShrink: 0,
+          }}>
+            <div style={{
+              position: "absolute", top: 2, left: filters.showLost ? 14 : 2,
+              width: 12, height: 12, borderRadius: "50%", background: "#fff",
+              transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }} />
+          </div>
+          <span style={{ fontSize: 11.5, fontWeight: 700, fontFamily: FONT,
+            color: filters.showLost ? "#EF4444" : "var(--text-2)" }}>
+            Show Lost
+          </span>
+        </div>
+        <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 4, fontFamily: FONT }}>
+          {filters.showLost ? "Lost projects included in all totals" : "Lost projects hidden from all views"}
+        </div>
+      </div>
+
       {/* Actions */}
-      <div style={{ marginTop: "auto", paddingTop: 14, display: "flex", flexDirection: "column", gap: 7,
+      <div style={{ marginTop: 14, paddingTop: 14, display: "flex", flexDirection: "column", gap: 7,
         borderTop: "1px solid var(--border)" }}>
         <button onClick={onExportPDF} style={{
           padding: "8px 13px", borderRadius: 7, cursor: "pointer",

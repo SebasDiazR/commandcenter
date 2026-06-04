@@ -105,6 +105,7 @@ export interface FilterState {
   minPriority: number;
   search: string;
   hasContacts: boolean;
+  showLost: boolean;
 }
 
 export interface PersistedState {

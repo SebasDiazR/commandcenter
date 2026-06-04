@@ -3,15 +3,20 @@ import { createClient } from '@supabase/supabase-js';
 import type { EditStateMap, InstEditState } from '@/lib/types';
 
 function serverSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error("Supabase env vars not set (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)");
+  return createClient(url, key);
+}
+
+function missingCreds() {
+  return NextResponse.json({ error: "Supabase credentials not configured" }, { status: 503 });
 }
 
 // GET /api/edits — load all institution edits from Supabase
 export async function GET() {
-  const sb = serverSupabase();
+  let sb: ReturnType<typeof serverSupabase>;
+  try { sb = serverSupabase(); } catch { return missingCreds(); }
   const { data, error } = await sb.from('institution_edits').select('*');
 
   if (error) {
@@ -49,7 +54,8 @@ export async function GET() {
 
 // POST /api/edits — save entire EditStateMap to Supabase
 export async function POST(request: NextRequest) {
-  const sb = serverSupabase();
+  let sb: ReturnType<typeof serverSupabase>;
+  try { sb = serverSupabase(); } catch { return missingCreds(); }
   const { editState }: { editState: EditStateMap } = await request.json();
 
   const rows = Object.entries(editState).map(([name, e]) => ({

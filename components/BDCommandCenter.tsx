@@ -58,6 +58,12 @@ export default function BDCommandCenter() {
   const [editState, _setEditState] = useState<EditStateMap>(
     () => persisted?.editState ?? defaultEdit
   );
+  const [extraRawInsts, setExtraRawInsts] = useState<import("@/lib/types").RawInstitution[]>(() => {
+    try {
+      const raw = typeof window !== "undefined" && localStorage.getItem("hks_bd_extra_institutions_v1");
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
   const [undoStack, setUndoStack] = useState<EditStateMap[]>([]);
   const [redoStack, setRedoStack] = useState<EditStateMap[]>([]);
   const [lastSaved, setLastSaved] = useState<string | null>(
@@ -140,17 +146,19 @@ export default function BDCommandCenter() {
   const [showExport, setShowExport]     = useState(false);
   const [filters, setFilters]           = useState<FilterState>({
     systems: [], practices: [], types: [], pursuitStages: [],
-    minPriority: 0, search: "", hasContacts: false,
+    minPriority: 0, search: "", hasContacts: false, showLost: false,
   });
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const institutions = useMemo((): EnrichedInstitution[] =>
-    RAW_DATA.institutions.map(raw => {
+    [...RAW_DATA.institutions, ...extraRawInsts].map(raw => {
       const e = (editState[raw.name] || {}) as any;
-      const projects = e.projects ?? raw.projects.map(p => ({
-        ...p, _id: p._id ?? Math.random().toString(36).slice(2),
+      const projects = e.projects ?? raw.projects.map((p, idx) => ({
+        ...p, _id: p._id ?? `${raw.name}::${idx}`,
       }));
-      const activeProjects = projects.filter(p => p.outcome !== "Lost");
+      const activeProjects = filters.showLost
+        ? projects
+        : projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost");
       const pipeline = activeProjects.reduce((s, p) => s + (p.budget_m || 0), 0);
       const instStage = (e.pursuit_stage as string) || "Tracking";
       const instStageProb = STAGE_WIN_PROBABILITY[instStage] ?? 10;
@@ -159,7 +167,7 @@ export default function BDCommandCenter() {
         const prob = (p.win_probability != null ? p.win_probability : projStageProb) / 100;
         return s + (p.budget_m || 0) * prob;
       }, 0);
-      const ys       = projects.map(p => p.year).filter(Boolean) as number[];
+      const ys       = activeProjects.map(p => p.year).filter(Boolean) as number[];
       const ny       = ys.length ? Math.min(...ys) : null;
       const urgency  = ny ? Math.max(0.3, 1 - (ny - 2026) * 0.15) : 0.4;
       const priority = e.priority ?? raw.strategy_priority ?? 0;
@@ -180,7 +188,7 @@ export default function BDCommandCenter() {
         _rawName: raw.name,
       };
     }),
-  [editState]);
+  [editState, extraRawInsts, filters.showLost]);
 
   const visible = useMemo(() => institutions.filter(inst => {
     if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
@@ -211,13 +219,54 @@ export default function BDCommandCenter() {
   const updateEdit    = (n: string, p: Record<string, unknown>) => setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
   const updateProject = (n: string, id: string, p: Record<string, unknown>) =>
     setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
-  const addProject    = (n: string) => setEditState(s => ({
+  const addProject    = (n: string, data?: Partial<import("@/lib/types").RawProject>) => setEditState(s => ({
     ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
       _id: Math.random().toString(36).slice(2),
-      name: "New Project", budget_m: null, year: 2027,
-      type: "New Construction" as const, source: "strategy" as const, notes: "",
+      name: data?.name ?? "New Project",
+      budget_m: data?.budget_m ?? null,
+      year: data?.year ?? 2027,
+      type: (data?.type ?? "New Construction") as import("@/lib/types").RawProject["type"],
+      source: (data?.source ?? "strategy") as "thecb" | "strategy",
+      notes: data?.notes ?? "",
     }] },
   }));
+  const addInstitution = (data: Record<string, unknown>) => {
+    const rawName = String(data.name ?? "").trim();
+    if (!rawName) return;
+    const newRaw: import("@/lib/types").RawInstitution = {
+      name: rawName,
+      system: String(data.system ?? "Other Public"),
+      strategy_priority: data.priority ? Number(data.priority) : null,
+      thecb_total_m: null,
+      lead_practice: String(data.lead_practice ?? "") || null,
+      projects: [],
+      contacts: [],
+      gsf: null, nasf: null, eg_nasf: null,
+    };
+    setExtraRawInsts(prev => {
+      const next = [...prev, newRaw];
+      try { localStorage.setItem("hks_bd_extra_institutions_v1", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setEditState(s => ({
+      ...s,
+      [rawName]: {
+        priority: data.priority ? Number(data.priority) : null,
+        relationship: 1, expansion: 30,
+        notes: String(data.notes ?? ""),
+        displayName: rawName,
+        system: String(data.system ?? "Other Public"),
+        lead_practice: String(data.lead_practice ?? "") || null,
+        contacts: [], projects: [],
+        gsf: null, nasf: null, eg_nasf: null, thecb_total_m: null,
+        strategy_notes: "",
+        hks_status: String(data.hks_status ?? "Active"),
+        next_action: "", next_action_date: "",
+        owner: String(data.owner ?? ""),
+        pursuit_stage: "Tracking",
+      } satisfies import("@/lib/types").InstEditState,
+    }));
+  };
   const removeProject = (n: string, id: string) =>
     setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.filter(p => p._id !== id) } }));
   const addContact    = (n: string) => setEditState(s => ({
@@ -281,14 +330,33 @@ export default function BDCommandCenter() {
             {/* Right controls */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
 
-              {/* Stats pills */}
-              {[
-                { label: "Pipeline",     value: `$${RAW_DATA.metadata.pipeline_total_b}B`, color: "#10B981" },
-                { label: "Wtd. Pipeline", value: fmtMoney(visible.reduce((s,i) => s + i.weighted_pipeline, 0)), color: "#A855F7" },
-                { label: "Projects",     value: RAW_DATA.metadata.project_count,            color: "#6366F1" },
-                { label: "Institutions", value: institutions.length,                         color: "#F59E0B" },
-                { label: "Visible",      value: visible.length,                              color: "#0EA5E9" },
-              ].map(s => (
+              {/* Stats pills — computed fresh from projects so Lost toggle always reflects */}
+              {(() => {
+                const isLost = (p: { pursuit_stage?: string; outcome?: string }) =>
+                  p.pursuit_stage === "Lost" || p.outcome === "Lost";
+                const activeP = (inst: EnrichedInstitution) =>
+                  filters.showLost ? inst.projects : inst.projects.filter(p => !isLost(p));
+                const totalPipeline = visible.reduce((s, i) =>
+                  s + activeP(i).reduce((ps, p) => ps + (p.budget_m ?? 0), 0), 0);
+                const totalWtd = visible.reduce((s, i) => {
+                  const instStage = (i.edit.pursuit_stage as string) || "Tracking";
+                  const instProb = STAGE_WIN_PROBABILITY[instStage] ?? 10;
+                  return s + activeP(i).reduce((ps, p) => {
+                    const stageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instProb) : instProb;
+                    const prob = (p.win_probability != null ? p.win_probability : stageProb) / 100;
+                    return ps + (p.budget_m ?? 0) * prob;
+                  }, 0);
+                }, 0);
+                const totalProjs = visible.reduce((s, i) => s + activeP(i).length, 0);
+                return [
+                  { label: "Pipeline",      value: fmtMoney(totalPipeline), color: "#10B981" },
+                  { label: "Wtd. Pipeline", value: fmtMoney(totalWtd),      color: "#A855F7" },
+                  { label: "Projects",      value: totalProjs,               color: "#6366F1" },
+                ];
+              })().concat([
+                { label: "Institutions", value: institutions.length, color: "#F59E0B" },
+                { label: "Visible",      value: visible.length,    color: "#0EA5E9" },
+              ]).map(s => (
                 <div key={s.label} className="hide-mobile" style={{
                   padding: "4px 12px", borderRadius: 20,
                   background: `${s.color}14`,
@@ -423,10 +491,10 @@ export default function BDCommandCenter() {
           {/* Views — each wrapped for fade-in */}
           <div key={view} className="animate-fade-in">
             {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
-            {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} />}
+            {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} showLost={filters.showLost} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
-            {view === "forecast"  && <ForecastView    institutions={visible} />}
+            {view === "forecast"  && <ForecastView    institutions={visible} showLost={filters.showLost} />}
             {view === "scenario"  && <ScenarioPlanner institutions={visible} />}
             {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
             {view === "types"     && <ProjectTypes    institutions={institutions} />}
@@ -439,6 +507,7 @@ export default function BDCommandCenter() {
                 updateEdit={updateEdit}
                 updateProject={updateProject}
                 addProject={addProject}
+                addInstitution={addInstitution}
                 removeProject={removeProject}
                 onSave={handleSave}
                 dirty={dirty}
@@ -483,7 +552,7 @@ export default function BDCommandCenter() {
           <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div>Sources: THECB Cap Ex Plan FY26–30 (Sept 2025) · HKS BD Session 05/19–20/26</div>
             <div>
-              {visible.length} inst · {visible.reduce((s,i) => s+i.projects.length,0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline,0))}
+              {visible.length} inst · {visible.reduce((s,i) => s + (filters.showLost ? i.projects.length : i.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length), 0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline,0))}
             </div>
           </div>
         </footer>

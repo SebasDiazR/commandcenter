@@ -97,9 +97,16 @@ function EditableProjectRow({ p, i, totalCount, rawName, leadPractice, removePro
   updateProject: (n: string, id: string, p: Record<string, unknown>) => void;
 }) {
   const pid = String(p._id ?? i);
-  const [projName,  setProjName]  = useState(p.name   || "");
-  const [projNotes, setProjNotes] = useState(p.notes  || "");
-  useEffect(() => { setProjName(p.name || ""); setProjNotes(p.notes || ""); }, [p.name, p.notes]);
+  const [projName,   setProjName]   = useState(p.name   || "");
+  const [projNotes,  setProjNotes]  = useState(p.notes  || "");
+  const [localBudget, setLocalBudget] = useState(p.budget_m != null ? String(p.budget_m) : "");
+  const [localYear,   setLocalYear]   = useState(p.year   != null ? String(p.year)   : "");
+  useEffect(() => {
+    setProjName(p.name || "");
+    setProjNotes(p.notes || "");
+    setLocalBudget(p.budget_m != null ? String(p.budget_m) : "");
+    setLocalYear(p.year   != null ? String(p.year)   : "");
+  }, [p.name, p.notes, p.budget_m, p.year]);
   const practice = inferPractice(p.name, leadPractice);
   return (
     <div style={{ padding: "12px 0", borderBottom: i < totalCount-1 ? "1px solid var(--border-sub)" : "none" }}>
@@ -112,13 +119,20 @@ function EditableProjectRow({ p, i, totalCount, rawName, leadPractice, removePro
             borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontSize: 13, minWidth: 30 }}>✕</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-        {[["Budget ($M)","budget_m","number"],["FY Start","year","number"]].map(([lbl,k,t]) => (
-          <div key={k}>
-            <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>{lbl}</label>
-            <input type={t} value={p[k] ?? ""} onChange={ev => updateProject(rawName, pid, { [k]: ev.target.value === "" ? null : Number(ev.target.value) })}
-              style={{ ...fieldStyle, fontSize: 12.5 }} />
-          </div>
-        ))}
+        <div key="budget_m">
+          <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Budget ($M)</label>
+          <input type="number" value={localBudget}
+            onChange={ev => setLocalBudget(ev.target.value)}
+            onBlur={() => updateProject(rawName, pid, { budget_m: localBudget === "" ? null : Number(localBudget) })}
+            style={{ ...fieldStyle, fontSize: 12.5 }} />
+        </div>
+        <div key="year">
+          <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>FY Start</label>
+          <input type="number" value={localYear}
+            onChange={ev => setLocalYear(ev.target.value)}
+            onBlur={() => updateProject(rawName, pid, { year: localYear === "" ? null : Number(localYear) })}
+            style={{ ...fieldStyle, fontSize: 12.5 }} />
+        </div>
         <div>
           <label style={{ fontSize: 11, color: "var(--text-3)", display: "block", marginBottom: 3, fontFamily: FONT }}>Type</label>
           <select value={p.type || "New Construction"} onChange={ev => updateProject(rawName, pid, { type: ev.target.value })}
@@ -156,18 +170,23 @@ export default function DetailPanel({
   removeContact: (n: string, i: number) => void;
   updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
 }) {
-  // Local notes state prevents scroll-jump on every keystroke
+  // Local state for all text inputs — prevents scroll-jump and focus loss on every keystroke
   const [localNotes,      setLocalNotes]      = useState(inst?.edit?.notes       || "");
   const [localNextAction, setLocalNextAction] = useState(inst?.edit?.next_action  || "");
   const [localOwner,      setLocalOwner]      = useState(inst?.edit?.owner        || "");
   const [localDispName,   setLocalDispName]   = useState(inst?.edit?.displayName  || inst?.name || "");
+  const [localGsf,        setLocalGsf]        = useState(inst?.edit?.gsf    != null ? String(inst.edit.gsf)    : inst?.gsf    != null ? String(inst.gsf)    : "");
+  const [localNasf,       setLocalNasf]       = useState(inst?.edit?.nasf   != null ? String(inst.edit.nasf)   : inst?.nasf   != null ? String(inst.nasf)   : "");
+  const [localEgNasf,     setLocalEgNasf]     = useState(inst?.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst?.eg_nasf != null ? String(inst.eg_nasf) : "");
 
   useEffect(() => {
-    const name = inst?._rawName;
     setLocalNotes(inst?.edit?.notes       || "");
     setLocalNextAction(inst?.edit?.next_action  || "");
     setLocalOwner(inst?.edit?.owner        || "");
     setLocalDispName(inst?.edit?.displayName  || inst?.name || "");
+    setLocalGsf(inst?.edit?.gsf    != null ? String(inst.edit.gsf)    : inst?.gsf    != null ? String(inst.gsf)    : "");
+    setLocalNasf(inst?.edit?.nasf   != null ? String(inst.edit.nasf)   : inst?.nasf   != null ? String(inst.nasf)   : "");
+    setLocalEgNasf(inst?.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst?.eg_nasf != null ? String(inst.eg_nasf) : "");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inst?._rawName]);
 
@@ -243,7 +262,7 @@ export default function DetailPanel({
             {[
               { label: "Pipeline", value: fmtMoney(inst.pipeline), color: sysColor },
               { label: "Energy",   value: inst.energy_score.toFixed(1), color: "var(--amber)", tip: "Energy Score" },
-              { label: "Projects", value: inst.projects.length, color: "var(--indigo)" },
+              { label: "Projects", value: inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length, color: "var(--indigo)" },
             ].map(s => (
               <div key={s.label} style={{ background: "var(--bg-surface)", padding: "10px 12px",
                 border: "1px solid var(--border)", borderRadius: 8 }}>
@@ -358,14 +377,27 @@ export default function DetailPanel({
           {globalEdit && (
             <Section title="Space Metrics (Appendix B)">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {[["GSF","gsf"],["NASF","nasf"],["E&G NASF","eg_nasf"]].map(([label, key]) => (
-                  <div key={key}>
-                    <label style={{ display: "block", fontSize: 11.5, color: "var(--text-2)", marginBottom: 4, fontFamily: FONT }}>{label}</label>
-                    <input type="number" value={e[key] ?? inst[key] ?? ""}
-                      onChange={ev => updateEdit(rawName, { [key]: ev.target.value === "" ? null : Number(ev.target.value) })}
-                      placeholder="—" style={{ ...fieldStyle, fontSize: 12.5 }} />
-                  </div>
-                ))}
+                <div key="gsf">
+                  <label style={{ display: "block", fontSize: 11.5, color: "var(--text-2)", marginBottom: 4, fontFamily: FONT }}>GSF</label>
+                  <input type="number" value={localGsf}
+                    onChange={ev => setLocalGsf(ev.target.value)}
+                    onBlur={() => updateEdit(rawName, { gsf: localGsf === "" ? null : Number(localGsf) })}
+                    placeholder="—" style={{ ...fieldStyle, fontSize: 12.5 }} />
+                </div>
+                <div key="nasf">
+                  <label style={{ display: "block", fontSize: 11.5, color: "var(--text-2)", marginBottom: 4, fontFamily: FONT }}>NASF</label>
+                  <input type="number" value={localNasf}
+                    onChange={ev => setLocalNasf(ev.target.value)}
+                    onBlur={() => updateEdit(rawName, { nasf: localNasf === "" ? null : Number(localNasf) })}
+                    placeholder="—" style={{ ...fieldStyle, fontSize: 12.5 }} />
+                </div>
+                <div key="eg_nasf">
+                  <label style={{ display: "block", fontSize: 11.5, color: "var(--text-2)", marginBottom: 4, fontFamily: FONT }}>E&G NASF</label>
+                  <input type="number" value={localEgNasf}
+                    onChange={ev => setLocalEgNasf(ev.target.value)}
+                    onBlur={() => updateEdit(rawName, { eg_nasf: localEgNasf === "" ? null : Number(localEgNasf) })}
+                    placeholder="—" style={{ ...fieldStyle, fontSize: 12.5 }} />
+                </div>
               </div>
             </Section>
           )}
@@ -395,7 +427,7 @@ export default function DetailPanel({
           </Section>
 
           {/* Projects */}
-          <Section title={`${inst.projects.length} Projects`} icon={Target}
+          <Section title={`${inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length} Projects`} icon={Target}
             action={globalEdit && (
               <button onClick={() => addProject(rawName)}
                 style={{ background: "var(--amber)", color: "#FFF", border: "none", borderRadius: 5,

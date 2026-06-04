@@ -7,6 +7,7 @@ import type { EnrichedInstitution } from "@/lib/types";
 
 interface ForecastViewProps {
   institutions: EnrichedInstitution[];
+  showLost?: boolean;
 }
 
 const DEFAULT_FEE_RATE = 6.5; // % of construction cost (HKS typical)
@@ -34,7 +35,7 @@ function FeeBar({ label, value, max, color, subtitle }: {
   );
 }
 
-export default function ForecastView({ institutions }: ForecastViewProps) {
+export default function ForecastView({ institutions, showLost = false }: ForecastViewProps) {
   const [feeRate, setFeeRate] = useState(DEFAULT_FEE_RATE);
 
   // By year
@@ -42,14 +43,14 @@ export default function ForecastView({ institutions }: ForecastViewProps) {
     const map: Record<number, { pipeline: number; weighted: number }> = {};
     institutions.forEach(inst => {
       inst.projects.forEach(p => {
-        if (p.outcome === "Lost") return;
+        if (!showLost && (p.outcome === "Lost" || p.pursuit_stage === "Lost")) return;
         const yr = p.year ?? 0;
         if (!map[yr]) map[yr] = { pipeline: 0, weighted: 0 };
         map[yr].pipeline += p.budget_m ?? 0;
       });
       // weighted by institution
       inst.projects.forEach(p => {
-        if (p.outcome === "Lost") return;
+        if (!showLost && (p.outcome === "Lost" || p.pursuit_stage === "Lost")) return;
         const yr = p.year ?? 0;
         if (!map[yr]) map[yr] = { pipeline: 0, weighted: 0 };
         const stageProb = inst.weighted_pipeline > 0 && inst.pipeline > 0
