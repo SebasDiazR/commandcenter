@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Star, AlertCircle, List, Building2 } from "lucide-react";
+import { Star, AlertCircle, List, Building2, FolderOpen } from "lucide-react";
 import InfoTip from "../InfoTip";
 import { SYSTEM_COLORS, ALL_STATUSES, STATUS_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGES, PURSUIT_STAGE_COLORS } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
@@ -75,6 +75,19 @@ function HoverRow({
 export default function ActionList({ institutions, onSelect, updateEdit }: ActionListProps) {
   const [showTop10, setShowTop10] = useState(false);
   const [groupByInstitution, setGroupByInstitution] = useState(false);
+
+  // Top 10 individual projects ranked by budget
+  const top10Projects = (() => {
+    const all: { project: import("@/lib/types").RawProject; inst: EnrichedInstitution }[] = [];
+    for (const inst of institutions) {
+      for (const p of inst.projects) {
+        if (p.outcome !== "Lost" && p.pursuit_stage !== "Lost" && (p.budget_m ?? 0) > 0) {
+          all.push({ project: p, inst });
+        }
+      }
+    }
+    return all.sort((a, b) => (b.project.budget_m ?? 0) - (a.project.budget_m ?? 0)).slice(0, 10);
+  })();
 
   const sorted = [...institutions].sort((a, b) => b.energy_score - a.energy_score);
   const top10  = new Set(sorted.slice(0, 10).map(i => i._rawName));
@@ -306,6 +319,75 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                 : displayed.map((inst, idx) => renderRow(inst, idx))}
             </tbody>
           </table>
+        </div>
+      </div>
+      {/* ── Top 10 Individual Projects ── */}
+      <div style={{ marginTop: 32 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+          <FolderOpen size={16} style={{ color: "var(--amber)", flexShrink: 0 }} />
+          <h3 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Top 10 Projects by Budget</h3>
+        </div>
+        <div style={sectionSubStyle}>Largest individual active projects across all institutions.</div>
+        <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
+                  <th style={thStyle}>#</th>
+                  <th style={thStyle}>Project</th>
+                  <th style={thStyle}>Institution</th>
+                  <th style={thStyle}>System</th>
+                  <th style={thStyle}>Stage</th>
+                  <th style={thStyle}>Year</th>
+                  <th style={{ ...thStyle, textAlign: "right" as const }}>Budget</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top10Projects.map(({ project: p, inst }, idx) => {
+                  const stageColor = PURSUIT_STAGE_COLORS[p.pursuit_stage ?? ""] ?? "var(--text-3)";
+                  return (
+                    <HoverRow key={p._id ?? `${inst._rawName}::${idx}`} onClick={() => onSelect(inst._rawName)} isFocus={idx < 3} isEven={idx % 2 === 0}>
+                      <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12 }}>
+                        {idx < 3 && (
+                          <span style={{
+                            background: "var(--amber)", color: "#FFF",
+                            padding: "1px 5px", borderRadius: 3,
+                            fontSize: 10, marginRight: 5, fontWeight: 700,
+                            letterSpacing: "0.05em",
+                          }}>TOP</span>
+                        )}
+                        {idx + 1}
+                      </td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 180 }}>{p.name}</td>
+                      <td style={{ ...tdStyle, color: "var(--text-2)" }}>{inst.name}</td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          display: "inline-block", padding: "2px 8px",
+                          background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)",
+                          color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}>{inst.system}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        {p.pursuit_stage ? (
+                          <span style={{
+                            display: "inline-block", padding: "2px 8px",
+                            border: `1.5px solid ${stageColor}`,
+                            borderRadius: 4, color: stageColor,
+                            fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                          }}>{p.pursuit_stage}</span>
+                        ) : <span style={{ color: "var(--text-3)" }}>—</span>}
+                      </td>
+                      <td style={{ ...tdStyle, color: "var(--text-2)" }}>{p.year ?? "—"}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--amber)", whiteSpace: "nowrap" }}>
+                        {fmtMoney(p.budget_m ?? 0)}
+                      </td>
+                    </HoverRow>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
