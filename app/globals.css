@@ -1,3 +1,12 @@
+/* ── Scatter callout animation ───────────────────────────────────────────── */
+@keyframes calloutSlideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.scatter-callout {
+  animation: calloutSlideIn 0.35s ease forwards;
+}
+
 /* ── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -192,20 +201,77 @@ textarea:focus-visible,
   }
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* ── Mobile sidebar drawer ────────────────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
 @media (max-width: 767px) {
-  .app-header  { padding: 12px 16px !important; }
+  /* Header */
+  .app-header  { padding: 0 !important; }
+
+  /* Shell: stack vertically */
   .app-shell   { display: block !important; }
+
+  /* Sidebar becomes an off-canvas drawer */
   .app-sidebar {
-    width: 100% !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 280px !important;
     min-width: 0 !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    position: static !important;
-    max-height: none !important;
+    max-height: 100vh !important;
+    border-right: 1px solid var(--border) !important;
+    border-bottom: none !important;
+    z-index: 45 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.25s ease !important;
+    overflow-y: auto !important;
   }
-  .app-main    { padding: 16px !important; }
+  .app-sidebar.mobile-open {
+    transform: translateX(0) !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4) !important;
+  }
+  .app-sidebar.mobile-open ~ .sidebar-overlay,
+  .sidebar-overlay.active {
+    display: block !important;
+  }
+
+  /* Main content uses full width */
+  .app-main    { padding: 14px 16px !important; }
+
+  /* Hide non-essential header items */
   .hide-mobile { display: none !important; }
+
+  /* Nav tabs: force single-line horizontal scroll */
+  .app-header nav,
+  .app-header .nav-tabs {
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .app-header nav::-webkit-scrollbar,
+  .app-header .nav-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Hamburger button */
+  .mobile-menu-btn { display: flex !important; }
+
+  /* Tables: enable horizontal scroll */
+  .app-main table {
+    min-width: 600px;
+  }
+  .app-main .overflow-x-auto,
+  .app-main [style*="overflowX"] {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* ── Tablet responsive ────────────────────────────────────────────────────── */
@@ -215,6 +281,9 @@ textarea:focus-visible,
     min-width: 220px !important;
   }
 }
+
+/* Mobile hamburger hidden by default on desktop */
+.mobile-menu-btn { display: none !important; }
 
 /* ── Table hover rows ─────────────────────────────────────────────────────── */
 .hover-row:hover { background: var(--bg-card-hov) !important; }

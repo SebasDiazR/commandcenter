@@ -1,9 +1,76 @@
 "use client";
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, FileText, Table2 } from "lucide-react";
 import { SYSTEM_COLORS, PRACTICE_COLORS } from "@/lib/constants";
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
+
+function downloadCSV(institutions: EnrichedInstitution[]) {
+  const headers = [
+    "Institution", "System", "Pursuit Stage", "HKS Status",
+    "Pipeline ($M)", "Wtd Pipeline ($M)", "Priority", "Relationship",
+    "Energy Score", "Next Action", "Next Action Date", "Owner",
+    "Lead Practice", "Project Count", "Notes",
+  ];
+  const rows = institutions.map(inst => [
+    inst.name,
+    inst.system,
+    (inst.edit.pursuit_stage as string) || "Tracking",
+    (inst.edit.hks_status as string) || "Active",
+    inst.pipeline.toFixed(2),
+    inst.weighted_pipeline.toFixed(2),
+    String(inst.edit.priority ?? inst.strategy_priority ?? ""),
+    String(inst.edit.relationship ?? 1),
+    inst.energy_score.toFixed(1),
+    (inst.edit.next_action as string) || "",
+    (inst.edit.next_action_date as string) || "",
+    (inst.edit.owner as string) || "",
+    inst.lead_practice || "",
+    String(inst.projects.length),
+    ((inst.edit.notes as string) || "").replace(/\n/g, " "),
+  ]);
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map(r => r.map(escape).join(",")).join("\n");
+  const blob = new Blob(["﻿" + csv, ""], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `hks_bd_pipeline_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function downloadProjectsCSV(institutions: EnrichedInstitution[]) {
+  const headers = [
+    "Institution", "System", "Project Name", "Type", "Budget ($M)",
+    "Year", "Pursuit Stage", "Win Probability (%)", "Outcome", "Source", "Notes",
+  ];
+  const rows: string[][] = [];
+  institutions.forEach(inst => {
+    inst.projects.forEach(p => {
+      rows.push([
+        inst.name, inst.system,
+        p.name, p.type || "",
+        String(p.budget_m ?? ""),
+        String(p.year ?? ""),
+        p.pursuit_stage || "",
+        String(p.win_probability ?? ""),
+        p.outcome || "",
+        p.source || "",
+        (p.notes || "").replace(/\n/g, " "),
+      ]);
+    });
+  });
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map(r => r.map(escape).join(",")).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `hks_bd_projects_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
 
 interface ExportModalProps {
   institutions: EnrichedInstitution[];
@@ -480,8 +547,8 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
         {/* Header */}
         <div style={{ background: "#1a2744", color: "#fff", padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #D97706" }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Export PDF</div>
-            <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4 }}>Select sections and configure your export</div>
+            <div style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Export</div>
+            <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4 }}>PDF report or CSV data export</div>
           </div>
           <button onClick={onClose} style={{ background: "transparent", border: "1.5px solid #fff", color: "#fff", borderRadius: 4, width: 40, height: 40, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={18} />
@@ -556,6 +623,27 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
             </div>
           )}
 
+          {/* CSV quick-export strip */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#0369A1", marginBottom: 10 }}>
+              Quick CSV Export (no configuration needed)
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => downloadCSV(targetInstitutions)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0369A1", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}
+              >
+                <Table2 size={14} /> Institutions CSV ({targetInstitutions.length} rows)
+              </button>
+              <button
+                onClick={() => downloadProjectsCSV(targetInstitutions)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#fff", color: "#0369A1", border: "1.5px solid #0369A1", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}
+              >
+                <Table2 size={14} /> Projects CSV ({targetInstitutions.reduce((s, i) => s + i.projects.length, 0)} rows)
+              </button>
+            </div>
+          </div>
+
           {/* Footer */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, color: "#52525B" }}>
@@ -564,8 +652,9 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={onClose} style={{ padding: "10px 20px", background: "#fff", color: "#1a2744", border: "1.5px solid #1a2744", borderRadius: 4, cursor: "pointer", fontSize: 14, fontWeight: 600, minHeight: 44, fontFamily: "inherit" }}>Cancel</button>
               <button onClick={runExport} disabled={selected.size === 0 || generating}
-                style={{ padding: "10px 24px", background: done ? "#15803D" : generating ? "#D97706" : "#1a2744", color: "#fff", border: "none", borderRadius: 4, cursor: selected.size > 0 && !generating ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 700, minHeight: 44, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, opacity: selected.size === 0 ? 0.5 : 1 }}>
-                {done ? "✓ Downloaded!" : generating ? "Generating…" : "⬇ Download PDF"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 24px", background: done ? "#15803D" : generating ? "#D97706" : "#1a2744", color: "#fff", border: "none", borderRadius: 4, cursor: selected.size > 0 && !generating ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 700, minHeight: 44, fontFamily: "inherit", opacity: selected.size === 0 ? 0.5 : 1 }}>
+                <FileText size={15} />
+                {done ? "✓ Downloaded!" : generating ? "Generating…" : "Download PDF"}
               </button>
             </div>
           </div>

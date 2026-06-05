@@ -80,6 +80,7 @@ export function buildDefaultEditState(institutions: RawInstitution[]): EditState
         next_action_date: "",
         owner:            "",
         pursuit_stage:    "Tracking",
+        capture_plan:     {},
       } satisfies InstEditState,
     ])
   );

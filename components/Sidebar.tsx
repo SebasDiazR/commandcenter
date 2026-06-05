@@ -14,6 +14,7 @@ interface SidebarProps {
   total: number;
   onExportPDF: () => void;
   onResetData: () => void;
+  mobileOpen?: boolean;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -28,7 +29,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function Sidebar({
   globalEdit, onToggleEdit, filters, onFiltersChange,
-  visible, total, onExportPDF, onResetData,
+  visible, total, onExportPDF, onResetData, mobileOpen = false,
 }: SidebarProps) {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
@@ -45,7 +46,7 @@ export default function Sidebar({
   };
 
   const clearFilters = () => onFiltersChange({
-    systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", hasContacts: false, showLost: false,
+    systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", showLost: false,
   });
 
   const chip = (active: boolean, color: string): React.CSSProperties => ({
@@ -60,7 +61,7 @@ export default function Sidebar({
 
   return (
     <>
-    <aside className="no-print app-sidebar" style={{
+    <aside className={`no-print app-sidebar${mobileOpen ? " mobile-open" : ""}`} style={{
       width: 258, minWidth: 258,
       background: "var(--bg-sidebar)",
       borderRight: "1px solid var(--border)",

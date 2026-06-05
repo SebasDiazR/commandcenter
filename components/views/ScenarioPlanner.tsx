@@ -208,10 +208,110 @@ export default function ScenarioPlanner({ institutions }: ScenarioPlannerProps) 
         </div>
       </div>
 
-      {/* Pipeline by pursuit stage */}
+      {/* ── Pipeline Funnel ── */}
+      {(() => {
+        const FUNNEL_ORDER = ["Tracking", "Shortlist", "Interview", "Award", "Won"];
+        const funnelRows = FUNNEL_ORDER.map(stage => byStage.find(r => r.stage === stage)).filter(Boolean) as typeof byStage;
+        const maxPipeline = Math.max(...funnelRows.map(r => r.pipeline), 1);
+
+        return (
+          <div style={{ ...SHARED_STYLES.card }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", fontFamily: FONT, marginBottom: 4 }}>
+              Pipeline Funnel
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-3)", fontFamily: FONT, marginBottom: 20 }}>
+              How pipeline value flows through pursuit stages. Width = total pipeline; inner bar = confidence-weighted.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {funnelRows.map((row, i) => {
+                const color     = PURSUIT_STAGE_COLORS[row.stage] ?? "#64748B";
+                const outerPct  = (row.pipeline / maxPipeline) * 100;
+                const innerPct  = row.pipeline > 0 ? (row.wtd / row.pipeline) * 100 : 0;
+                const sidePad   = ((maxPipeline - row.pipeline) / maxPipeline) * 18; // indent to give funnel shape
+
+                return (
+                  <div key={row.stage} style={{ fontFamily: FONT }}>
+                    {/* Stage label row */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{
+                          display: "inline-block", padding: "2px 10px", borderRadius: 5,
+                          background: `${color}18`, border: `1px solid ${color}40`,
+                          fontSize: 12, fontWeight: 700, color, minWidth: 80, textAlign: "center",
+                        }}>{row.stage}</span>
+                        <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+                          {row.count} institution{row.count !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                        <span style={{ color: "var(--text-2)" }}>
+                          Total <strong style={{ color: "var(--text-1)" }}>{fmtMoney(row.pipeline)}</strong>
+                        </span>
+                        <span style={{ color: "var(--text-2)" }}>
+                          Wtd <strong style={{ color: "#A855F7" }}>{fmtMoney(row.wtd)}</strong>
+                        </span>
+                        <span style={{ color: "var(--text-2)" }}>
+                          Fee <strong style={{ color: "#0EA5E9" }}>{fmtMoney(row.wtd * (feeRate / 100))}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bar */}
+                    <div style={{ paddingLeft: sidePad, paddingRight: sidePad, transition: "padding 0.4s" }}>
+                      <div style={{ height: 28, background: "var(--bg-raised)", borderRadius: 4, overflow: "hidden", position: "relative" }}>
+                        {/* Total pipeline bar */}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: `${color}20`, borderRadius: 4,
+                        }} />
+                        {/* Weighted pipeline bar */}
+                        <div style={{
+                          position: "absolute", top: 0, left: 0, bottom: 0,
+                          width: `${innerPct}%`,
+                          background: color,
+                          borderRadius: 4,
+                          transition: "width 0.4s ease",
+                          display: "flex", alignItems: "center", paddingLeft: 8,
+                        }}>
+                          {innerPct > 15 && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
+                              {Math.round(innerPct)}% win confidence
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Connector arrow between stages */}
+                    {i < funnelRows.length - 1 && (
+                      <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-3)", lineHeight: 1, marginTop: 2 }}>▼</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Lost row — shown separately as it's an exit, not a stage */}
+            {(() => {
+              const lost = byStage.find(r => r.stage === "Lost");
+              if (!lost) return null;
+              return (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ padding: "2px 10px", borderRadius: 5, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12, fontWeight: 700, color: "#DC2626" }}>Lost</span>
+                  <span style={{ fontSize: 12, color: "var(--text-3)" }}>{lost.count} institution{lost.count !== 1 ? "s" : ""}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-2)" }}>Pipeline: <strong style={{ color: "#DC2626" }}>{fmtMoney(lost.pipeline)}</strong></span>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+      {/* Pipeline by pursuit stage — detail table */}
       <div style={{ ...SHARED_STYLES.card }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", fontFamily: FONT, marginBottom: 16 }}>
-          Pipeline by Pursuit Stage
+          Pipeline by Pursuit Stage — Detail
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: FONT }}>

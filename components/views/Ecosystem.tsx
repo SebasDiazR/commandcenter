@@ -313,7 +313,9 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
       {view === "grid" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
           {sorted.map(inst => (
-            <InstCard key={inst._rawName} inst={inst} onSelect={() => onSelect(inst._rawName)} />
+            <div key={inst._rawName} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
+              <InstCard inst={inst} onSelect={() => onSelect(inst._rawName)} />
+            </div>
           ))}
         </div>
       )}
@@ -322,11 +324,9 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
       {view === "project" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
           {allProjects.map(({ p, inst, color }) => (
-            <ProjectCard
-              key={`${inst._rawName}||${p.name}`}
-              p={p} instName={inst.name} color={color}
-              onSelect={() => onSelect(inst._rawName)}
-            />
+            <div key={`${inst._rawName}||${p.name}`} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
+              <ProjectCard p={p} instName={inst.name} color={color} onSelect={() => onSelect(inst._rawName)} />
+            </div>
           ))}
         </div>
       )}
@@ -367,7 +367,9 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
                 </div>
                 <div style={{ padding: 10, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px,1fr))", gap: 8 }}>
                   {insts.map(inst => (
-                    <InstCard key={inst._rawName} inst={inst} onSelect={() => onSelect(inst._rawName)} />
+                    <div key={inst._rawName} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
+                      <InstCard inst={inst} onSelect={() => onSelect(inst._rawName)} />
+                    </div>
                   ))}
                 </div>
               </div>

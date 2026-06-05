@@ -46,6 +46,7 @@ export async function GET() {
       next_action_date: row.next_action_date,
       owner:            row.owner,
       pursuit_stage:    row.pursuit_stage ?? "Tracking",
+      capture_plan:     row.capture_plan ?? {},
     } satisfies InstEditState;
   }
 
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
     next_action_date: e.next_action_date,
     owner:            e.owner,
     pursuit_stage:    e.pursuit_stage ?? "Tracking",
+    capture_plan:     e.capture_plan ?? {},
     updated_at:       new Date().toISOString(),
   }));
 

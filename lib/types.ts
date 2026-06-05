@@ -63,6 +63,39 @@ export interface RawData {
   institutions: RawInstitution[];
 }
 
+export interface CapturePlan {
+  // Needs Assessment
+  horizon_months?: number;
+  known_needs?: string;
+  pain_points?: string;
+  decision_date?: string;
+  last_masterplan_date?: string;
+  last_masterplan_firm?: string;
+  last_strategic_plan_date?: string;
+  last_strategic_plan_firm?: string;
+  // Relationship Mapping
+  who_we_know?: string;
+  who_we_need?: string;
+  preferred_pm?: string;
+  preferred_design_firms?: string;
+  preferred_contractors?: string;
+  delivery_method?: string;
+  rfp_process?: string;
+  // Our Position
+  work_history?: string;
+  past_pursuits?: string;
+  lessons_learned?: string;
+  hks_champions?: string;
+  differentiators?: string;
+  strategic_partners?: string;
+  // Action Plan
+  go_no_go?: "Go" | "No Go" | "TBD";
+  potential?: "High" | "Medium" | "Low";
+  immediate_next_steps?: string;
+  proposal_storyline?: string;
+  messaging_themes?: string;
+}
+
 export interface InstEditState {
   priority: number | null;
   relationship: number;
@@ -83,6 +116,7 @@ export interface InstEditState {
   next_action_date: string;
   owner: string;
   pursuit_stage: string; // Tracking → Shortlist → Interview → Award
+  capture_plan: CapturePlan;
 }
 
 export type EditStateMap = Record<string, InstEditState>;
@@ -104,7 +138,6 @@ export interface FilterState {
   pursuitStages: string[];
   minPriority: number;
   search: string;
-  hasContacts: boolean;
   showLost: boolean;
 }
 

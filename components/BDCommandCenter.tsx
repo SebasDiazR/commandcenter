@@ -1,9 +1,10 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+// bd-commandcenter
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
   Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
-  BarChart2, Sliders,
+  ChevronDown, Menu, X as XIcon, BarChart2, Sliders,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -17,7 +18,7 @@ import SaveIndicator from "./SaveIndicator";
 import DetailPanel from "./DetailPanel";
 import ExportModal from "./ExportModal";
 import ThemeScaleControls from "./ThemeScaleControls";
-import HKSLogo from "./HKSLogo";
+import Image from "next/image";
 import PriorityMatrix from "./views/PriorityMatrix";
 import Ecosystem from "./views/Ecosystem";
 import Timeline from "./views/Timeline";
@@ -30,7 +31,7 @@ import DataManager from "./views/DataManager";
 import ForecastView from "./views/ForecastView";
 import ScenarioPlanner from "./views/ScenarioPlanner";
 
-import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact } from "@/lib/types";
+import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
 
 const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
@@ -47,6 +48,10 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
 ];
 
+// Nav groupings
+const PRIMARY_IDS   = ["matrix", "ecosystem", "timeline", "list"] as const;
+const ANALYTICS_IDS = ["forecast", "scenario", "funding", "types", "space", "growth"] as const;
+
 export default function BDCommandCenter() {
   const { resolvedTheme } = useThemeScale();
   const dark = resolvedTheme === "dark";
@@ -58,7 +63,7 @@ export default function BDCommandCenter() {
   const [editState, _setEditState] = useState<EditStateMap>(
     () => persisted?.editState ?? defaultEdit
   );
-  const [extraRawInsts, setExtraRawInsts] = useState<import("@/lib/types").RawInstitution[]>(() => {
+  const [extraRawInsts, setExtraRawInsts] = useState<RawInstitution[]>(() => {
     try {
       const raw = typeof window !== "undefined" && localStorage.getItem("hks_bd_extra_institutions_v1");
       return raw ? JSON.parse(raw) : [];
@@ -140,13 +145,16 @@ export default function BDCommandCenter() {
   }, [dirty, editState]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [globalEdit, setGlobalEdit]     = useState(false);
-  const [view, setView]                 = useState<ViewId>("matrix");
-  const [selectedInst, setSelectedInst] = useState<string | null>(null);
-  const [showExport, setShowExport]     = useState(false);
+  const [globalEdit, setGlobalEdit]               = useState(false);
+  const [view, setView]                           = useState<ViewId>("matrix");
+  const [selectedInst, setSelectedInst]           = useState<string | null>(null);
+  const [showExport, setShowExport]               = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen]         = useState(false);
+  const analyticsButtonRef = useRef<HTMLButtonElement>(null);
   const [filters, setFilters]           = useState<FilterState>({
     systems: [], practices: [], types: [], pursuitStages: [],
-    minPriority: 0, search: "", hasContacts: false, showLost: false,
+    minPriority: 0, search: "", showLost: false,
   });
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -194,7 +202,6 @@ export default function BDCommandCenter() {
   const visible = useMemo(() => institutions.filter(inst => {
     if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
     if ((inst.edit.priority ?? inst.strategy_priority ?? 0) < filters.minPriority) return false;
-    if (filters.hasContacts && !inst.contacts?.length) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       if (!inst.name.toLowerCase().includes(q) &&
@@ -220,13 +227,13 @@ export default function BDCommandCenter() {
   const updateEdit    = (n: string, p: Record<string, unknown>) => setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
   const updateProject = (n: string, id: string, p: Record<string, unknown>) =>
     setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
-  const addProject    = (n: string, data?: Partial<import("@/lib/types").RawProject>) => setEditState(s => ({
+  const addProject    = (n: string, data?: Partial<RawProject>) => setEditState(s => ({
     ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
       _id: Math.random().toString(36).slice(2),
       name: data?.name ?? "New Project",
       budget_m: data?.budget_m ?? null,
       year: data?.year ?? 2027,
-      type: (data?.type ?? "New Construction") as import("@/lib/types").RawProject["type"],
+      type: (data?.type ?? "New Construction") as RawProject["type"],
       source: (data?.source ?? "strategy") as "thecb" | "strategy",
       notes: data?.notes ?? "",
     }] },
@@ -234,7 +241,7 @@ export default function BDCommandCenter() {
   const addInstitution = (data: Record<string, unknown>) => {
     const rawName = String(data.name ?? "").trim();
     if (!rawName) return;
-    const newRaw: import("@/lib/types").RawInstitution = {
+    const newRaw: RawInstitution = {
       name: rawName,
       system: String(data.system ?? "Other Public"),
       strategy_priority: data.priority ? Number(data.priority) : null,
@@ -265,7 +272,8 @@ export default function BDCommandCenter() {
         next_action: "", next_action_date: "",
         owner: String(data.owner ?? ""),
         pursuit_stage: "Tracking",
-      } satisfies import("@/lib/types").InstEditState,
+        capture_plan: {},
+      } satisfies InstEditState,
     }));
   };
   const removeProject = (n: string, id: string) =>
@@ -303,7 +311,7 @@ export default function BDCommandCenter() {
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="app-header" style={{
-        position: "sticky", top: 0, zIndex: 50,
+        position: "sticky", top: 0, zIndex: 100,
         background: headerBg,
         backdropFilter: "blur(20px)",
         borderBottom: `1px solid ${border}`,
@@ -316,7 +324,7 @@ export default function BDCommandCenter() {
 
             {/* Brand */}
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <HKSLogo height={32} />
+              <Image src="/hks-logo.png" alt="HKS" width={110} height={40} style={{ objectFit: "contain", objectPosition: "left" }} />
               <div style={{ width: 1, height: 32, background: "var(--border)" }} />
               <div>
                 <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
@@ -369,6 +377,21 @@ export default function BDCommandCenter() {
                 </div>
               ))}
 
+              {/* Mobile sidebar toggle — visible only on mobile via CSS */}
+              <button
+                className="mobile-menu-btn"
+                aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMobileSidebarOpen(o => !o)}
+                style={{
+                  alignItems: "center", justifyContent: "center",
+                  width: 36, height: 36, borderRadius: 8,
+                  border: `1px solid ${border}`,
+                  background: "transparent", color: text2, cursor: "pointer",
+                }}
+              >
+                {mobileSidebarOpen ? <XIcon size={16} /> : <Menu size={16} />}
+              </button>
+
               {/* Theme + scale controls */}
               <ThemeScaleControls />
 
@@ -416,31 +439,113 @@ export default function BDCommandCenter() {
             </div>
           </div>
 
-          {/* Nav tabs */}
-          <div style={{ display: "flex", gap: 1, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" }}>
-            {VIEWS.map(v => {
-              const Icon = v.icon;
+          {/* Nav tabs — 5 primary + Analytics dropdown + Data */}
+          {(() => {
+            const navTab = (v: typeof VIEWS[number]) => {
+              const Icon   = v.icon;
               const active = view === v.id;
               return (
-                <button key={v.id} onClick={() => setView(v.id)} style={{
-                  padding: "8px 14px",
-                  background: active ? `${v.color}18` : "transparent",
-                  color: active ? v.color : text3,
-                  border: "none",
-                  borderBottom: active ? `2px solid ${v.color}` : "2px solid transparent",
-                  cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 500,
-                  fontFamily: FONT,
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  whiteSpace: "nowrap",
-                  transition: "color 0.15s, border-color 0.15s, background 0.15s",
-                  borderRadius: "6px 6px 0 0",
-                }}>
-                  <Icon size={12} />
-                  {v.label}
+                <button key={v.id}
+                  onClick={() => { setView(v.id as ViewId); setMobileSidebarOpen(false); setAnalyticsOpen(false); }}
+                  style={{
+                    padding: "8px 14px",
+                    background: active ? `${v.color}18` : "transparent",
+                    color: active ? v.color : text3,
+                    border: "none",
+                    borderBottom: active ? `2px solid ${v.color}` : "2px solid transparent",
+                    cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 500,
+                    fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 6,
+                    whiteSpace: "nowrap",
+                    transition: "color 0.15s, border-color 0.15s, background 0.15s",
+                    borderRadius: "6px 6px 0 0",
+                  }}>
+                  <Icon size={12} />{v.label}
                 </button>
               );
-            })}
-          </div>
+            };
+
+            const primaryViews   = VIEWS.filter(v => (PRIMARY_IDS as readonly string[]).includes(v.id));
+            const analyticsViews = VIEWS.filter(v => (ANALYTICS_IDS as readonly string[]).includes(v.id));
+            const dataView       = VIEWS.find(v => v.id === "data")!;
+            const analyticsActive = (ANALYTICS_IDS as readonly string[]).includes(view);
+
+            return (
+              <div style={{ display: "flex", gap: 1, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" as const }}>
+                {/* Primary tabs */}
+                {primaryViews.map(navTab)}
+
+                {/* Analytics dropdown */}
+                <div style={{ position: "relative" }}>
+                  <button
+                    ref={analyticsButtonRef}
+                    onClick={() => setAnalyticsOpen(o => !o)}
+                    style={{
+                      padding: "8px 14px",
+                      background: analyticsActive ? "rgba(139,92,246,0.1)" : analyticsOpen ? "var(--bg-raised)" : "transparent",
+                      color: analyticsActive ? "#8B5CF6" : analyticsOpen ? "var(--text-1)" : text3,
+                      border: "none",
+                      borderBottom: analyticsActive ? "2px solid #8B5CF6" : "2px solid transparent",
+                      cursor: "pointer", fontSize: 12, fontWeight: analyticsActive || analyticsOpen ? 700 : 500,
+                      fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 5,
+                      whiteSpace: "nowrap", transition: "all 0.15s",
+                      borderRadius: "6px 6px 0 0",
+                    }}>
+                    Analytics
+                    <ChevronDown size={11} style={{ transform: analyticsOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                  </button>
+
+                  {analyticsOpen && (() => {
+                    const rect = analyticsButtonRef.current?.getBoundingClientRect();
+                    return (
+                    <>
+                      {/* Click-away backdrop */}
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 98 }}
+                        onClick={() => setAnalyticsOpen(false)}
+                      />
+                      {/* Dropdown panel — fixed to escape overflowX:auto nav container */}
+                      <div style={{
+                        position: "fixed",
+                        top: rect ? rect.bottom : "auto",
+                        left: rect ? rect.left : "auto",
+                        zIndex: 99,
+                        background: "var(--bg-header)", border: "1px solid var(--border)",
+                        borderRadius: "0 8px 8px 8px", boxShadow: "var(--shadow-lg)",
+                        minWidth: 180, overflow: "hidden",
+                        backdropFilter: "blur(20px)",
+                      }}>
+                        {analyticsViews.map(v => {
+                          const Icon   = v.icon;
+                          const active = view === v.id;
+                          return (
+                            <button key={v.id}
+                              onClick={() => { setView(v.id as ViewId); setMobileSidebarOpen(false); setAnalyticsOpen(false); }}
+                              style={{
+                                width: "100%", display: "flex", alignItems: "center", gap: 9,
+                                padding: "10px 16px", background: active ? `${v.color}14` : "transparent",
+                                color: active ? v.color : "var(--text-2)",
+                                border: "none", borderLeft: `3px solid ${active ? v.color : "transparent"}`,
+                                cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
+                                fontFamily: FONT, textAlign: "left", transition: "all 0.12s",
+                              }}
+                              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)"; }}
+                              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                            >
+                              <Icon size={13} />{v.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                    );
+                  })()}
+                </div>
+
+                {/* Data tab */}
+                {navTab(dataView)}
+              </div>
+            );
+          })()}
         </div>
       </header>
 
@@ -448,16 +553,27 @@ export default function BDCommandCenter() {
       <div className="app-shell" style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
 
         {!isFullWidth && (
-          <Sidebar
-            globalEdit={globalEdit}
-            onToggleEdit={() => setGlobalEdit(g => !g)}
-            filters={filters}
-            onFiltersChange={setFilters}
-            visible={visible}
-            total={institutions.length}
-            onExportPDF={() => setShowExport(true)}
-            onResetData={resetToDefaults}
-          />
+          <>
+            {/* Click-away overlay — only visible on mobile when sidebar is open */}
+            {mobileSidebarOpen && (
+              <div
+                className="sidebar-overlay active"
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-hidden="true"
+              />
+            )}
+            <Sidebar
+              globalEdit={globalEdit}
+              onToggleEdit={() => setGlobalEdit(g => !g)}
+              filters={filters}
+              onFiltersChange={setFilters}
+              visible={visible}
+              total={institutions.length}
+              onExportPDF={() => setShowExport(true)}
+              onResetData={resetToDefaults}
+              mobileOpen={mobileSidebarOpen}
+            />
+          </>
         )}
 
         <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
@@ -491,7 +607,7 @@ export default function BDCommandCenter() {
 
           {/* Views — each wrapped for fade-in */}
           <div key={view} className="animate-fade-in">
-            {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} />}
+            {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} onViewActions={() => setView("list")} />}
             {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} showLost={filters.showLost} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
@@ -542,22 +658,6 @@ export default function BDCommandCenter() {
         />
       )}
 
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      {!isFullWidth && (
-        <footer style={{
-          borderTop: `1px solid ${border}`,
-          padding: "10px 28px",
-          background: dark ? "rgba(10,15,30,0.7)" : "var(--bg-surface)",
-          fontSize: 11, color: text3,
-        }}>
-          <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <div>Sources: THECB Cap Ex Plan FY26–30 (Sept 2025) · HKS BD Session 05/19–20/26</div>
-            <div>
-              {visible.length} inst · {visible.reduce((s,i) => s + (filters.showLost ? i.projects.length : i.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length), 0)} projects · {fmtMoney(visible.reduce((s,i) => s+i.pipeline,0))}
-            </div>
-          </div>
-        </footer>
-      )}
     </div>
   );
 }
