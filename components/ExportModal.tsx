@@ -210,14 +210,16 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
         y += 36;
 
         setFill(255,248,231); setDraw(...AMBER); doc.setLineWidth(0.5);
-        doc.rect(margin, y, contentW, 20, "FD");
+        doc.rect(margin, y, contentW, 22, "FD");
         font(7, "bold"); setTxt(146, 64, 14); doc.text("REPORT SCOPE", margin + 6, y + 7);
-        font(8); setTxt(...NAVY);
+        font(7.5); setTxt(...NAVY);
         const scope = `Sections: ${orderedIds.map(id => SECTIONS.find(s => s.id===id)?.label).join(" · ")}`;
         const scopeData = `Data: ${dataScope === "all" ? "All institutions" : dataScope === "filtered" ? "Filtered view" : "FOCUS top-10"}`
           + (preparedBy ? `  ·  By: ${preparedBy}` : "");
-        doc.text(scope.slice(0, 120), margin + 6, y + 13);
-        doc.text(scopeData, margin + 6, y + 18);
+        const scopeLines = doc.splitTextToSize(scope, contentW - 12);
+        doc.text(scopeLines[0], margin + 6, y + 13);
+        if (scopeLines[1]) doc.text(scopeLines[1], margin + 6, y + 17.5);
+        doc.text(scopeData.slice(0, 110), margin + 6, y + (scopeLines[1] ? 21.5 : 18));
       }
 
       // ── ACTION LIST ──────────────────────────────────────────────────
@@ -237,6 +239,14 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
         y += 7;
 
         sorted.forEach((inst, i) => {
+          if (y + 7 > pageH - 12) {
+            doc.addPage(); pageIdx++;
+            y = drawPageFrame(26);
+            setFill(...NAVY); doc.rect(margin, y, contentW, 7, "F");
+            font(7, "bold"); setTxt(...WHITE);
+            ["#","Institution","System","Pipeline","Priority","Relation","Energy"].forEach((h,ci) => doc.text(h, cols[ci]+1, y+5));
+            y += 7;
+          }
           const isFocus = top10.has(inst._rawName);
           setFill(isFocus ? 255 : i%2 ? 250 : 255, isFocus ? 248 : i%2 ? 248 : 255, isFocus ? 231 : i%2 ? 243 : 255);
           doc.rect(margin, y, contentW, 7, "F");
@@ -353,11 +363,12 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
         font(8,"bold"); setTxt(...NAVY); doc.text("Top 10 Sources by Commitment", margin, y); y += 7;
         const maxV = 13029.87, barAreaW = contentW - 68, barH = 5.5, barGap = 2;
         sources.forEach(s => {
+          if (y + barH + barGap > pageH - 12) { doc.addPage(); pageIdx++; y = drawPageFrame(26); }
           font(6.5); setTxt(...MUTED); doc.text(s.name.slice(0,30), margin, y+barH-1);
-          const bw2 = (s.total/maxV)*barAreaW;
+          const bw2 = Math.min((s.total/maxV)*barAreaW, barAreaW);
           setFill(...s.color); doc.rect(margin+64, y, bw2, barH, "F");
           font(6.5,"bold"); setTxt(...NAVY);
-          doc.text(`$${(s.total/1000).toFixed(2)}B`, margin+64+bw2+2, y+barH-1);
+          doc.text(`$${(s.total/1000).toFixed(2)}B`, Math.min(margin+64+bw2+2, pageW - margin - 14), y+barH-1);
           y += barH + barGap;
         });
       }
@@ -384,6 +395,15 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
           !m ? [156,163,175] : m<50 ? [101,163,13] : m<150 ? [217,119,6] : m<500 ? [180,83,9] : [124,45,18];
 
         sorted.forEach((inst, i) => {
+          if (y + rowH > pageH - 14) {
+            doc.addPage(); pageIdx++;
+            y = drawPageFrame(26);
+            setFill(...NAVY); doc.rect(margin, y, contentW, 6, "F");
+            font(7,"bold"); setTxt(...WHITE);
+            doc.text("Institution", margin+2, y+4.5);
+            years.forEach((yr,i2) => doc.text("FY"+yr, margin+nameW+i2*yrW+yrW/2, y+4.5, {align:"center"}));
+            y += 6;
+          }
           setFill(i%2?250:255, i%2?248:255, i%2?243:255);
           doc.rect(margin, y, contentW, rowH, "F");
           setDraw(...BORDER); doc.setLineWidth(0.1);
@@ -426,19 +446,23 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
           font(8,"bold"); setTxt(...WHITE);
           doc.text(`${sys} — ${fmtMoney(sysTotal)} · ${insts.length} institutions`, margin+3, y+4.5);
           y += 7;
-          const rows = Math.ceil(insts.length/3);
-          insts.forEach((inst,i) => {
-            const col=i%3, row=Math.floor(i/3);
-            const cx2=margin+col*(cardW2+6), cy2=y+row*16;
-            setFill(250,248,243); setDraw(...BORDER); doc.setLineWidth(0.2);
-            doc.rect(cx2,cy2,cardW2,14,"FD");
-            if (sc) { const rgb=parseInt(sc.slice(1),16); setFill((rgb>>16)&255,(rgb>>8)&255,rgb&255); doc.rect(cx2,cy2,2,14,"F"); }
-            font(7,"bold"); setTxt(...NAVY); doc.text(inst.name.slice(0,22), cx2+5, cy2+6);
-            font(6.5); setTxt(...AMBER); doc.text(fmtMoney(inst.pipeline), cx2+5, cy2+11);
-            setTxt(...MUTED); doc.text(`P${inst.edit.priority ?? inst.strategy_priority ?? "—"} · ${inst.projects.length} proj`, cx2+38, cy2+11);
-          });
-          y += rows*16+5;
-          if (y > pageH-25) { doc.addPage(); pageIdx++; y = drawPageFrame(26); }
+          for (let ri = 0; ri < insts.length; ri += 3) {
+            if (y + 16 > pageH - 14) { doc.addPage(); pageIdx++; y = drawPageFrame(26); }
+            for (let ci = 0; ci < 3; ci++) {
+              const inst = insts[ri + ci];
+              if (!inst) break;
+              const cx2 = margin + ci * (cardW2 + 6), cy2 = y;
+              setFill(250,248,243); setDraw(...BORDER); doc.setLineWidth(0.2);
+              doc.rect(cx2,cy2,cardW2,14,"FD");
+              if (sc) { const rgb=parseInt(sc.slice(1),16); setFill((rgb>>16)&255,(rgb>>8)&255,rgb&255); doc.rect(cx2,cy2,2,14,"F"); }
+              font(7,"bold"); setTxt(...NAVY); doc.text(inst.name.slice(0,22), cx2+5, cy2+6);
+              font(6.5); setTxt(...AMBER); doc.text(fmtMoney(inst.pipeline), cx2+5, cy2+11);
+              setTxt(...MUTED); doc.text(`P${inst.edit.priority ?? inst.strategy_priority ?? "—"} · ${inst.projects.length} proj`, cx2+38, cy2+11);
+            }
+            y += 16;
+          }
+          y += 5;
+          if (y > pageH - 25) { doc.addPage(); pageIdx++; y = drawPageFrame(26); }
         }
       }
 
@@ -516,6 +540,7 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
         font(8,"bold"); setTxt(...NAVY); doc.text("Entry-Point Institutions (High Pipeline, No HKS Practice Assigned)", margin, y); y += 8;
         const entry = targetInstitutions.filter(i => !i.lead_practice && i.pipeline > 200).sort((a,b) => b.pipeline-a.pipeline).slice(0,8);
         entry.forEach(inst => {
+          if (y + 8 > pageH - 12) { doc.addPage(); pageIdx++; y = drawPageFrame(26); }
           setFill(250,248,243); setDraw(...BORDER); doc.setLineWidth(0.2);
           doc.rect(margin,y,contentW,8,"FD");
           const sc=SYSTEM_COLORS[inst.system]; if(sc){const rgb=parseInt(sc.slice(1),16);setFill((rgb>>16)&255,(rgb>>8)&255,rgb&255);doc.rect(margin,y,2.5,8,"F");}
