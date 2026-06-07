@@ -20,9 +20,9 @@ interface SidebarProps {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-      letterSpacing: "0.12em", color: "var(--text-3)",
-      marginBottom: 6, marginTop: 14, fontFamily: FONT,
+      fontSize: 10.5, fontWeight: 700, textTransform: "uppercase",
+      letterSpacing: "0.10em", color: "var(--text-3)",
+      marginBottom: 7, marginTop: 16, fontFamily: FONT,
     }}>{children}</div>
   );
 }
@@ -50,13 +50,14 @@ export default function Sidebar({
   });
 
   const chip = (active: boolean, color: string): React.CSSProperties => ({
-    padding: "5px 9px",
+    padding: "5px 10px",
     background: active ? `${color}28` : "var(--bg-chip)",
     color: active ? color : "var(--text-2)",
     border: `1px solid ${active ? color + "60" : "var(--border)"}`,
     borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 500,
     fontFamily: FONT, transition: "all 0.15s",
-    boxShadow: active ? `0 0 8px ${color}35` : "none",
+    boxShadow: active ? `0 0 10px ${color}35` : "none",
+    userSelect: "none" as const,
   });
 
   return (
@@ -156,6 +157,7 @@ export default function Sidebar({
           const c = SYSTEM_COLORS[s] ?? "var(--indigo)";
           return (
             <button key={s} onClick={() => toggle("systems", s)}
+              className="filter-chip"
               aria-pressed={filters.systems.includes(s)}
               style={chip(filters.systems.includes(s), c)}>
               {s}
@@ -171,6 +173,7 @@ export default function Sidebar({
           const c = PURSUIT_STAGE_COLORS[s] ?? "var(--indigo)";
           return (
             <button key={s} onClick={() => toggle("pursuitStages", s)}
+              className="filter-chip"
               aria-pressed={filters.pursuitStages.includes(s)}
               style={chip(filters.pursuitStages.includes(s), c)}>
               {s}
@@ -186,6 +189,7 @@ export default function Sidebar({
           const c = PRACTICE_COLORS[p] ?? "var(--indigo)";
           return (
             <button key={p} onClick={() => toggle("practices", p)}
+              className="filter-chip"
               aria-pressed={filters.practices.includes(p)}
               style={chip(filters.practices.includes(p), c)}>
               {p}
@@ -199,6 +203,7 @@ export default function Sidebar({
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         {allTypes.map(t => (
           <button key={t} onClick={() => toggle("types", t)}
+            className="filter-chip"
             aria-pressed={filters.types.includes(t)}
             style={chip(filters.types.includes(t), "var(--orange)")}>
             {t.replace("Repair and Renovation","R&R").replace("Information Resources","IT").replace("Land Acquisition","Land")}

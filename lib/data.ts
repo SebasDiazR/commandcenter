@@ -15,6 +15,7 @@ export const GLOSSARY: Record<string, string> = {
   "Priority Score": "0–10 rating set in the 05/19–20/26 strategy session of how much this institution matters for HKS's pipeline. 10 = pour energy here.",
   "Energy Score":  "Priority × log(Pipeline+1) × Urgency × (Relationship÷5) × (0.5+Expansion÷2). Urgency rises the sooner projects are scheduled. Hover any bubble on the Priority Matrix to see the exact factor-by-factor breakdown for that institution.",
   "Urgency":       "Derived from the nearest project start year. Projects starting in 2026 score higher than 2030.",
+  "Weighted Pipeline": "Pipeline adjusted by pursuit confidence. Each active project is multiplied by its explicit win probability, or by the default probability for its pursuit stage when no custom probability is set.",
   "Relationship":  "1–5 star rating of how strong the existing HKS relationship is. Edit inline in the detail panel.",
   "Expansion":     "0–100% probability that winning one project opens the door to follow-on work at the same institution.",
 
@@ -972,4 +973,3 @@ export const RAW_DATA: RawData = {
     },
   ],
 };
-

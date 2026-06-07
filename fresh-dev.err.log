@@ -1,0 +1,16 @@
+Error: EINVAL: invalid argument, readlink 'C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\.next\server\edge-runtime-webpack.js'
+    at async Object.readlink (node:internal/fs/promises:974:10)
+    at async C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\lib\recursive-delete.js:58:30
+    at async Promise.all (index 3)
+    at async recursiveDelete (C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\lib\recursive-delete.js:51:5)
+    at async C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\lib\recursive-delete.js:68:17
+    at async Promise.all (index 15)
+    at async recursiveDelete (C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\lib\recursive-delete.js:51:5)
+    at async Span.traceAsyncFn (C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\trace\trace.js:154:20)
+    at async HotReloaderWebpack.start (C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\server\dev\hot-reloader-webpack.js:612:9)
+    at async startWatcher (C:\Users\srodriguez\OneDrive - HKS Inc\Documents\bd_commandcenter\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:156:5) {
+  errno: -4071,
+  code: 'EINVAL',
+  syscall: 'readlink',
+  path: 'C:\\Users\\srodriguez\\OneDrive - HKS Inc\\Documents\\bd_commandcenter\\.next\\server\\edge-runtime-webpack.js'
+}

@@ -2,8 +2,10 @@
 import React, { useState, useMemo } from "react";
 import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy } from "lucide-react";
 import InfoTip from "../InfoTip";
+import { ScoreExplainButton } from "../ScoringExplanation";
 import { SYSTEM_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGE_COLORS, PURSUIT_STAGES } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
+import { getRankExplanation } from "@/lib/scoring";
 import type { EnrichedInstitution } from "@/lib/types";
 
 const cardStyle  = SHARED_STYLES.card;
@@ -257,6 +259,7 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
 
   const byEnergy = useMemo(() => [...institutions].sort((a, b) => b.energy_score - a.energy_score), [institutions]);
   const top10Set = useMemo(() => new Set(byEnergy.slice(0, 10).map(i => i._rawName)), [byEnergy]);
+  const energyRank = useMemo(() => new Map(byEnergy.map((inst, idx) => [inst._rawName, idx + 1])), [byEnergy]);
 
   const displayed = useMemo(() => {
     const base = showTop10 ? byEnergy.filter(i => top10Set.has(i._rawName)) : [...byEnergy];
@@ -282,6 +285,7 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
     const actionDue = actionDate ? new Date(actionDate as string) : null;
     const isOverdue = actionDue && actionDue < today;
     const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
+    const rank = energyRank.get(inst._rawName) ?? idx + 1;
 
     return (
       <HoverRow key={inst._rawName} onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0}>
@@ -341,6 +345,14 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
         </td>
         <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15, color: focus ? "var(--amber)" : "var(--text-1)", textAlign: "right", whiteSpace: "nowrap" }}>
           {inst.energy_score.toFixed(1)}
+        </td>
+        <td style={{ ...tdStyle, minWidth: 260 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.35 }}>
+              {getRankExplanation(inst, rank, byEnergy.length)}
+            </span>
+            <ScoreExplainButton inst={inst} rank={rank} total={byEnergy.length} />
+          </div>
         </td>
       </HoverRow>
     );
@@ -440,6 +452,7 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
                     <SortableHeader label="Energy" sortKey="energy_score" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right">
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Energy <InfoTip term="Energy Score" /></span>
                     </SortableHeader>
+                    <th style={thStyle}>Why Here</th>
                   </tr>
                 </thead>
                 <tbody>

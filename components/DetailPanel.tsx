@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap } from "lucide-react";
 import InfoTip from "./InfoTip";
+import { EnergyBreakdownPanel } from "./ScoringExplanation";
 import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT, PURSUIT_STAGE_COLORS } from "@/lib/constants";
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution, RawContact, CapturePlan } from "@/lib/types";
@@ -705,9 +706,10 @@ export default function DetailPanel({
           {activeTab === "overview" && (
             <>
               {/* Stats strip */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
                 {[
                   { label: "Pipeline", value: fmtMoney(inst.pipeline), color: sysColor },
+                  { label: "Wtd.",     value: fmtMoney(inst.weighted_pipeline), color: "#A855F7", tip: "Weighted Pipeline" },
                   { label: "Energy",   value: inst.energy_score.toFixed(1), color: "var(--amber)", tip: "Energy Score" },
                   { label: "Projects", value: inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length, color: "var(--indigo)" },
                 ].map(s => (
@@ -719,6 +721,10 @@ export default function DetailPanel({
                     <div style={{ fontSize: 19, fontWeight: 800, color: s.color, marginTop: 2, letterSpacing: "-0.02em" }}>{s.value}</div>
                   </div>
                 ))}
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <EnergyBreakdownPanel inst={inst} />
               </div>
 
               {/* Strategy ratings */}

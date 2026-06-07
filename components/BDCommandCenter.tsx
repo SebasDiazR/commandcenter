@@ -5,12 +5,14 @@ import {
   LayoutGrid, Network, Calendar, ListChecks,
   Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
   ChevronDown, Menu, X as XIcon, BarChart2, Sliders, MapPin,
+  AlertTriangle, Target, Clock3, TrendingUp, Activity, Presentation,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
+import { getRankExplanation } from "@/lib/scoring";
 import { useThemeScale } from "@/lib/theme-scale";
 
 import Sidebar from "./Sidebar";
@@ -32,6 +34,7 @@ import ForecastView from "./views/ForecastView";
 import ScenarioPlanner from "./views/ScenarioPlanner";
 import InstitutionMap from "./views/InstitutionMap";
 import LostImpactToast from "./LostImpactToast";
+import MeetingMode from "./MeetingMode";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
@@ -41,7 +44,7 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
   { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
   { id: "list",      label: "Action List",      icon: ListChecks, color: "#F59E0B" },
-  { id: "forecast",  label: "Rev. Forecast",    icon: BarChart2,  color: "#10B981" },
+  { id: "forecast",  label: "Revenue Forecast", icon: BarChart2,  color: "#10B981" },
   { id: "scenario",  label: "Scenario Planner", icon: Sliders,    color: "#A855F7" },
   { id: "funding",   label: "Funding",          icon: PieIcon,    color: "#EC4899" },
   { id: "types",     label: "Proj. Types",      icon: Building2,  color: "#8B5CF6" },
@@ -53,6 +56,121 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
 // Nav groupings
 const PRIMARY_IDS   = ["matrix", "ecosystem", "timeline", "list"] as const;
 const ANALYTICS_IDS = ["forecast", "scenario", "funding", "types", "space", "growth"] as const;
+
+type PriorityCard = {
+  id: string;
+  label: string;
+  value: string;
+  detail: string;
+  meta: string;
+  explanation?: string;
+  color: string;
+  icon: React.ElementType;
+  onClick?: () => void;
+};
+
+function parseDateOnly(raw?: string | null): Date | null {
+  if (!raw) return null;
+  const [year, month, day] = raw.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatDateLabel(raw?: string | null): string {
+  const date = parseDateOnly(raw);
+  if (!date) return "No date";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function PriorityStripCard({ card }: { card: PriorityCard }) {
+  const Icon = card.icon;
+  const clickable = Boolean(card.onClick);
+
+  return (
+    <button
+      type="button"
+      onClick={card.onClick}
+      disabled={!clickable}
+      style={{
+        minHeight: 148,
+        padding: "14px 15px",
+        borderRadius: 8,
+        border: `1px solid ${card.color}38`,
+        borderLeft: `3px solid ${card.color}`,
+        background: `linear-gradient(180deg, ${card.color}12, var(--bg-surface) 58%)`,
+        boxShadow: "var(--shadow-sm)",
+        color: "var(--text-1)",
+        cursor: clickable ? "pointer" : "default",
+        textAlign: "left",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 10,
+        overflow: "hidden",
+      }}
+      onMouseEnter={e => {
+        if (!clickable) return;
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow = "var(--shadow-md)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: card.color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+            {card.label}
+          </div>
+          <div className="tabular-nums" style={{ fontSize: 24, fontWeight: 850, letterSpacing: "-0.035em", lineHeight: 1.05 }}>
+            {card.value}
+          </div>
+        </div>
+        <div style={{
+          width: 30, height: 30, borderRadius: 7,
+          background: `${card.color}18`, color: card.color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <Icon size={15} />
+        </div>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          color: "var(--text-1)", fontSize: 12.5, fontWeight: 700,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {card.detail}
+        </div>
+        <div style={{
+          color: "var(--text-3)", fontSize: 11.5, marginTop: 3,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {card.meta}
+        </div>
+        {card.explanation && (
+          <div style={{
+            marginTop: 7,
+            paddingTop: 7,
+            borderTop: "1px solid var(--border-sub)",
+            color: "var(--text-2)",
+            fontSize: 11,
+            lineHeight: 1.35,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}>
+            {card.explanation}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
 
 export default function BDCommandCenter() {
   const { resolvedTheme } = useThemeScale();
@@ -154,6 +272,8 @@ export default function BDCommandCenter() {
   const [showExport, setShowExport]               = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen]         = useState(false);
+  const [meetingMode, setMeetingMode]             = useState(false);
+  const [recentChangeNames, setRecentChangeNames] = useState<string[]>([]);
   const analyticsButtonRef = useRef<HTMLButtonElement>(null);
 
   // ── Action-impact toast ───────────────────────────────────────────────────
@@ -234,6 +354,128 @@ export default function BDCommandCenter() {
     return true;
   }), [institutions, filters]);
 
+  const bdPriorityCards = useMemo((): PriorityCard[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextYear = today.getFullYear() + 1;
+    const activeProjects = (inst: EnrichedInstitution) =>
+      filters.showLost
+        ? inst.projects
+        : inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost");
+
+    const overdueItems = visible
+      .map(inst => ({ inst, due: parseDateOnly(inst.edit.next_action_date) }))
+      .filter((item): item is { inst: EnrichedInstitution; due: Date } => Boolean(item.due) && item.due < today)
+      .sort((a, b) => a.due.getTime() - b.due.getTime());
+    const overdueTop = overdueItems[0]?.inst;
+
+    const reactivationTarget = visible
+      .filter(inst => {
+        const relationship = inst.edit.relationship ?? 1;
+        const status = String(inst.edit.hks_status ?? "");
+        return inst.pipeline > 0 && (relationship <= 2 || status === "Dormant" || inst.energy_score < 20);
+      })
+      .sort((a, b) => b.pipeline - a.pipeline)[0];
+
+    const upcomingPursuits = visible
+      .flatMap(inst => activeProjects(inst)
+        .filter(project => project.year != null && project.year >= today.getFullYear() && project.year <= nextYear)
+        .map(project => ({ inst, project })))
+      .sort((a, b) =>
+        (a.project.year ?? 9999) - (b.project.year ?? 9999)
+        || (b.project.budget_m ?? 0) - (a.project.budget_m ?? 0));
+    const upcomingTop = upcomingPursuits[0];
+
+    const topWeighted = visible
+      .filter(inst => inst.weighted_pipeline > 0)
+      .sort((a, b) => b.weighted_pipeline - a.weighted_pipeline)[0];
+    const byEnergyRank = [...visible].sort((a, b) => b.energy_score - a.energy_score);
+    const energyRankFor = (inst: EnrichedInstitution) => byEnergyRank.findIndex(i => i._rawName === inst._rawName) + 1;
+
+    const recentChanged = recentChangeNames
+      .map(name => institutions.find(inst => inst._rawName === name))
+      .filter(Boolean) as EnrichedInstitution[];
+    const recentTop = recentChanged[0];
+
+    return [
+      {
+        id: "overdue-actions",
+        label: "Overdue Actions",
+        value: String(overdueItems.length),
+        detail: overdueTop ? overdueTop.name : "Nothing overdue",
+        meta: overdueTop
+          ? `${overdueTop.edit.next_action || "Next action"} due ${formatDateLabel(overdueTop.edit.next_action_date)}`
+          : "Action list is current",
+        explanation: overdueTop
+          ? getRankExplanation(overdueTop, energyRankFor(overdueTop), byEnergyRank.length)
+          : "No scoring intervention needed from action timing right now.",
+        color: overdueItems.length ? "#DC2626" : "#16A34A",
+        icon: AlertTriangle,
+        onClick: () => setView("list"),
+      },
+      {
+        id: "reactivation-targets",
+        label: "Reactivation Target",
+        value: reactivationTarget ? fmtMoney(reactivationTarget.pipeline) : "$0.0M",
+        detail: reactivationTarget ? reactivationTarget.name : "No target flagged",
+        meta: reactivationTarget
+          ? `Relationship ${reactivationTarget.edit.relationship ?? 1}/5 - Energy ${reactivationTarget.energy_score.toFixed(1)}`
+          : "Low-engagement pipeline is clear",
+        explanation: reactivationTarget
+          ? getRankExplanation(reactivationTarget, energyRankFor(reactivationTarget), byEnergyRank.length)
+          : "No large-pipeline, low-relationship account is currently pulling attention.",
+        color: "#D97706",
+        icon: Target,
+        onClick: reactivationTarget ? () => setSelectedInst(reactivationTarget._rawName) : undefined,
+      },
+      {
+        id: "upcoming-pursuits",
+        label: "Upcoming Pursuits",
+        value: String(upcomingPursuits.length),
+        detail: upcomingTop ? upcomingTop.project.name : "No FY pursuits",
+        meta: upcomingTop
+          ? `${upcomingTop.inst.name} - FY${upcomingTop.project.year} - ${fmtMoney(upcomingTop.project.budget_m)}`
+          : `No active projects through FY${nextYear}`,
+        explanation: upcomingTop
+          ? getRankExplanation(upcomingTop.inst, energyRankFor(upcomingTop.inst), byEnergyRank.length)
+          : "Urgency stays low when no near-term dated pursuits are visible.",
+        color: "#2563EB",
+        icon: Clock3,
+        onClick: upcomingTop ? () => setSelectedInst(upcomingTop.inst._rawName) : undefined,
+      },
+      {
+        id: "weighted-fee",
+        label: "Top Weighted Fee",
+        value: topWeighted ? fmtMoney(topWeighted.weighted_pipeline) : "$0.0M",
+        detail: topWeighted ? topWeighted.name : "No weighted fees",
+        meta: topWeighted
+          ? `${fmtMoney(topWeighted.pipeline)} total pipeline`
+          : "Add stage or win probability to score fees",
+        explanation: topWeighted
+          ? `Weighted pipeline uses stage confidence or custom win probability. ${getRankExplanation(topWeighted, energyRankFor(topWeighted), byEnergyRank.length)}`
+          : "Weighted pipeline needs active budgets and stage confidence before it can guide fee focus.",
+        color: "#7C3AED",
+        icon: TrendingUp,
+        onClick: topWeighted ? () => setSelectedInst(topWeighted._rawName) : undefined,
+      },
+      {
+        id: "recent-changes",
+        label: "Recently Changed",
+        value: recentChanged.length ? String(recentChanged.length) : dirty ? "Unsaved" : "0",
+        detail: recentTop ? recentTop.name : "No edits this session",
+        meta: recentTop
+          ? recentChanged.slice(0, 3).map(inst => inst.name).join(", ")
+          : lastSaved ? `Last saved ${lastSaved}` : "Ready for updates",
+        explanation: recentTop
+          ? getRankExplanation(recentTop, energyRankFor(recentTop), byEnergyRank.length)
+          : "Recent edits will show score impact here after priority, relationship, stage, or pipeline changes.",
+        color: "#0EA5E9",
+        icon: Activity,
+        onClick: recentTop ? () => setSelectedInst(recentTop._rawName) : undefined,
+      },
+    ];
+  }, [dirty, filters.showLost, institutions, lastSaved, recentChangeNames, visible]);
+
   // ── Resolve action toast after energy recompute ───────────────────────────
   useEffect(() => {
     if (!pendingToast) return;
@@ -257,9 +499,18 @@ export default function BDCommandCenter() {
   }, [pendingToast, institutions]);
 
   // ── Edit helpers ──────────────────────────────────────────────────────────
-  const updateEdit    = (n: string, p: Record<string, unknown>) => setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
+  const markRecentChange = (n: string) =>
+    setRecentChangeNames(prev => [n, ...prev.filter(name => name !== n)].slice(0, 5));
+
+  const updateEdit    = (n: string, p: Record<string, unknown>) => {
+    markRecentChange(n);
+    setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
+  };
   const updateProject = (n: string, id: string, p: Record<string, unknown>) =>
-    setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
+    {
+      markRecentChange(n);
+      setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
+    };
 
   // ── Action List wrappers — capture before/after for the toast ────────────
   const FIELD_LABELS: Record<string, string> = {
@@ -317,20 +568,24 @@ export default function BDCommandCenter() {
     captureAndToast(n, changes);
     updateProject(n, id, p);
   };
-  const addProject    = (n: string, data?: Partial<RawProject>) => setEditState(s => ({
-    ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
-      _id: Math.random().toString(36).slice(2),
-      name: data?.name ?? "New Project",
-      budget_m: data?.budget_m ?? null,
-      year: data?.year ?? 2027,
-      type: (data?.type ?? "New Construction") as RawProject["type"],
-      source: (data?.source ?? "strategy") as "thecb" | "strategy",
-      notes: data?.notes ?? "",
-    }] },
-  }));
+  const addProject    = (n: string, data?: Partial<RawProject>) => {
+    markRecentChange(n);
+    setEditState(s => ({
+      ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
+        _id: Math.random().toString(36).slice(2),
+        name: data?.name ?? "New Project",
+        budget_m: data?.budget_m ?? null,
+        year: data?.year ?? 2027,
+        type: (data?.type ?? "New Construction") as RawProject["type"],
+        source: (data?.source ?? "strategy") as "thecb" | "strategy",
+        notes: data?.notes ?? "",
+      }] },
+    }));
+  };
   const addInstitution = (data: Record<string, unknown>) => {
     const rawName = String(data.name ?? "").trim();
     if (!rawName) return;
+    markRecentChange(rawName);
     const newRaw: RawInstitution = {
       name: rawName,
       system: String(data.system ?? "Other Public"),
@@ -366,20 +621,30 @@ export default function BDCommandCenter() {
       } satisfies InstEditState,
     }));
   };
-  const removeProject = (n: string, id: string) =>
+  const removeProject = (n: string, id: string) => {
+    markRecentChange(n);
     setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.filter(p => p._id !== id) } }));
-  const addContact    = (n: string) => setEditState(s => ({
-    ...s, [n]: { ...s[n], contacts: [...(s[n].contacts || []), { name: "New Contact", notes: "" }] },
-  }));
-  const removeContact  = (n: string, i: number) =>
+  };
+  const addContact    = (n: string) => {
+    markRecentChange(n);
+    setEditState(s => ({
+      ...s, [n]: { ...s[n], contacts: [...(s[n].contacts || []), { name: "New Contact", notes: "" }] },
+    }));
+  };
+  const removeContact  = (n: string, i: number) => {
+    markRecentChange(n);
     setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.filter((_, j) => j !== i) } }));
-  const updateContact  = (n: string, i: number, p: Partial<RawContact>) =>
+  };
+  const updateContact  = (n: string, i: number, p: Partial<RawContact>) => {
+    markRecentChange(n);
     setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.map((c, j) => j === i ? { ...c, ...p } : c) } }));
+  };
   const resetToDefaults = () => {
     if (!window.confirm("Reset ALL edits to original source data?")) return;
     const fresh = buildDefaultEditState(RAW_DATA.institutions);
     _setEditState(fresh);
     setUndoStack([]); setRedoStack([]); clearState();
+    setRecentChangeNames([]);
     setLastSaved(null); setDirty(false);
     saveToSupabase(fresh).catch(() => {});
   };
@@ -388,6 +653,20 @@ export default function BDCommandCenter() {
   const isFullWidth  = isDataView;
   const activeView   = VIEWS.find(v => v.id === view)!;
 
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+      if (editing || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        setMeetingMode(value => !value);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   // Colours driven by CSS vars
   const bgBase    = "var(--bg-base)";
   const headerBg  = "var(--bg-header)";
@@ -395,6 +674,10 @@ export default function BDCommandCenter() {
   const text1     = "var(--text-1)";
   const text2     = "var(--text-2)";
   const text3     = "var(--text-3)";
+
+  if (meetingMode) {
+    return <MeetingMode institutions={institutions} onExit={() => setMeetingMode(false)} />;
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: bgBase, fontFamily: FONT, color: text1, fontSize: 14, lineHeight: 1.5 }}>
@@ -456,14 +739,14 @@ export default function BDCommandCenter() {
                 { label: "Institutions", value: institutions.length, color: "#F59E0B" },
                 { label: "Visible",      value: visible.length,    color: "#0EA5E9" },
               ]).map(s => (
-                <div key={s.label} className="hide-mobile" style={{
-                  padding: "4px 12px", borderRadius: 20,
+                <div key={s.label} className="hide-mobile stat-pill" style={{
+                  padding: "5px 13px", borderRadius: 20,
                   background: `${s.color}14`,
                   border: `1px solid ${s.color}30`,
                   display: "flex", flexDirection: "column", alignItems: "center",
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: s.color, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</span>
-                  <span style={{ fontSize: 9, color: text3, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>{s.label}</span>
+                  <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.025em", lineHeight: 1.1 }}>{s.value}</span>
+                  <span style={{ fontSize: 9.5, color: text3, textTransform: "uppercase", letterSpacing: "0.09em", marginTop: 2, fontWeight: 600 }}>{s.label}</span>
                 </div>
               ))}
 
@@ -484,6 +767,25 @@ export default function BDCommandCenter() {
 
               {/* Theme + scale controls */}
               <ThemeScaleControls />
+
+              <button
+                aria-label="Enter Meeting Mode"
+                title="Enter Meeting Mode (M)"
+                onClick={() => setMeetingMode(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 8,
+                  border: "1px solid rgba(14,165,233,0.35)",
+                  background: "rgba(14,165,233,0.1)",
+                  color: "#0EA5E9",
+                  fontSize: 12, fontWeight: 700,
+                  cursor: "pointer",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                <Presentation size={13} aria-hidden="true" />
+                <span className="hide-mobile">Meeting Mode</span>
+              </button>
 
               {/* Save indicator */}
               <SaveIndicator
@@ -537,6 +839,8 @@ export default function BDCommandCenter() {
               return (
                 <button key={v.id}
                   onClick={() => { setView(v.id as ViewId); setMobileSidebarOpen(false); setAnalyticsOpen(false); }}
+                  className="nav-tab"
+                  data-active={active}
                   style={{
                     padding: "8px 14px",
                     background: active ? `${v.color}18` : "transparent",
@@ -549,7 +853,7 @@ export default function BDCommandCenter() {
                     transition: "color 0.15s, border-color 0.15s, background 0.15s",
                     borderRadius: "6px 6px 0 0",
                   }}>
-                  <Icon size={12} />{v.label}
+                  <Icon size={13} />{v.label}
                 </button>
               );
             };
@@ -558,6 +862,8 @@ export default function BDCommandCenter() {
             const analyticsViews = VIEWS.filter(v => (ANALYTICS_IDS as readonly string[]).includes(v.id));
             const dataView       = VIEWS.find(v => v.id === "data")!;
             const analyticsActive = (ANALYTICS_IDS as readonly string[]).includes(view);
+            const activeAnalyticsView = analyticsViews.find(v => v.id === view);
+            const analyticsTabLabel = activeAnalyticsView ? `Analytics: ${activeAnalyticsView.label}` : "Analytics";
 
             return (
               <div style={{ display: "flex", gap: 1, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" as const }}>
@@ -568,6 +874,8 @@ export default function BDCommandCenter() {
                 <div style={{ position: "relative" }}>
                   <button
                     ref={analyticsButtonRef}
+                    aria-label={analyticsTabLabel}
+                    aria-expanded={analyticsOpen}
                     onClick={() => setAnalyticsOpen(o => !o)}
                     style={{
                       padding: "8px 14px",
@@ -580,7 +888,7 @@ export default function BDCommandCenter() {
                       whiteSpace: "nowrap", transition: "all 0.15s",
                       borderRadius: "6px 6px 0 0",
                     }}>
-                    Analytics
+                    {analyticsTabLabel}
                     <ChevronDown size={11} style={{ transform: analyticsOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
 
@@ -594,14 +902,14 @@ export default function BDCommandCenter() {
                         onClick={() => setAnalyticsOpen(false)}
                       />
                       {/* Dropdown panel — fixed to escape overflowX:auto nav container */}
-                      <div style={{
+                      <div className="animate-scale-in" style={{
                         position: "fixed",
-                        top: rect ? rect.bottom : "auto",
+                        top: rect ? rect.bottom + 2 : "auto",
                         left: rect ? rect.left : "auto",
                         zIndex: 99,
                         background: "var(--bg-header)", border: "1px solid var(--border)",
                         borderRadius: "0 8px 8px 8px", boxShadow: "var(--shadow-lg)",
-                        minWidth: 180, overflow: "hidden",
+                        minWidth: 190, overflow: "hidden",
                         backdropFilter: "blur(20px)",
                       }}>
                         {analyticsViews.map(v => {
@@ -681,6 +989,31 @@ export default function BDCommandCenter() {
               <strong>Edit Mode active</strong>
               <span style={{ color: "var(--text-2)", fontWeight: 400 }}>— click any institution card to edit all fields. Changes auto-save every 60 s.</span>
             </div>
+          )}
+
+          {!isFullWidth && (
+            <section aria-label="Today's BD Priorities" style={{ marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 850, letterSpacing: "-0.015em", color: text1 }}>
+                    Today&apos;s BD Priorities
+                  </h2>
+                  <div style={{ fontSize: 11.5, color: text3, marginTop: 2 }}>
+                    Actionable signals from the current filtered dashboard.
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, color: text3, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                  {visible.length} visible
+                </span>
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: 10,
+              }}>
+                {bdPriorityCards.map(card => <PriorityStripCard key={card.id} card={card} />)}
+              </div>
+            </section>
           )}
 
           {/* View breadcrumb */}
