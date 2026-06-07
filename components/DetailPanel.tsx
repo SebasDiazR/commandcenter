@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useLayoutEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap } from "lucide-react";
 import InfoTip from "./InfoTip";
 import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT, PURSUIT_STAGE_COLORS } from "@/lib/constants";
@@ -544,7 +544,10 @@ export default function DetailPanel({
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "capture">("overview");
   const [visible, setVisible] = useState(false);
-  useLayoutEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 16);
+    return () => clearTimeout(t);
+  }, []);
 
   const [localNotes,      setLocalNotes]      = useState(inst?.edit?.notes       || "");
   const [localNextAction, setLocalNextAction] = useState(inst?.edit?.next_action  || "");
