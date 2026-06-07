@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap } from "lucide-react";
 import InfoTip from "./InfoTip";
 import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT, PURSUIT_STAGE_COLORS } from "@/lib/constants";
@@ -50,10 +50,10 @@ function Row({ label, children, info }: { label: string; children: React.ReactNo
   );
 }
 
-function Section({ title, icon: Icon, children, action, accent }: {
+function Section({ title, icon: Icon, children, action, accent, filled }: {
   title: string; icon?: React.ElementType;
   children: React.ReactNode; action?: React.ReactNode;
-  accent?: string;
+  accent?: string; filled?: boolean;
 }) {
   return (
     <div style={{ background: "var(--bg-surface)", border: `1px solid ${accent ?? "var(--border)"}`,
@@ -62,6 +62,13 @@ function Section({ title, icon: Icon, children, action, accent }: {
         color: accent ?? "var(--text-3)", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: FONT }}>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {Icon && <Icon size={12} />}{title}
+          {filled !== undefined && (
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%", display: "inline-block", flexShrink: 0,
+              background: filled ? "#16A34A" : "#F59E0B",
+              boxShadow: filled ? "0 0 5px #16A34A88" : "0 0 5px #F59E0B66",
+            }} title={filled ? "Section has data" : "Section incomplete"} />
+          )}
         </span>
         {action}
       </div>
@@ -86,6 +93,49 @@ function CpTextarea({ value, onChange, placeholder, rows = 3 }: {
     <textarea value={value} onChange={e => onChange(e.target.value)}
       rows={rows} placeholder={placeholder}
       style={{ ...fieldStyle, resize: "vertical" }} />
+  );
+}
+
+function NotesBlock({ value, onChange, onBlur }: {
+  value: string; onChange: (v: string) => void; onBlur: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  return editing ? (
+    <textarea
+      autoFocus
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onBlur={() => { onBlur(); setEditing(false); }}
+      rows={5}
+      style={{ ...fieldStyle, resize: "vertical", lineHeight: 1.6 }}
+    />
+  ) : (
+    <div
+      onClick={() => setEditing(true)}
+      title="Click to edit"
+      style={{
+        minHeight: 68, padding: "10px 12px",
+        borderRadius: 6, cursor: "text",
+        border: "1.5px solid transparent",
+        background: value ? "var(--bg-input)" : "var(--bg-chip)",
+        transition: "border-color 0.15s, background 0.15s",
+        fontFamily: FONT, fontSize: 13, lineHeight: 1.65,
+        color: value ? "var(--text-1)" : "var(--text-3)",
+        fontStyle: value ? "normal" : "italic",
+        whiteSpace: "pre-wrap", position: "relative",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--amber-brand)")}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = "transparent")}
+    >
+      {value || "No strategy notes yet — what do you know about this relationship?"}
+      {value && (
+        <span style={{
+          position: "absolute", top: 8, right: 10,
+          fontSize: 11, color: "var(--text-3)", opacity: 0,
+          transition: "opacity 0.15s",
+        }} className="notes-edit-hint">✎ edit</span>
+      )}
+    </div>
   );
 }
 
@@ -199,7 +249,8 @@ function CapturePlanTab({
     <div>
 
       {/* ── 1. Needs Assessment ── */}
-      <Section title="Needs Assessment" icon={ClipboardList} accent="#6366F1">
+      <Section title="Needs Assessment" icon={ClipboardList} accent="#6366F1"
+        filled={!!(cp.known_needs || cp.pain_points || cp.horizon_months || cp.decision_date)}>
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12, fontFamily: FONT }}>
           Capture intel 23–36 months before an RFP. What does this client actually need, and when?
         </div>
@@ -273,7 +324,8 @@ function CapturePlanTab({
       </Section>
 
       {/* ── 2. Relationship Mapping ── */}
-      <Section title="Relationship Mapping" icon={Map} accent="#0EA5E9">
+      <Section title="Relationship Mapping" icon={Map} accent="#0EA5E9"
+        filled={!!(cp.who_we_know || cp.who_we_need || cp.preferred_pm || cp.rfp_process)}>
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12, fontFamily: FONT }}>
           Map the org chart. Know who makes decisions, who influences them, and where the gaps are.
         </div>
@@ -334,7 +386,8 @@ function CapturePlanTab({
       </Section>
 
       {/* ── 3. Our Position ── */}
-      <Section title="Our Position" icon={Award} accent="#D97706">
+      <Section title="Our Position" icon={Award} accent="#D97706"
+        filled={!!(cp.work_history || cp.past_pursuits || cp.hks_champions || cp.differentiators)}>
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12, fontFamily: FONT }}>
           What have we learned from past work and pursuits? What do we bring, and who will champion us?
         </div>
@@ -394,7 +447,8 @@ function CapturePlanTab({
       </Section>
 
       {/* ── 4. Action Plan ── */}
-      <Section title="Action Plan" icon={Zap} accent="#16A34A">
+      <Section title="Action Plan" icon={Zap} accent="#16A34A"
+        filled={!!(cp.go_no_go || cp.immediate_next_steps || cp.proposal_storyline)}>
         <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 12, fontFamily: FONT }}>
           Decide, commit, and assign. Sell the relationship before you sell the project.
         </div>
@@ -489,6 +543,8 @@ export default function DetailPanel({
   updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "capture">("overview");
+  const [visible, setVisible] = useState(false);
+  useLayoutEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
 
   const [localNotes,      setLocalNotes]      = useState(inst?.edit?.notes       || "");
   const [localNextAction, setLocalNextAction] = useState(inst?.edit?.next_action  || "");
@@ -539,10 +595,12 @@ export default function DetailPanel({
         background: "var(--bg-overlay)",
         zIndex: 200,
         backdropFilter: "blur(3px)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.3s ease",
       }} />
 
       {/* Drawer */}
-      <aside className="animate-slide-in" style={{
+      <aside style={{
         position: "fixed", top: 0, right: 0, bottom: 0,
         width: "min(660px, 100%)",
         background: "var(--bg-detail)",
@@ -550,6 +608,9 @@ export default function DetailPanel({
         boxShadow: "var(--shadow-lg)",
         fontFamily: FONT, color: "var(--text-1)",
         borderLeft: "1px solid var(--border)",
+        transform: visible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
+        willChange: "transform",
       }}>
 
         {/* Header */}
@@ -745,14 +806,55 @@ export default function DetailPanel({
                   style={fieldStyle} />
               </Section>
 
+              {/* Cross-tab capture plan callout */}
+              {(cp.go_no_go || cp.potential || cpFilled > 0) && (
+                <div style={{
+                  marginBottom: 12, padding: "10px 14px",
+                  background: "var(--bg-chip)",
+                  border: `1px solid ${sysColor}33`,
+                  borderLeft: `3px solid ${sysColor}`,
+                  borderRadius: 8,
+                  display: "flex", alignItems: "center", gap: 10,
+                  flexWrap: "wrap",
+                }}>
+                  <span style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 700, flexShrink: 0 }}>
+                    Capture Plan
+                  </span>
+                  {cp.go_no_go && (
+                    <span style={{
+                      padding: "1px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                      background: cp.go_no_go === "Go" ? "#16A34A" : cp.go_no_go === "No Go" ? "#DC2626" : "#64748B",
+                      color: "#FFF",
+                    }}>{cp.go_no_go}</span>
+                  )}
+                  {cp.potential && (
+                    <span style={{
+                      padding: "1px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                      background: cp.potential === "High" ? "#16A34A22" : cp.potential === "Medium" ? "#D9770622" : "#64748B22",
+                      color: cp.potential === "High" ? "#16A34A" : cp.potential === "Medium" ? "#D97706" : "#64748B",
+                      border: `1px solid ${cp.potential === "High" ? "#16A34A44" : cp.potential === "Medium" ? "#D9770644" : "#64748B44"}`,
+                    }}>{cp.potential} potential</span>
+                  )}
+                  {cpFilled > 0 && (
+                    <span style={{ fontSize: 11, color: "var(--text-3)" }}>{cpFilled}/{cpTotal} sections filled</span>
+                  )}
+                  <button
+                    onClick={() => setActiveTab("capture")}
+                    style={{
+                      marginLeft: "auto", background: "none", border: "none",
+                      color: sysColor, fontSize: 11.5, fontWeight: 700,
+                      cursor: "pointer", fontFamily: FONT, padding: 0,
+                    }}
+                  >Open →</button>
+                </div>
+              )}
+
               {/* Notes */}
               <Section title="Strategy Notes">
-                <textarea
+                <NotesBlock
                   value={localNotes}
-                  onChange={ev => setLocalNotes(ev.target.value)}
+                  onChange={setLocalNotes}
                   onBlur={() => updateEdit(rawName, { notes: localNotes })}
-                  rows={3} placeholder="Internal context, hunches, next steps…"
-                  style={{ ...fieldStyle, resize: "vertical" }}
                 />
               </Section>
 

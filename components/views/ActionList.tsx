@@ -1,9 +1,8 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy, BarChart2 } from "lucide-react";
-import ForecastView from "./ForecastView";
+import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy } from "lucide-react";
 import InfoTip from "../InfoTip";
-import { SYSTEM_COLORS, ALL_STATUSES, STATUS_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGES, PURSUIT_STAGE_COLORS } from "@/lib/constants";
+import { SYSTEM_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGE_COLORS, PURSUIT_STAGES } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 
@@ -17,6 +16,7 @@ interface ActionListProps {
   institutions: EnrichedInstitution[];
   onSelect: (name: string) => void;
   updateEdit: (name: string, patch: Record<string, unknown>) => void;
+  updateProject: (name: string, id: string, patch: Record<string, unknown>) => void;
 }
 
 // ── Sort types ────────────────────────────────────────────────────────────────
@@ -231,8 +231,8 @@ function WinLossTab({ institutions }: { institutions: EnrichedInstitution[] }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ActionList({ institutions, onSelect, updateEdit }: ActionListProps) {
-  const [activeTab, setActiveTab] = useState<"institutions" | "projects" | "winloss" | "forecast">("institutions");
+export default function ActionList({ institutions, onSelect, updateEdit, updateProject }: ActionListProps) {
+  const [activeTab, setActiveTab] = useState<"institutions" | "projects" | "winloss">("institutions");
   const [showTop10, setShowTop10] = useState(false);
   const [sortKey, setSortKey]     = useState<SortKey>("energy_score");
   const [sortDir, setSortDir]     = useState<SortDir>("desc");
@@ -277,10 +277,6 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
 
   function renderRow(inst: EnrichedInstitution, idx: number) {
     const focus  = top10Set.has(inst._rawName);
-    const status = (inst.edit.hks_status as string) || "Active";
-    const statusColor = STATUS_COLORS[status] ?? "var(--text-2)";
-    const pursuitStage = (inst.edit.pursuit_stage as string) || "Tracking";
-    const stageColor = PURSUIT_STAGE_COLORS[pursuitStage] ?? "var(--text-3)";
     const actionDate = inst.edit.next_action_date;
     const today = new Date(); today.setHours(0,0,0,0);
     const actionDue = actionDate ? new Date(actionDate as string) : null;
@@ -300,28 +296,6 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
           <span style={{ display: "inline-block", padding: "2px 8px", background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)", color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700, whiteSpace: "nowrap" }}>
             {inst.system}
           </span>
-        </td>
-        <td style={tdStyle}>
-          <select
-            value={pursuitStage}
-            onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { pursuit_stage: e.target.value }); }}
-            onClick={e => e.stopPropagation()}
-            aria-label={`Pursuit stage for ${inst.name}`}
-            style={{ padding: "4px 8px", fontSize: 12, border: `1.5px solid ${stageColor}`, borderRadius: 4, color: stageColor, fontWeight: 700, background: "var(--bg-input)", fontFamily: FONT, cursor: "pointer" }}
-          >
-            {PURSUIT_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </td>
-        <td style={tdStyle}>
-          <select
-            value={status}
-            onChange={e => { e.stopPropagation(); updateEdit(inst._rawName, { hks_status: e.target.value }); }}
-            onClick={e => e.stopPropagation()}
-            aria-label={`Status for ${inst.name}`}
-            style={{ padding: "4px 8px", fontSize: 12, border: `1.5px solid ${statusColor}`, borderRadius: 4, color: statusColor, fontWeight: 700, background: "var(--bg-input)", fontFamily: FONT, cursor: "pointer" }}
-          >
-            {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
         </td>
         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
           {actionDate ? (
@@ -400,11 +374,10 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
     );
   }
 
-  const TABS: { id: "institutions" | "projects" | "winloss" | "forecast"; label: string; Icon: React.ElementType }[] = [
+  const TABS: { id: "institutions" | "projects" | "winloss"; label: string; Icon: React.ElementType }[] = [
     { id: "institutions", label: "By Institution", Icon: Building2 },
     { id: "projects",     label: "By Project",     Icon: FolderOpen },
     { id: "winloss",      label: "Win / Loss",      Icon: Trophy },
-    { id: "forecast",     label: "Forecast",        Icon: BarChart2 },
   ];
 
   return (
@@ -457,8 +430,6 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                     <th style={thStyle}>#</th>
                     <SortableHeader label="Institution"   sortKey="name"              currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                     <th style={thStyle}>System</th>
-                    <th style={thStyle}>Stage</th>
-                    <th style={thStyle}>Status</th>
                     <SortableHeader label="Action Due"    sortKey="next_action_date"  currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                     <SortableHeader label="Pipeline"      sortKey="pipeline"          currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right" />
                     <SortableHeader label="Wtd. Pipeline" sortKey="weighted_pipeline" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right" />
@@ -519,11 +490,25 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
                           </span>
                         </td>
                         <td style={tdStyle}>
-                          {p.pursuit_stage ? (
-                            <span style={{ display: "inline-block", padding: "2px 8px", border: `1.5px solid ${stageColor}`, borderRadius: 4, color: stageColor, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                              {p.pursuit_stage}
-                            </span>
-                          ) : <span style={{ color: "var(--text-3)" }}>—</span>}
+                          <select
+                            value={p.pursuit_stage ?? "Tracking"}
+                            onChange={e => {
+                              e.stopPropagation();
+                              if (p._id) updateProject(inst._rawName, String(p._id), { pursuit_stage: e.target.value });
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            aria-label={`Stage for ${p.name}`}
+                            style={{
+                              padding: "3px 8px", fontSize: 11, fontWeight: 700,
+                              border: `1px solid ${stageColor}55`, borderRadius: 5,
+                              color: stageColor, background: `${stageColor}18`,
+                              fontFamily: FONT, cursor: "pointer", outline: "none",
+                              appearance: "none" as const,
+                              WebkitAppearance: "none" as const,
+                            }}
+                          >
+                            {PURSUIT_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         </td>
                         <td style={{ ...tdStyle, color: "var(--text-2)" }}>{p.year ?? "—"}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--amber)", whiteSpace: "nowrap" }}>
@@ -542,8 +527,6 @@ export default function ActionList({ institutions, onSelect, updateEdit }: Actio
       {/* ── Tab: Win / Loss ── */}
       {activeTab === "winloss" && <WinLossTab institutions={institutions} />}
 
-      {/* ── Tab: Forecast ── */}
-      {activeTab === "forecast" && <ForecastView institutions={institutions} />}
     </div>
   );
 }

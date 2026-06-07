@@ -1739,7 +1739,7 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
         </div>
 
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {mode === "institutions" ? filteredInsts.map(inst => {
+          {mode === "institutions" ? filteredInsts.slice(0, 10).map(inst => {
             const rn = inst._rawName;
             const sel = selectedInsts.has(rn);
             return (
@@ -1749,7 +1749,7 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
                 <div style={{ fontSize: 10, color: D.text3, marginTop: 1 }}>{inst.system} · {inst.projects.length} projects · {fmtMoney(inst.pipeline)}</div>
               </div>
             );
-          }) : filteredProjs.map(p => {
+          }) : filteredProjs.slice(0, 10).map(p => {
             const sel = selectedProjs.has(p._uid);
             return (
               <div key={p._uid} onClick={() => toggleProj(p._uid)}
@@ -1759,6 +1759,16 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
               </div>
             );
           })}
+          {mode === "institutions" && filteredInsts.length > 10 && (
+            <div style={{ padding: "8px 14px", fontSize: 10, color: D.text3, textAlign: "center" }}>
+              Showing top 10 of {filteredInsts.length} — search to filter
+            </div>
+          )}
+          {mode === "projects" && filteredProjs.length > 10 && (
+            <div style={{ padding: "8px 14px", fontSize: 10, color: D.text3, textAlign: "center" }}>
+              Showing top 10 of {filteredProjs.length} — search to filter
+            </div>
+          )}
         </div>
 
         {modeSelCount > 0 && (

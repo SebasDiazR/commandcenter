@@ -372,7 +372,7 @@ export default function PriorityMatrix({ institutions, onSelect, onViewActions }
             <XAxis
               type="number" dataKey="x" scale="log" domain={[1, 10000]}
               tick={{ fontSize: 12, fill: "var(--text-2)", fontFamily: FONT }}
-              tickFormatter={v => v >= 1000 ? `$${v / 1000}B` : `$${v}M`}
+              tickFormatter={v => v >= 1000 ? `$${(v / 1000).toFixed(2)}B` : `$${(+v).toFixed(2)}M`}
               label={{ value: "Verified Pipeline (log scale)", position: "insideBottom", offset: -14, fill: "var(--text-2)", fontSize: 12, fontFamily: FONT, fontWeight: 600 }}
             />
             <YAxis

@@ -30,6 +30,7 @@ import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
 import ForecastView from "./views/ForecastView";
 import ScenarioPlanner from "./views/ScenarioPlanner";
+import LostImpactToast from "./LostImpactToast";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
@@ -152,6 +153,14 @@ export default function BDCommandCenter() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen]         = useState(false);
   const analyticsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // ── Action-impact toast ───────────────────────────────────────────────────
+  const [pendingToast, setPendingToast] = useState<{
+    instRawName: string;
+    changes: import("./LostImpactToast").FieldChange[];
+    oldEnergy: number; oldRank: number; oldPipeline: number;
+  } | null>(null);
+  const [activeToast, setActiveToast] = useState<import("./LostImpactToast").ActionPayload | null>(null);
   const [filters, setFilters]           = useState<FilterState>({
     systems: [], practices: [], types: [], pursuitStages: [],
     minPriority: 0, search: "", showLost: false,
@@ -181,7 +190,7 @@ export default function BDCommandCenter() {
       const priority = e.priority ?? raw.strategy_priority ?? 0;
       const rel      = e.relationship ?? 1;
       const exp      = (e.expansion ?? 30) / 100;
-      const lostPenalty = instStage === "Lost" ? 0.05 : 1;
+      const lostPenalty = (instStage === "Lost" || (e.hks_status as string) === "Lost") ? 0.05 : 1;
       const energy   = priority * Math.log(pipeline + 1) * urgency * (rel / 5) * (0.5 + exp / 2) * lostPenalty;
       return {
         ...raw,
@@ -223,10 +232,89 @@ export default function BDCommandCenter() {
     return true;
   }), [institutions, filters]);
 
+  // ── Resolve action toast after energy recompute ───────────────────────────
+  useEffect(() => {
+    if (!pendingToast) return;
+    const sorted  = [...institutions].sort((a, b) => b.energy_score - a.energy_score);
+    const inst    = institutions.find(i => i._rawName === pendingToast.instRawName);
+    if (!inst) { setPendingToast(null); return; }
+    const newRank = sorted.findIndex(i => i._rawName === pendingToast.instRawName);
+    setActiveToast({
+      instName:    inst.name,
+      system:      inst.system,
+      changes:     pendingToast.changes,
+      oldEnergy:   pendingToast.oldEnergy,
+      newEnergy:   inst.energy_score,
+      oldRank:     pendingToast.oldRank,
+      newRank,
+      oldPipeline: pendingToast.oldPipeline,
+      newPipeline: inst.pipeline,
+    });
+    setPendingToast(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingToast, institutions]);
+
   // ── Edit helpers ──────────────────────────────────────────────────────────
   const updateEdit    = (n: string, p: Record<string, unknown>) => setEditState(s => ({ ...s, [n]: { ...s[n], ...p } }));
   const updateProject = (n: string, id: string, p: Record<string, unknown>) =>
     setEditState(s => ({ ...s, [n]: { ...s[n], projects: s[n].projects.map(x => x._id === id ? { ...x, ...p } : x) } }));
+
+  // ── Action List wrappers — capture before/after for the toast ────────────
+  const FIELD_LABELS: Record<string, string> = {
+    priority: "Priority", relationship: "Relationship",
+    next_action_date: "Action Due", hks_status: "Status",
+    expansion: "Expansion", pursuit_stage: "Stage", outcome: "Outcome",
+  };
+
+  function captureAndToast(
+    n: string,
+    changes: import("./LostImpactToast").FieldChange[],
+  ) {
+    if (changes.length === 0) return;
+    const sorted   = [...institutions].sort((a, b) => b.energy_score - a.energy_score);
+    const inst     = institutions.find(i => i._rawName === n);
+    if (!inst) return;
+    const oldRank  = sorted.findIndex(i => i._rawName === n);
+    setPendingToast({
+      instRawName:  n,
+      changes,
+      oldEnergy:    inst.energy_score,
+      oldRank,
+      oldPipeline:  inst.pipeline,
+    });
+  }
+
+  /** updateEdit variant that also fires the action toast */
+  const alUpdateEdit = (n: string, p: Record<string, unknown>) => {
+    const inst = institutions.find(i => i._rawName === n);
+    const e    = inst?.edit as unknown as Record<string, unknown> | undefined;
+    const changes: import("./LostImpactToast").FieldChange[] = [];
+    for (const [key, newVal] of Object.entries(p)) {
+      const label = FIELD_LABELS[key];
+      if (!label) continue;
+      const oldVal = e?.[key];
+      if (String(oldVal ?? "—") === String(newVal)) continue;
+      changes.push({ field: label, from: String(oldVal ?? "—"), to: String(newVal) });
+    }
+    captureAndToast(n, changes);
+    updateEdit(n, p);
+  };
+
+  /** updateProject variant that also fires the action toast */
+  const alUpdateProject = (n: string, id: string, p: Record<string, unknown>) => {
+    const inst = institutions.find(i => i._rawName === n);
+    const proj = inst?.projects.find(x => String(x._id) === String(id));
+    const changes: import("./LostImpactToast").FieldChange[] = [];
+    for (const [key, newVal] of Object.entries(p)) {
+      const label = FIELD_LABELS[key];
+      if (!label) continue;
+      const oldVal = (proj as unknown as Record<string, unknown> | undefined)?.[key];
+      if (String(oldVal ?? "—") === String(newVal)) continue;
+      changes.push({ field: label, from: String(oldVal ?? "—"), to: String(newVal) });
+    }
+    captureAndToast(n, changes);
+    updateProject(n, id, p);
+  };
   const addProject    = (n: string, data?: Partial<RawProject>) => setEditState(s => ({
     ...s, [n]: { ...s[n], projects: [...(s[n].projects || []), {
       _id: Math.random().toString(36).slice(2),
@@ -610,7 +698,7 @@ export default function BDCommandCenter() {
             {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} onViewActions={() => setView("list")} />}
             {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} showLost={filters.showLost} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
-            {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={updateEdit} />}
+            {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={alUpdateEdit} updateProject={alUpdateProject} />}
             {view === "forecast"  && <ForecastView    institutions={visible} showLost={filters.showLost} />}
             {view === "scenario"  && <ScenarioPlanner institutions={visible} />}
             {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
@@ -657,6 +745,11 @@ export default function BDCommandCenter() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      <LostImpactToast
+        payload={activeToast}
+        onDismiss={() => setActiveToast(null)}
+      />
 
     </div>
   );
