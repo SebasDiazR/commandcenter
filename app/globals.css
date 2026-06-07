@@ -1,3 +1,6 @@
+/* ── Leaflet ──────────────────────────────────────────────────────────────── */
+@import "leaflet/dist/leaflet.css";
+
 /* ── Scatter callout animation ───────────────────────────────────────────── */
 @keyframes calloutSlideIn {
   from { opacity: 0; transform: translateX(12px); }

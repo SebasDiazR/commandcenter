@@ -4,7 +4,6 @@ import { SYSTEM_COLORS, PRACTICE_COLORS, STATUS_COLORS, PURSUIT_STAGE_COLORS, FO
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 import { Users, FolderOpen } from "lucide-react";
-import RelationshipNetwork from "./RelationshipNetwork";
 
 function hexRgb(hex: string) {
   const h = hex.replace("#","");
@@ -184,7 +183,7 @@ function ProjectCard({ p, instName, color, onSelect }: {
 // ─── Main view ────────────────────────────────────────────────────────────────
 type SortBy = "energy" | "pipeline" | "priority";
 type ProjSortBy = "budget" | "year" | "stage";
-type ViewMode = "grid" | "system" | "project" | "network";
+type ViewMode = "grid" | "system" | "project";
 
 export default function Ecosystem({ institutions, onSelect, showLost = false }: {
   institutions: EnrichedInstitution[];
@@ -264,7 +263,7 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
           <button onClick={() => setView("grid")}    style={tabBtn(view === "grid")}>Grid</button>
           <button onClick={() => setView("system")}  style={tabBtn(view === "system")}>By System</button>
           <button onClick={() => setView("project")} style={tabBtn(view === "project")}>By Project</button>
-          <button onClick={() => setView("network")} style={tabBtn(view === "network")}>Network</button>
+
         </div>
 
         {view === "grid" && (
@@ -331,11 +330,6 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
             </div>
           ))}
         </div>
-      )}
-
-      {/* Network view */}
-      {view === "network" && (
-        <RelationshipNetwork institutions={filteredInstitutions} onSelect={onSelect} />
       )}
 
       {/* System view */}

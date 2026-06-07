@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
   Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
-  ChevronDown, Menu, X as XIcon, BarChart2, Sliders,
+  ChevronDown, Menu, X as XIcon, BarChart2, Sliders, MapPin,
 } from "lucide-react";
 
 import { RAW_DATA } from "@/lib/data";
@@ -30,6 +30,7 @@ import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
 import ForecastView from "./views/ForecastView";
 import ScenarioPlanner from "./views/ScenarioPlanner";
+import InstitutionMap from "./views/InstitutionMap";
 import LostImpactToast from "./LostImpactToast";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
@@ -149,6 +150,7 @@ export default function BDCommandCenter() {
   const [globalEdit, setGlobalEdit]               = useState(false);
   const [view, setView]                           = useState<ViewId>("matrix");
   const [selectedInst, setSelectedInst]           = useState<string | null>(null);
+  const [hoveredInst, setHoveredInst]             = useState<string | null>(null);
   const [showExport, setShowExport]               = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen]         = useState(false);
@@ -695,7 +697,10 @@ export default function BDCommandCenter() {
 
           {/* Views — each wrapped for fade-in */}
           <div key={view} className="animate-fade-in">
-            {view === "matrix"    && <PriorityMatrix  institutions={visible}      onSelect={setSelectedInst} onViewActions={() => setView("list")} />}
+            {view === "matrix"    && <>
+              <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => setView("list")} />
+              <InstitutionMap institutions={visible} selectedInst={selectedInst} hoveredInst={hoveredInst} onSelect={setSelectedInst} onHover={setHoveredInst} />
+            </>}
             {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} showLost={filters.showLost} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={alUpdateEdit} updateProject={alUpdateProject} />}
