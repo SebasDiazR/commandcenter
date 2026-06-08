@@ -112,9 +112,10 @@ function SeverityPill({ score }: { score: number }) {
 }
 
 export default function MeetingMode({ institutions, onExit }: MeetingModeProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rootRef   = useRef<HTMLDivElement>(null);
+  const tickRef   = useRef<number | null>(null);
   const [slide, setSlide] = useState(0);
-  const [autoPlay, setAutoPlay] = useState(true);
+  const [autoPlay, setAutoPlay] = useState(false);
   const [selectedInst, setSelectedInst] = useState<string | null>(null);
   const [hoveredInst, setHoveredInst] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
@@ -125,11 +126,42 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
     return () => window.clearInterval(tick);
   }, []);
 
+  // Autoplay: use self-scheduling setTimeout so stacking is impossible.
+  // Pauses when the tab is hidden or an institution card is selected.
   useEffect(() => {
-    if (!autoPlay) return;
-    const tick = window.setInterval(() => setSlide(s => (s + 1) % SLIDES.length), SLIDE_MS);
-    return () => window.clearInterval(tick);
-  }, [autoPlay]);
+    const cancel = () => {
+      if (tickRef.current !== null) {
+        window.clearTimeout(tickRef.current);
+        tickRef.current = null;
+      }
+    };
+
+    const schedule = () => {
+      cancel();
+      if (document.hidden || selectedInst) return;
+      tickRef.current = window.setTimeout(() => {
+        setSlide(s => (s + 1) % SLIDES.length);
+        schedule();
+      }, SLIDE_MS);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) cancel();
+      else schedule();
+    };
+
+    if (!autoPlay) {
+      cancel();
+      return;
+    }
+
+    schedule();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancel();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [autoPlay, selectedInst]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -643,7 +675,7 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
         ))}
       </div>
 
-      <main key={slide} className="meeting-slide animate-fade-in">
+      <main key={slide} className="meeting-slide meeting-slide-enter">
         {slideBody}
       </main>
 
