@@ -297,7 +297,7 @@ export default function OfficesView({ institutions, onSelect }: Props) {
       {/* Empty state when nothing selected and no results */}
       {!selected && filtered.length === 0 && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8", fontSize: 13 }}>
-          No offices match "{search}"
+          No offices match &ldquo;{search}&rdquo;
         </div>
       )}
     </div>
