@@ -3,8 +3,7 @@ import React from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie } from "recharts";
 import InfoTip from "../InfoTip";
 import { SYSTEM_COLORS, SHARED_STYLES, FONT } from "@/lib/constants";
-import { RAW_DATA } from "@/lib/data";
-import type { EnrichedInstitution } from "@/lib/types";
+import type { EnrichedInstitution, ProjectTypeRollup } from "@/lib/types";
 
 const cardStyle         = SHARED_STYLES.card;
 const thStyle           = SHARED_STYLES.th;
@@ -20,10 +19,24 @@ interface ProjectTypesProps {
 }
 
 export default function ProjectTypes({ institutions }: ProjectTypesProps) {
-  const types      = RAW_DATA.project_types;
+  const allProjects = institutions.flatMap(i => i.projects);
+  const totalBudget = allProjects.reduce((s, p) => s + (p.budget_m ?? 0), 0);
+  const typeMap: Record<string, { count: number; total_m: number }> = {};
+  allProjects.forEach(p => {
+    if (!p.type) return;
+    if (!typeMap[p.type]) typeMap[p.type] = { count: 0, total_m: 0 };
+    typeMap[p.type].count++;
+    typeMap[p.type].total_m += p.budget_m ?? 0;
+  });
+  const types: ProjectTypeRollup[] = Object.entries(typeMap).map(([name, v]) => ({
+    name, count: v.count,
+    total_b: v.total_m / 1000,
+    pct: totalBudget > 0 ? (v.total_m / totalBudget) * 100 : 0,
+  })).sort((a, b) => b.total_b - a.total_b);
+  const typeNames = types.map(t => t.name);
   const systemList = Array.from(new Set(institutions.map(i => i.system)));
   const matrix: Record<string, Record<string, number>> = {};
-  systemList.forEach(s => { matrix[s] = {}; types.forEach(t => { matrix[s][t.name] = 0; }); });
+  systemList.forEach(s => { matrix[s] = {}; typeNames.forEach(t => { matrix[s][t] = 0; }); });
   institutions.forEach(i => i.projects.forEach(p => { if (matrix[i.system]?.[p.type] != null) matrix[i.system][p.type]++; }));
 
   const tooltipStyle: React.CSSProperties = {

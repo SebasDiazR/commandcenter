@@ -8,7 +8,7 @@ import {
   RefreshCw, ArrowUpDown, Tag, Calendar, User, Star,
   TrendingUp, Zap, Globe,
 } from "lucide-react";
-import { RAW_DATA } from "@/lib/data";
+import type { FundingSource } from "@/lib/types";
 import {
   SYSTEM_COLORS, PRACTICE_COLORS, ALL_PRACTICES,
   PROJECT_TYPES, STATUS_COLORS, ALL_STATUSES,
@@ -31,6 +31,8 @@ export interface DataManagerProps {
   removeProject: (rawName: string, projId: string) => void;
   onSave: () => void;
   dirty: boolean;
+  fundingSources?: FundingSource[];
+  systemColors?: Record<string, string>;
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -193,8 +195,8 @@ function useToast() {
 }
 
 // ─── Reusable: Bulk action bar ────────────────────────────────────────────────
-function BulkBar({ count, onDelete, onExport, onClear }: {
-  count: number; onDelete: () => void; onExport: () => void; onClear: () => void;
+function BulkBar({ count, onDelete, onExport, onClear, deleteLabel = "Delete selected" }: {
+  count: number; onDelete?: () => void; onExport: () => void; onClear: () => void; deleteLabel?: string;
 }) {
   if (!count) return null;
   return (
@@ -210,9 +212,11 @@ function BulkBar({ count, onDelete, onExport, onClear }: {
       <button onClick={onExport} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: D.radiusSm, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
         <Download size={13} /> Export selected
       </button>
-      <button onClick={onDelete} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "rgba(220,38,38,0.3)", border: "1px solid rgba(220,38,38,0.5)", borderRadius: D.radiusSm, color: "#FCA5A5", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
-        <Trash2 size={13} /> Delete selected
-      </button>
+      {onDelete && (
+        <button onClick={onDelete} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "rgba(220,38,38,0.3)", border: "1px solid rgba(220,38,38,0.5)", borderRadius: D.radiusSm, color: "#FCA5A5", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+          <Trash2 size={13} /> {deleteLabel}
+        </button>
+      )}
       <button onClick={onClear} style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontFamily: "inherit" }}>
         <X size={14} /> Clear
       </button>
@@ -343,6 +347,34 @@ function TR({ children, selected, onClick, style }: {
   );
 }
 
+// ─── Inline editable textarea ─────────────────────────────────────────────────
+// Same pattern as InlineInput: uncontrolled, saves on blur only.
+function InlineTextarea({ value, onChange, placeholder, rows = 3 }: {
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (ref.current && document.activeElement !== ref.current) {
+      ref.current.value = value ?? "";
+    }
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      defaultValue={value ?? ""}
+      placeholder={placeholder}
+      rows={rows}
+      onBlur={() => onChange(ref.current?.value ?? "")}
+      onKeyDown={e => { if (e.key === "Escape") e.currentTarget.blur(); }}
+      onClick={e => e.stopPropagation()}
+      style={{ ...fieldInput, height: 72, resize: "vertical" } as React.CSSProperties}
+    />
+  );
+}
+
 // ─── Inline editable cell ─────────────────────────────────────────────────────
 // Uncontrolled: typing never triggers a React re-render, so focus is never lost.
 // Parent value is synced to the DOM only when the field is not active.
@@ -417,12 +449,13 @@ function InlineSelect({
 }
 
 // ─── Add Institution Modal ─────────────────────────────────────────────────────
-function AddInstitutionModal({ onClose, onAdd }: {
+function AddInstitutionModal({ onClose, onAdd, systemColors: sysCols = SYSTEM_COLORS }: {
   onClose: () => void;
   onAdd: (data: Record<string, unknown>) => void;
+  systemColors?: Record<string, string>;
 }) {
   const [form, setForm] = useState({
-    name: "", system: "UT", hks_status: "Active",
+    name: "", system: Object.keys(sysCols)[0] ?? "Other Public", hks_status: "Active",
     lead_practice: "", priority: "", owner: "", notes: "",
   });
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -439,7 +472,7 @@ function AddInstitutionModal({ onClose, onAdd }: {
         </Field>
         <Field label="System" half>
           <select style={fieldSelect} value={form.system} onChange={e => set("system", e.target.value)}>
-            {Object.keys(SYSTEM_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+            {Object.keys(sysCols).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
         <Field label="Status" half>
@@ -535,11 +568,12 @@ function AddProjectModal({ institutions, onClose, onAdd }: {
 // ═════════════════════════════════════════════════════════════════════════════
 // INSTITUTIONS TAB
 // ═════════════════════════════════════════════════════════════════════════════
-function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dirty }: {
+function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dirty, systemColors: sysCols = SYSTEM_COLORS }: {
   institutions: EnrichedInstitution[];
   updateEdit: (rawName: string, patch: Record<string, unknown>) => void;
   addInstitution: (data: Record<string, unknown>) => void;
   onSave: () => void; dirty: boolean;
+  systemColors?: Record<string, string>;
 }) {
   const [search, setSearch]       = useState("");
   const [sort, setSort]           = useState<SortState>({ col: "priority", dir: "asc" });
@@ -628,6 +662,7 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
       nasf: i.edit.nasf ?? i.nasf ?? "",
       notes: i.edit.notes ?? "",
     }));
+    if (!data.length) return;
     downloadCSV(toCSV(data as Record<string,unknown>[], Object.keys(data[0])),
       `hks-institutions-${new Date().toISOString().slice(0,10)}.csv`);
     showToast(`Exported ${src.length} institutions`);
@@ -706,7 +741,7 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
         <select value={filterSystem} onChange={e => setFilterSystem(e.target.value)}
           style={{ padding: "8px 10px", fontSize: 13, border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, fontFamily: "inherit", color: filterSystem ? D.text1 : D.text3, minWidth: 120 }}>
           <option value="">All systems</option>
-          {Object.keys(SYSTEM_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+          {Object.keys(sysCols).map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={filterPractice} onChange={e => setFilterPractice(e.target.value)}
           style={{ padding: "8px 10px", fontSize: 13, border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, fontFamily: "inherit", color: filterPractice ? D.text1 : D.text3, minWidth: 130 }}>
@@ -770,7 +805,7 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
               const status = inst.edit.hks_status ?? "Active";
               const statusColor = STATUS_COLORS[status] ?? D.text2;
               const priority = inst.edit.priority ?? inst.strategy_priority;
-              const sc = SYSTEM_COLORS[inst.system] ?? D.text2;
+              const sc = sysCols[inst.system] ?? D.text2;
               const lp = inst.lead_practice ?? inst.edit.lead_practice;
 
               return (
@@ -787,8 +822,8 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
                     <td style={{ padding: 0 }}>
                       <InlineSelect value={inst.system}
                         onChange={v => updateEdit(rn, { system: v })}
-                        options={Object.keys(SYSTEM_COLORS).map(s => ({ value: s }))}
-                        colors={SYSTEM_COLORS} />
+                        options={Object.keys(sysCols).map(s => ({ value: s }))}
+                        colors={sysCols} />
                     </td>
                     <td style={{ padding: 0 }}>
                       <InlineInput value={priority} type="number" min={1} max={10} step={1}
@@ -875,12 +910,10 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
                           </div>
                           <div style={{ gridColumn: "span 3" }}>
                             <label style={{ fontSize: 10, fontWeight: 700, color: D.text3, textTransform: "uppercase", letterSpacing: "0.06em" }}>Notes</label>
-                            <textarea
+                            <InlineTextarea
                               value={inst.edit.notes ?? ""}
-                              onChange={e => updateEdit(rn, { notes: e.target.value })}
-                              onClick={e => e.stopPropagation()}
+                              onChange={v => updateEdit(rn, { notes: v })}
                               placeholder="Internal notes, context, relationship history…"
-                              style={{ ...fieldInput, height: 72, resize: "vertical" } as React.CSSProperties}
                             />
                           </div>
                         </div>
@@ -899,11 +932,10 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
         )}
       </div>
 
-      {/* Bulk actions */}
+      {/* Bulk actions — institutions are from source data and cannot be deleted; export only */}
       <BulkBar
         count={selectedCount}
         onExport={() => handleExport(Array.from(selected))}
-        onDelete={() => { if (window.confirm(`Clear edits for ${selectedCount} institutions?`)) setSelected(new Set()); }}
         onClear={() => setSelected(new Set())}
       />
 
@@ -914,6 +946,7 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
             addInstitution(data);
             showToast("Institution added — save to persist");
           }}
+          systemColors={sysCols}
         />
       )}
       {toast && <Toast message={toast} />}
@@ -996,6 +1029,7 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
       budget_m: p.budget_m ?? "", year: p.year ?? "",
       type: p.type, source: p.source, notes: p.notes ?? "",
     }));
+    if (!data.length) return;
     downloadCSV(toCSV(data as Record<string,unknown>[], Object.keys(data[0])),
       `hks-projects-${new Date().toISOString().slice(0,10)}.csv`);
     showToast(`Exported ${src.length} projects`);
@@ -1314,6 +1348,7 @@ function PipelineTab({ institutions, updateEdit, onSave, dirty }: {
       next_action_date: i.edit.next_action_date ?? "",
       status: i.edit.hks_status ?? "Active",
     }));
+    if (!data.length) return;
     downloadCSV(toCSV(data as Record<string,unknown>[], Object.keys(data[0])),
       `hks-pipeline-${new Date().toISOString().slice(0,10)}.csv`);
     showToast(`Exported ${data.length} pipeline entries`);
@@ -1499,9 +1534,9 @@ function PipelineTab({ institutions, updateEdit, onSave, dirty }: {
 // ═════════════════════════════════════════════════════════════════════════════
 // FUNDING TAB
 // ═════════════════════════════════════════════════════════════════════════════
-function FundingTab() {
+function FundingTab({ initialSources }: { initialSources: FundingSource[] }) {
   const [sources, setSources] = useState(() =>
-    RAW_DATA.funding_sources.map((s, i) => ({ ...s, _id: i }))
+    initialSources.map((s, i) => ({ ...s, _id: i }))
   );
   const { toast, show: showToast } = useToast();
 
@@ -1600,7 +1635,7 @@ function FundingTab() {
           <tfoot>
             <tr style={{ background: D.navy }}>
               <td style={{ padding: "12px 12px", color: "#fff", fontWeight: 700, fontSize: 13 }}>Total</td>
-              <td style={{ padding: "12px 12px", color: D.amberBg, fontWeight: 800, fontSize: 14, textAlign: "right" }}>${totalM.toFixed(1)}M</td>
+              <td style={{ padding: "12px 12px", color: D.amberBg, fontWeight: 800, fontSize: 14, textAlign: "right" }}>{fmtMoney(totalM)}</td>
               <td style={{ padding: "12px 12px", color: "#fff", fontWeight: 700, textAlign: "right" }}>100%</td>
               <td colSpan={2} />
             </tr>
@@ -1628,7 +1663,7 @@ interface FlatProject extends RawProject {
   _uid: string; // instRawName + "||" + project name
 }
 
-function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
+function CompareTab({ institutions, systemColors: sysCols = SYSTEM_COLORS }: { institutions: EnrichedInstitution[]; systemColors?: Record<string, string> }) {
   const [mode, setMode] = useState<CompareMode>("institutions");
   const [selectedInsts, setSelectedInsts] = useState<Set<string>>(new Set());
   const [selectedProjs, setSelectedProjs] = useState<Set<string>>(new Set());
@@ -1676,7 +1711,7 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
 
   const INST_COLS = [
     { label: "Institution",    render: (i: EnrichedInstitution) => <strong style={{ fontSize: 13 }}>{i.edit.displayName ?? i.name}</strong> },
-    { label: "System",        render: (i: EnrichedInstitution) => <Badge label={i.system} color={SYSTEM_COLORS[i.system] ?? D.text2} /> },
+    { label: "System",        render: (i: EnrichedInstitution) => <Badge label={i.system} color={sysCols[i.system] ?? D.text2} /> },
     { label: "Pipeline ($M)", render: (i: EnrichedInstitution) => <span style={{ fontWeight: 800, color: D.amber }}>{fmtMoney(i.pipeline)}</span> },
     { label: "Net Fee Est.",  render: (i: EnrichedInstitution) => <span style={{ fontWeight: 700, color: "#16A34A" }}>{fmtMoney(i.weighted_pipeline * feeRate / 100)}</span> },
     { label: "Projects",      render: (i: EnrichedInstitution) => <span>{i.projects.length}</span> },
@@ -1692,8 +1727,8 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
 
   const PROJ_COLS: { label: string; render: (p: FlatProject) => React.ReactNode }[] = [
     { label: "Project",       render: p => <strong style={{ fontSize: 13 }}>{p.name}</strong> },
-    { label: "Institution",   render: p => <span style={{ color: SYSTEM_COLORS[p._system] ?? D.text2, fontWeight: 600 }}>{p._instDisplayName}</span> },
-    { label: "System",        render: p => <Badge label={p._system} color={SYSTEM_COLORS[p._system] ?? D.text2} /> },
+    { label: "Institution",   render: p => <span style={{ color: sysCols[p._system] ?? D.text2, fontWeight: 600 }}>{p._instDisplayName}</span> },
+    { label: "System",        render: p => <Badge label={p._system} color={sysCols[p._system] ?? D.text2} /> },
     { label: "Budget ($M)",   render: p => <span style={{ fontWeight: 800, color: D.amber }}>{fmtMoney(p.budget_m)}</span> },
     { label: "Net Fee Est.",  render: p => <span style={{ fontWeight: 700, color: "#16A34A" }}>{fmtMoney((p.budget_m ?? 0) * feeRate / 100)}</span> },
     { label: "FY",            render: p => <span style={{ fontWeight: 600 }}>{p.year ? `FY${p.year}` : "—"}</span> },
@@ -1828,7 +1863,7 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
                     {comparedInsts.map(inst => (
                       <th key={inst._rawName} style={{ ...hdrCell, minWidth: 180, textAlign: "left" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ color: SYSTEM_COLORS[inst.system] ?? D.text1, fontWeight: 700 }}>{inst.edit.displayName ?? inst.name}</span>
+                          <span style={{ color: sysCols[inst.system] ?? D.text1, fontWeight: 700 }}>{inst.edit.displayName ?? inst.name}</span>
                           <button onClick={() => toggleInst(inst._rawName)} style={{ background: "none", border: "none", cursor: "pointer", color: D.text3, padding: 2, display: "inline-flex" }}><X size={12} /></button>
                         </div>
                       </th>
@@ -1913,7 +1948,10 @@ function CompareTab({ institutions }: { institutions: EnrichedInstitution[] }) {
 export default function DataManager({
   institutions, editState, updateEdit,
   updateProject, addProject, addInstitution, removeProject, onSave, dirty,
+  fundingSources = [],
+  systemColors: systemColorsProp,
 }: DataManagerProps) {
+  const sysColors = systemColorsProp ?? SYSTEM_COLORS;
   const [tab, setTab] = useState<Tab>("institutions");
   const totalProjects = institutions.reduce((s, i) => s + i.projects.length, 0);
   const totalPipeline = institutions.reduce((s, i) => s + i.pipeline, 0);
@@ -1923,7 +1961,7 @@ export default function DataManager({
     { id: "institutions", label: "Institutions", icon: <Building size={14} />, badge: institutions.length },
     { id: "projects",     label: "Projects",     icon: <FolderOpen size={14} />, badge: totalProjects },
     { id: "pipeline",     label: "Pipeline",     icon: <TrendingUp size={14} />, badge: fmtMoney(totalPipeline) },
-    { id: "funding",      label: "Funding",      icon: <DollarSign size={14} />, badge: RAW_DATA.funding_sources.length },
+    { id: "funding",      label: "Funding",      icon: <DollarSign size={14} />, badge: fundingSources.length },
     { id: "compare",      label: "Compare",      icon: <BarChart3 size={14} /> },
   ];
 
@@ -2008,7 +2046,7 @@ export default function DataManager({
         {/* Tab content — fixed height so inner tables can scroll */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, height: "calc(100vh - 230px)", overflow: "hidden" }}>
           {tab === "institutions" && (
-            <InstitutionsTab institutions={institutions} updateEdit={updateEdit} addInstitution={addInstitution} onSave={onSave} dirty={dirty} />
+            <InstitutionsTab institutions={institutions} updateEdit={updateEdit} addInstitution={addInstitution} onSave={onSave} dirty={dirty} systemColors={sysColors} />
           )}
           {tab === "projects" && (
             <ProjectsTab institutions={institutions} updateProject={updateProject} addProject={addProject} removeProject={removeProject} onSave={onSave} dirty={dirty} />
@@ -2016,8 +2054,8 @@ export default function DataManager({
           {tab === "pipeline" && (
             <PipelineTab institutions={institutions} updateEdit={updateEdit} onSave={onSave} dirty={dirty} />
           )}
-          {tab === "funding" && <FundingTab />}
-          {tab === "compare" && <CompareTab institutions={institutions} />}
+          {tab === "funding" && <FundingTab initialSources={fundingSources} />}
+          {tab === "compare" && <CompareTab institutions={institutions} systemColors={sysColors} />}
         </div>
       </div>
     </>

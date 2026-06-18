@@ -1,14 +1,18 @@
 import type { EditStateMap, PersistedState, RawInstitution, InstEditState } from "./types";
 
-export const STORAGE_KEY = "hks_bd_command_center_v2";
-export const UNDO_LIMIT  = 40;
+const BASE_STORAGE_KEY = "hks_bd_command_center_v2";
+export const UNDO_LIMIT = 40;
+
+function storageKey(stateId: string) {
+  return stateId === "tx" ? BASE_STORAGE_KEY : `${BASE_STORAGE_KEY}_${stateId}`;
+}
 
 // ── LocalStorage (fallback / offline) ────────────────────────────────────────
 
-export function loadPersistedState(): PersistedState | null {
+export function loadPersistedState(stateId = "tx"): PersistedState | null {
   try {
     if (typeof window === "undefined") return null;
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(stateId));
     if (!raw) return null;
     const parsed: PersistedState = JSON.parse(raw);
     if (parsed.version !== 2) return null;
@@ -18,21 +22,21 @@ export function loadPersistedState(): PersistedState | null {
   }
 }
 
-export function saveState(editState: EditStateMap): string {
+export function saveState(editState: EditStateMap, stateId = "tx"): string {
   const payload: PersistedState = { version: 2, editState, savedAt: Date.now() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  localStorage.setItem(storageKey(stateId), JSON.stringify(payload));
   return new Date().toLocaleTimeString();
 }
 
-export function clearState(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearState(stateId = "tx"): void {
+  localStorage.removeItem(storageKey(stateId));
 }
 
 // ── Supabase (primary persistence) ───────────────────────────────────────────
 
-export async function loadFromSupabase(): Promise<EditStateMap | null> {
+export async function loadFromSupabase(stateId = "tx"): Promise<EditStateMap | null> {
   try {
-    const res = await fetch("/api/edits");
+    const res = await fetch(`/api/edits?state=${stateId}`);
     if (!res.ok) return null;
     const { editState } = await res.json();
     return editState ?? null;
@@ -41,16 +45,15 @@ export async function loadFromSupabase(): Promise<EditStateMap | null> {
   }
 }
 
-export async function saveToSupabase(editState: EditStateMap): Promise<string> {
+export async function saveToSupabase(editState: EditStateMap, stateId = "tx"): Promise<string> {
   const res = await fetch("/api/edits", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ editState }),
+    body: JSON.stringify({ editState, stateId }),
   });
   if (!res.ok) throw new Error("Failed to save to Supabase");
   const { savedAt } = await res.json();
-  // Also mirror to localStorage as offline cache
-  saveState(editState);
+  saveState(editState, stateId);
   return new Date(savedAt).toLocaleTimeString();
 }
 

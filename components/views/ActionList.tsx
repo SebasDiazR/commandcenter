@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useMemo } from "react";
-import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy, ChevronRight } from "lucide-react";
 import InfoTip from "../InfoTip";
 import { ScoreExplainButton } from "../ScoringExplanation";
 import { SYSTEM_COLORS, SHARED_STYLES, FONT, PURSUIT_STAGE_COLORS, PURSUIT_STAGES } from "@/lib/constants";
@@ -49,25 +50,79 @@ function Stars({ value, onChange }: { value: number; onChange: (n: number) => vo
   );
 }
 
-function HoverRow({ children, onClick, isFocus, isEven }: {
+function HoverRow({ children, onClick, isFocus, isEven, layoutId, flashDir, rowIdx }: {
   children: React.ReactNode; onClick: () => void; isFocus: boolean; isEven: boolean;
+  layoutId?: string; flashDir?: "up" | "down" | null; rowIdx?: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const base = isFocus ? "rgba(245,158,11,0.08)" : isEven ? "var(--bg-surface)" : "var(--bg-raised)";
+  const flash = flashDir === "up" ? "rgba(22,163,74,0.18)" : flashDir === "down" ? "rgba(220,38,38,0.18)" : null;
   return (
-    <tr
+    <motion.tr
+      layout="position"
+      layoutId={layoutId}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0, background: flash ?? (hovered ? "var(--bg-card-hov)" : base) }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1], delay: rowIdx != null ? rowIdx * 0.025 : 0 }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered ? "var(--bg-card-hov)" : base,
+        background: flash ?? (hovered ? "var(--bg-card-hov)" : base),
         borderBottom: "1px solid var(--border-sub)",
-        cursor: "pointer", transition: "background 0.12s",
-        outline: isFocus ? "inset 0 0 0 1px rgba(245,158,11,0.25)" : undefined,
+        cursor: "pointer",
+        boxShadow: isFocus ? "inset 0 0 0 1px rgba(245,158,11,0.25)" : undefined,
       }}
     >
       {children}
-    </tr>
+    </motion.tr>
+  );
+}
+
+function ExpandableProjectRows({ inst }: { inst: EnrichedInstitution }) {
+  const activeProjects = inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost");
+  return (
+    <div style={{
+      padding: "8px 16px 12px 44px",
+      background: "var(--bg-base)",
+      borderBottom: "2px solid var(--border)",
+    }}>
+      {activeProjects.length === 0 ? (
+        <div style={{ fontSize: 12, color: "var(--text-3)", fontStyle: "italic", padding: "4px 0" }}>No active projects.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {activeProjects
+            .sort((a, b) => (b.budget_m ?? 0) - (a.budget_m ?? 0))
+            .map((p, i) => {
+              const stageColor = PURSUIT_STAGE_COLORS[p.pursuit_stage ?? ""] ?? "#64748B";
+              return (
+                <motion.div
+                  key={String(p._id ?? i)}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "6px 10px", borderRadius: 6,
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--border-sub)",
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: "var(--text-1)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  {p.pursuit_stage && (
+                    <span style={{ padding: "1px 7px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${stageColor}22`, color: stageColor, border: `1px solid ${stageColor}44`, whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {p.pursuit_stage}
+                    </span>
+                  )}
+                  <span style={{ fontWeight: 700, color: "var(--amber)", whiteSpace: "nowrap", flexShrink: 0 }}>{fmtMoney(p.budget_m)}</span>
+                  {p.year && <span style={{ color: "var(--text-3)", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>FY{p.year}</span>}
+                </motion.div>
+              );
+            })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -231,71 +286,78 @@ function WinLossTab({ institutions }: { institutions: EnrichedInstitution[] }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Institution row (expandable with animated project list) ──────────────────
 
-export default function ActionList({ institutions, onSelect, updateEdit, updateProject }: ActionListProps) {
-  const [activeTab, setActiveTab] = useState<"institutions" | "projects" | "winloss">("institutions");
-  const [showTop10, setShowTop10] = useState(false);
-  const [sortKey, setSortKey]     = useState<SortKey>("energy_score");
-  const [sortDir, setSortDir]     = useState<SortDir>("desc");
+interface InstitutionRowProps {
+  inst: EnrichedInstitution;
+  idx: number;
+  focus: boolean;
+  rank: number;
+  totalCount: number;
+  isExpanded: boolean;
+  onSelect: (name: string) => void;
+  onToggle: (rawName: string, e: React.MouseEvent) => void;
+  updateEdit: (name: string, patch: Record<string, unknown>) => void;
+  byEnergyLength: number;
+  rankDelta: number;
+}
 
-  // Top 10 individual projects ranked by budget
-  const top10Projects = useMemo(() => {
-    const all: { project: import("@/lib/types").RawProject; inst: EnrichedInstitution }[] = [];
-    for (const inst of institutions) {
-      for (const p of inst.projects) {
-        if (p.outcome !== "Lost" && p.pursuit_stage !== "Lost" && (p.budget_m ?? 0) > 0) {
-          all.push({ project: p, inst });
-        }
-      }
+function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSelect, onToggle, updateEdit, byEnergyLength, rankDelta }: InstitutionRowProps) {
+  const [flashDir, setFlashDir] = useState<"up" | "down" | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (rankDelta !== 0) {
+      setFlashDir(rankDelta > 0 ? "up" : "down");
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setFlashDir(null), 900);
     }
-    return all.sort((a, b) => (b.project.budget_m ?? 0) - (a.project.budget_m ?? 0)).slice(0, 10);
-  }, [institutions]);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [rankDelta]);
 
-  const handleSort = (key: SortKey) => {
-    if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("desc"); }
-  };
+  const actionDate = inst.edit.next_action_date;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const actionDue = actionDate ? new Date(actionDate as string) : null;
+  const isOverdue = actionDue && actionDue < today;
+  const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
+  const activeCount = inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length;
+  const COL_SPAN = 10;
 
-  const byEnergy = useMemo(() => [...institutions].sort((a, b) => b.energy_score - a.energy_score), [institutions]);
-  const top10Set = useMemo(() => new Set(byEnergy.slice(0, 10).map(i => i._rawName)), [byEnergy]);
-  const energyRank = useMemo(() => new Map(byEnergy.map((inst, idx) => [inst._rawName, idx + 1])), [byEnergy]);
-
-  const displayed = useMemo(() => {
-    const base = showTop10 ? byEnergy.filter(i => top10Set.has(i._rawName)) : [...byEnergy];
-    return base.sort((a, b) => {
-      let av: number | string = 0, bv: number | string = 0;
-      switch (sortKey) {
-        case "name":               av = a.name;                            bv = b.name;                            break;
-        case "pipeline":           av = a.pipeline;                        bv = b.pipeline;                        break;
-        case "weighted_pipeline":  av = a.weighted_pipeline;               bv = b.weighted_pipeline;               break;
-        case "priority":           av = a.edit.priority ?? a.strategy_priority ?? 0;  bv = b.edit.priority ?? b.strategy_priority ?? 0; break;
-        case "energy_score":       av = a.energy_score;                    bv = b.energy_score;                    break;
-        case "next_action_date":   av = (a.edit.next_action_date as string) || "9999"; bv = (b.edit.next_action_date as string) || "9999"; break;
-      }
-      if (typeof av === "string" && typeof bv === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
-  }, [byEnergy, showTop10, top10Set, sortKey, sortDir]);
-
-  function renderRow(inst: EnrichedInstitution, idx: number) {
-    const focus  = top10Set.has(inst._rawName);
-    const actionDate = inst.edit.next_action_date;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const actionDue = actionDate ? new Date(actionDate as string) : null;
-    const isOverdue = actionDue && actionDue < today;
-    const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
-    const rank = energyRank.get(inst._rawName) ?? idx + 1;
-
-    return (
-      <HoverRow key={inst._rawName} onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0}>
+  return (
+    <>
+      <HoverRow onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0} layoutId={`row-${inst._rawName}`} flashDir={flashDir} rowIdx={idx}>
         <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>
           {focus && (
             <span style={{ background: "var(--amber)", color: "#FFF", padding: "1px 5px", borderRadius: 3, fontSize: 10, marginRight: 5, fontWeight: 700, letterSpacing: "0.05em" }}>FOCUS</span>
           )}
           {idx + 1}
         </td>
-        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 160 }}>{inst.name}</td>
+        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 160 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              onClick={e => onToggle(inst._rawName, e)}
+              title={isExpanded ? "Collapse projects" : "Expand projects"}
+              style={{
+                background: "none", border: "none", padding: "2px 3px", cursor: "pointer",
+                color: isExpanded ? "var(--amber)" : "var(--text-3)",
+                display: "flex", alignItems: "center", borderRadius: 4,
+                transition: "color 0.15s", flexShrink: 0,
+              }}
+            >
+              <motion.span
+                animate={{ rotate: isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                style={{ display: "flex" }}
+              >
+                <ChevronRight size={13} />
+              </motion.span>
+            </button>
+            {inst.name}
+            {activeCount > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", background: "var(--bg-chip)", padding: "0 5px", borderRadius: 8, marginLeft: 2 }}>{activeCount}</span>
+            )}
+          </div>
+        </td>
         <td style={tdStyle}>
           <span style={{ display: "inline-block", padding: "2px 8px", background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)", color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700, whiteSpace: "nowrap" }}>
             {inst.system}
@@ -346,17 +408,104 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
         <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15, color: focus ? "var(--amber)" : "var(--text-1)", textAlign: "right", whiteSpace: "nowrap" }}>
           {inst.energy_score.toFixed(1)}
         </td>
-        <td style={{ ...tdStyle, minWidth: 260 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.35 }}>
-              {getRankExplanation(inst, rank, byEnergy.length)}
-            </span>
-            <ScoreExplainButton inst={inst} rank={rank} total={byEnergy.length} />
-          </div>
+        <td style={tdStyle}>
+          <ScoreExplainButton inst={inst} rank={rank} total={byEnergyLength} />
         </td>
       </HoverRow>
-    );
+      <tr>
+        <td colSpan={COL_SPAN} style={{ padding: 0, border: "none" }}>
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div
+                key="projects"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                style={{ overflow: "hidden" }}
+              >
+                <ExpandableProjectRows inst={inst} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </td>
+      </tr>
+    </>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function ActionList({ institutions, onSelect, updateEdit, updateProject }: ActionListProps) {
+  const [activeTab, setActiveTab] = useState<"institutions" | "projects" | "winloss">("institutions");
+  const [showTop10, setShowTop10] = useState(false);
+  const [sortKey, setSortKey]     = useState<SortKey>("energy_score");
+  const [sortDir, setSortDir]     = useState<SortDir>("desc");
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const prevOrderRef = useRef<string[]>([]);
+  const rankDeltaRef = useRef<Map<string, number>>(new Map());
+
+
+  const toggleRow = (rawName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(rawName)) next.delete(rawName);
+      else next.add(rawName);
+      return next;
+    });
+  };
+
+  // Top 10 individual projects ranked by budget
+  const top10Projects = useMemo(() => {
+    const all: { project: import("@/lib/types").RawProject; inst: EnrichedInstitution }[] = [];
+    for (const inst of institutions) {
+      for (const p of inst.projects) {
+        if (p.outcome !== "Lost" && p.pursuit_stage !== "Lost" && (p.budget_m ?? 0) > 0) {
+          all.push({ project: p, inst });
+        }
+      }
+    }
+    return all.sort((a, b) => (b.project.budget_m ?? 0) - (a.project.budget_m ?? 0)).slice(0, 10);
+  }, [institutions]);
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("desc"); }
+  };
+
+  const byEnergy = useMemo(() => [...institutions].sort((a, b) => b.energy_score - a.energy_score), [institutions]);
+  const top10Set = useMemo(() => new Set(byEnergy.slice(0, 10).map(i => i._rawName)), [byEnergy]);
+  const energyRank = useMemo(() => new Map(byEnergy.map((inst, idx) => [inst._rawName, idx + 1])), [byEnergy]);
+
+  const displayed = useMemo(() => {
+    const base = showTop10 ? byEnergy.filter(i => top10Set.has(i._rawName)) : [...byEnergy];
+    return base.sort((a, b) => {
+      let av: number | string = 0, bv: number | string = 0;
+      switch (sortKey) {
+        case "name":               av = a.name;                            bv = b.name;                            break;
+        case "pipeline":           av = a.pipeline;                        bv = b.pipeline;                        break;
+        case "weighted_pipeline":  av = a.weighted_pipeline;               bv = b.weighted_pipeline;               break;
+        case "priority":           av = a.edit.priority ?? a.strategy_priority ?? 0;  bv = b.edit.priority ?? b.strategy_priority ?? 0; break;
+        case "energy_score":       av = a.energy_score;                    bv = b.energy_score;                    break;
+        case "next_action_date":   av = (a.edit.next_action_date as string) || "9999"; bv = (b.edit.next_action_date as string) || "9999"; break;
+      }
+      if (typeof av === "string" && typeof bv === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+  }, [byEnergy, showTop10, top10Set, sortKey, sortDir]);
+
+  // Compute rank deltas: positive = moved up, negative = moved down
+  const currentOrder = displayed.map(i => i._rawName);
+  const newDeltas = new Map<string, number>();
+  if (prevOrderRef.current.length > 0) {
+    currentOrder.forEach((name, newIdx) => {
+      const oldIdx = prevOrderRef.current.indexOf(name);
+      if (oldIdx !== -1 && oldIdx !== newIdx) newDeltas.set(name, oldIdx - newIdx);
+    });
   }
+  rankDeltaRef.current = newDeltas;
+  prevOrderRef.current = currentOrder;
 
   const toggleBtn = (active: boolean, onClick: () => void, icon: React.ReactNode, label: string) => (
     <button
@@ -426,17 +575,27 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
         )}
       </div>
 
+      {/* ── Tab content with fade transition ── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        >
+
       {/* ── Tab: Institutions ── */}
       {activeTab === "institutions" && (
         <>
           <div style={{ ...sectionSubStyle, marginBottom: 12 }}>
             Ranked by Energy Score.{" "}
-            <strong style={{ color: "var(--amber)" }}>FOCUS</strong> = top 10. Edit priority and relationship inline.
+            <strong style={{ color: "var(--amber)" }}>FOCUS</strong> = top 10. Click <ChevronRight size={11} style={{ verticalAlign: "middle" }} /> to expand projects inline. Edit priority and relationship inline.
             {" "}Click any column header to sort.
           </div>
           <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "var(--bg-base-2)", borderBottom: "2px solid var(--border)" }}>
                     <th style={thStyle}>#</th>
@@ -452,11 +611,25 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
                     <SortableHeader label="Energy" sortKey="energy_score" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right">
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>Energy <InfoTip term="Energy Score" /></span>
                     </SortableHeader>
-                    <th style={thStyle}>Why Here</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayed.map((inst, idx) => renderRow(inst, idx))}
+                  {displayed.map((inst, idx) => (
+                    <InstitutionRow
+                      key={inst._rawName}
+                      inst={inst}
+                      idx={idx}
+                      focus={top10Set.has(inst._rawName)}
+                      rank={energyRank.get(inst._rawName) ?? idx + 1}
+                      totalCount={displayed.length}
+                      isExpanded={expandedRows.has(inst._rawName)}
+                      onSelect={onSelect}
+                      onToggle={toggleRow}
+                      updateEdit={updateEdit}
+                      byEnergyLength={byEnergy.length}
+                      rankDelta={rankDeltaRef.current.get(inst._rawName) ?? 0}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -539,6 +712,9 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
 
       {/* ── Tab: Win / Loss ── */}
       {activeTab === "winloss" && <WinLossTab institutions={institutions} />}
+
+        </motion.div>
+      </AnimatePresence>
 
     </div>
   );

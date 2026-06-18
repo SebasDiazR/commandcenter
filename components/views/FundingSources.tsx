@@ -3,7 +3,8 @@ import React from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie } from "recharts";
 import InfoTip from "../InfoTip";
 import { SHARED_STYLES, FONT } from "@/lib/constants";
-import { GLOSSARY, RAW_DATA } from "@/lib/data";
+import { GLOSSARY } from "@/lib/data";
+import type { FundingSource } from "@/lib/types";
 import { fmtMoney } from "@/lib/helpers";
 import type { EditStateMap } from "@/lib/types";
 
@@ -18,6 +19,7 @@ interface FundingSourcesProps {
   globalEdit: boolean;
   editState: EditStateMap;
   setEditState: (s: EditStateMap | ((prev: EditStateMap) => EditStateMap)) => void;
+  fundingSources?: FundingSource[];
 }
 
 const CHART_COLORS = [
@@ -25,8 +27,8 @@ const CHART_COLORS = [
   "#52525B","#0E7C7B","#15803D","#7C3AED","#9D174D","#0EA5E9",
 ];
 
-export default function FundingSources({ globalEdit, editState, setEditState }: FundingSourcesProps) {
-  const sources      = RAW_DATA.funding_sources;
+export default function FundingSources({ globalEdit, editState, setEditState, fundingSources = [] }: FundingSourcesProps) {
+  const sources      = fundingSources;
   const top          = sources.slice(0, 10);
   const unknownTotal = sources.filter(s => ["Unspecified","Unknown Funding Source"].includes(s.name)).reduce((a, x) => a + x.total_m, 0);
   const knownTotal   = sources.filter(s => !["Unspecified","Unknown Funding Source"].includes(s.name)).reduce((a, x) => a + x.total_m, 0);

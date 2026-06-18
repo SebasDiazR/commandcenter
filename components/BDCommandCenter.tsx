@@ -1,15 +1,17 @@
 "use client";
 // bd-commandcenter
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
-  Building2, PieChart as PieIcon, Maximize2, Sprout, Edit3, Table2, LogOut,
-  ChevronDown, Menu, X as XIcon, BarChart2, Sliders, MapPin,
+  PieChart as PieIcon, Sprout, Edit3, Table2, LogOut,
+  ChevronDown, Menu, X as XIcon, BarChart2, MapPin,
   AlertTriangle, Target, Clock3, TrendingUp, Activity, Presentation,
+  Globe2, ArrowLeft, Building2,
 } from "lucide-react";
 
-import { RAW_DATA } from "@/lib/data";
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
+import { useStateContext } from "@/lib/StateContext";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
 import { getRankExplanation } from "@/lib/scoring";
@@ -25,14 +27,12 @@ import PriorityMatrix from "./views/PriorityMatrix";
 import Ecosystem from "./views/Ecosystem";
 import Timeline from "./views/Timeline";
 import ActionList from "./views/ActionList";
-import FundingSources from "./views/FundingSources";
-import ProjectTypes from "./views/ProjectTypes";
-import SquareFootage from "./views/SquareFootage";
+import PortfolioMix from "./views/PortfolioMix";
 import PracticeGrowth from "./views/PracticeGrowth";
 import DataManager from "./views/DataManager";
 import ForecastView from "./views/ForecastView";
-import ScenarioPlanner from "./views/ScenarioPlanner";
 import InstitutionMap from "./views/InstitutionMap";
+import OfficesView from "./views/OfficesView";
 import LostImpactToast from "./LostImpactToast";
 import MeetingMode from "./MeetingMode";
 
@@ -44,18 +44,16 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
   { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
   { id: "list",      label: "Action List",      icon: ListChecks, color: "#F59E0B" },
-  { id: "forecast",  label: "Revenue Forecast", icon: BarChart2,  color: "#10B981" },
-  { id: "scenario",  label: "Scenario Planner", icon: Sliders,    color: "#A855F7" },
-  { id: "funding",   label: "Funding",          icon: PieIcon,    color: "#EC4899" },
-  { id: "types",     label: "Proj. Types",      icon: Building2,  color: "#8B5CF6" },
-  { id: "space",     label: "Sq. Footage",      icon: Maximize2,  color: "#14B8A6" },
+  { id: "forecast",  label: "Revenue Planning",  icon: BarChart2,  color: "#10B981" },
+  { id: "mix",       label: "Portfolio Mix",    icon: PieIcon,    color: "#EC4899" },
   { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
   { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
+  { id: "offices",   label: "HKS Offices",      icon: Building2,  color: "#B45309" },
 ];
 
 // Nav groupings
 const PRIMARY_IDS   = ["matrix", "ecosystem", "timeline", "list"] as const;
-const ANALYTICS_IDS = ["forecast", "scenario", "funding", "types", "space", "growth"] as const;
+const ANALYTICS_IDS = ["forecast", "mix", "growth"] as const;
 
 type PriorityCard = {
   id: string;
@@ -95,11 +93,11 @@ function PriorityStripCard({ card }: { card: PriorityCard }) {
       disabled={!clickable}
       style={{
         minHeight: 148,
-        padding: "14px 15px",
-        borderRadius: 8,
-        border: `1px solid ${card.color}38`,
-        borderLeft: `3px solid ${card.color}`,
-        background: `linear-gradient(180deg, ${card.color}12, var(--bg-surface) 58%)`,
+        padding: "14px 16px 14px 15px",
+        borderRadius: 10,
+        border: `1px solid ${card.color}28`,
+        borderTop: `2.5px solid ${card.color}`,
+        background: `linear-gradient(160deg, ${card.color}0f 0%, var(--bg-surface) 55%)`,
         boxShadow: "var(--shadow-sm)",
         color: "var(--text-1)",
         cursor: clickable ? "pointer" : "default",
@@ -109,56 +107,57 @@ function PriorityStripCard({ card }: { card: PriorityCard }) {
         justifyContent: "space-between",
         gap: 10,
         overflow: "hidden",
+        position: "relative",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
       }}
       onMouseEnter={e => {
         if (!clickable) return;
-        e.currentTarget.style.transform = "translateY(-1px)";
-        e.currentTarget.style.boxShadow = "var(--shadow-md)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = `var(--shadow-md), 0 0 0 1px ${card.color}30`;
       }}
       onMouseLeave={e => {
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "var(--shadow-sm)";
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: card.color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-            {card.label}
-          </div>
-          <div className="tabular-nums" style={{ fontSize: 24, fontWeight: 850, letterSpacing: "-0.035em", lineHeight: 1.05 }}>
-            {card.value}
-          </div>
+      {/* Icon — top right */}
+      <div style={{
+        position: "absolute", top: 14, right: 14,
+        width: 32, height: 32, borderRadius: 8,
+        background: `${card.color}16`, color: card.color,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <Icon size={15} />
+      </div>
+
+      <div style={{ paddingRight: 44 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 750, color: card.color, textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
+          {card.label}
         </div>
-        <div style={{
-          width: 30, height: 30, borderRadius: 7,
-          background: `${card.color}18`, color: card.color,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          <Icon size={15} />
+        <div className="tabular-nums" style={{ fontSize: 26, fontWeight: 860, letterSpacing: "-0.04em", lineHeight: 1, color: "var(--text-1)" }}>
+          {card.value}
         </div>
       </div>
+
       <div style={{ minWidth: 0 }}>
         <div style={{
-          color: "var(--text-1)", fontSize: 12.5, fontWeight: 700,
+          color: "var(--text-1)", fontSize: 12.5, fontWeight: 650,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {card.detail}
         </div>
         <div style={{
-          color: "var(--text-3)", fontSize: 11.5, marginTop: 3,
+          color: "var(--text-3)", fontSize: 11.5, marginTop: 2,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {card.meta}
         </div>
         {card.explanation && (
           <div style={{
-            marginTop: 7,
-            paddingTop: 7,
-            borderTop: "1px solid var(--border-sub)",
-            color: "var(--text-2)",
-            fontSize: 11,
-            lineHeight: 1.35,
+            marginTop: 7, paddingTop: 7,
+            borderTop: `1px solid ${card.color}18`,
+            color: "var(--text-2)", fontSize: 11, lineHeight: 1.4,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -172,20 +171,101 @@ function PriorityStripCard({ card }: { card: PriorityCard }) {
   );
 }
 
+function StateSwitcher({ stateId, stateConfig, allStates, switchState, returnToSelector }: {
+  stateId: string;
+  stateConfig: import("@/lib/types").StateConfig;
+  allStates: import("@/lib/types").StateConfig[];
+  switchState: (id: string) => void;
+  returnToSelector: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "5px 10px", borderRadius: 8,
+          border: `1px solid ${stateConfig.color}40`,
+          background: `${stateConfig.color}12`,
+          color: stateConfig.color,
+          fontSize: 12, fontWeight: 700, fontFamily: FONT,
+          cursor: "pointer", letterSpacing: "0.01em",
+        }}
+      >
+        <Globe2 size={12} />
+        {stateConfig.name}
+        <ChevronDown size={11} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 149 }} />
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 150,
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: 10, boxShadow: "var(--shadow-md)", minWidth: 180, overflow: "hidden",
+          }}>
+            <div style={{ padding: "8px 12px 6px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Switch State
+            </div>
+            {allStates.map(s => (
+              <button
+                key={s.id}
+                onClick={() => { switchState(s.id); setOpen(false); }}
+                style={{
+                  width: "100%", textAlign: "left", padding: "9px 14px",
+                  background: s.id === stateId ? `${s.color}12` : "transparent",
+                  border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 10,
+                  color: s.id === stateId ? s.color : "var(--text-1)",
+                  fontSize: 13, fontWeight: s.id === stateId ? 700 : 500,
+                  fontFamily: FONT,
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                {s.name}
+                {s.rawData.institutions.length === 0 && (
+                  <span style={{ fontSize: 10, color: "var(--text-3)", marginLeft: "auto" }}>Empty</span>
+                )}
+              </button>
+            ))}
+            <div style={{ borderTop: "1px solid var(--border)", padding: 6 }}>
+              <button
+                onClick={() => { setOpen(false); returnToSelector(); }}
+                style={{
+                  width: "100%", textAlign: "left", padding: "8px 10px",
+                  background: "transparent", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 8,
+                  color: "var(--text-2)", fontSize: 12, fontFamily: FONT,
+                }}
+              >
+                <ArrowLeft size={12} />
+                Back to State Selector
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function BDCommandCenter() {
   const { resolvedTheme } = useThemeScale();
   const dark = resolvedTheme === "dark";
+  const { stateId, stateConfig, allStates, switchState, returnToSelector } = useStateContext();
 
   // ── Persistence ───────────────────────────────────────────────────────────
-  const persisted   = useMemo(() => loadPersistedState(), []);
-  const defaultEdit = useMemo(() => buildDefaultEditState(RAW_DATA.institutions), []);
+  const persisted   = useMemo(() => loadPersistedState(stateId), [stateId]);
+  const defaultEdit = useMemo(() => buildDefaultEditState(stateConfig.rawData.institutions), [stateConfig]);
 
   const [editState, _setEditState] = useState<EditStateMap>(
     () => persisted?.editState ?? defaultEdit
   );
+  const extraInstsKey = `hks_bd_extra_institutions_v1_${stateId}`;
   const [extraRawInsts, setExtraRawInsts] = useState<RawInstitution[]>(() => {
     try {
-      const raw = typeof window !== "undefined" && localStorage.getItem("hks_bd_extra_institutions_v1");
+      const raw = typeof window !== "undefined" && localStorage.getItem(`hks_bd_extra_institutions_v1_${stateId}`);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });
@@ -199,15 +279,17 @@ export default function BDCommandCenter() {
 
   // Load from Supabase on mount — overrides localStorage if DB has data
   useEffect(() => {
-    loadFromSupabase().then(dbState => {
+    const freshDefault = buildDefaultEditState(stateConfig.rawData.institutions);
+    _setEditState(freshDefault);
+    loadFromSupabase(stateId).then(dbState => {
       if (dbState && Object.keys(dbState).length > 0) {
-        _setEditState(prev => ({ ...prev, ...dbState }));
+        _setEditState(prev => ({ ...freshDefault, ...dbState }));
         setLastSaved(new Date().toLocaleTimeString());
       }
       setDbLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [stateId]);
 
   const setEditState = (updater: EditStateMap | ((prev: EditStateMap) => EditStateMap)) => {
     _setEditState(prev => {
@@ -236,11 +318,10 @@ export default function BDCommandCenter() {
     setDirty(true);
   };
   const handleSave = () => {
-    saveToSupabase(editState)
+    saveToSupabase(editState, stateId)
       .then(ts => { setLastSaved(ts); setDirty(false); })
       .catch(() => {
-        // Fallback to localStorage if Supabase fails
-        try { const ts = saveState(editState); setLastSaved(ts); setDirty(false); }
+        try { const ts = saveState(editState, stateId); setLastSaved(ts); setDirty(false); }
         catch { alert("Could not save — database unavailable and localStorage is full."); }
       });
   };
@@ -268,11 +349,17 @@ export default function BDCommandCenter() {
   const [globalEdit, setGlobalEdit]               = useState(false);
   const [view, setView]                           = useState<ViewId>("matrix");
   const [selectedInst, setSelectedInst]           = useState<string | null>(null);
+  const [panelOpen, setPanelOpen]                 = useState(false);
+  useEffect(() => {
+    if (selectedInst) { const t = setTimeout(() => setPanelOpen(true), 16); return () => clearTimeout(t); }
+    else { setPanelOpen(false); }
+  }, [selectedInst]);
   const [hoveredInst, setHoveredInst]             = useState<string | null>(null);
   const [showExport, setShowExport]               = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen]         = useState(false);
   const [meetingMode, setMeetingMode]             = useState(false);
+  const [matrixExpanded, setMatrixExpanded]       = useState(false);
   const [recentChangeNames, setRecentChangeNames] = useState<string[]>([]);
   const analyticsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -288,9 +375,14 @@ export default function BDCommandCenter() {
     minPriority: 0, search: "", showLost: false,
   });
 
+  // Reset filters when switching states so stale system/practice filters don't hide all data
+  useEffect(() => {
+    setFilters({ systems: [], practices: [], types: [], pursuitStages: [], minPriority: 0, search: "", showLost: false });
+  }, [stateId]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
   const institutions = useMemo((): EnrichedInstitution[] =>
-    [...RAW_DATA.institutions, ...extraRawInsts].map(raw => {
+    [...stateConfig.rawData.institutions, ...extraRawInsts].map(raw => {
       const e = (editState[raw.name] || {}) as any;
       const projects = e.projects ?? raw.projects.map((p, idx) => ({
         ...p, _id: p._id ?? `${raw.name}::${idx}`,
@@ -308,7 +400,7 @@ export default function BDCommandCenter() {
       }, 0);
       const ys       = activeProjects.map(p => p.year).filter(Boolean) as number[];
       const ny       = ys.length ? Math.min(...ys) : null;
-      const urgency  = ny ? Math.max(0.3, 1 - (ny - 2026) * 0.15) : 0.4;
+      const urgency  = ny ? Math.max(0.3, 1 - (ny - stateConfig.startYear) * 0.15) : 0.4;
       const priority = e.priority ?? raw.strategy_priority ?? 0;
       const rel      = e.relationship ?? 1;
       const exp      = (e.expansion ?? 30) / 100;
@@ -328,7 +420,7 @@ export default function BDCommandCenter() {
         _rawName: raw.name,
       };
     }),
-  [editState, extraRawInsts, filters.showLost]);
+  [stateConfig, editState, extraRawInsts, filters.showLost]);
 
   const visible = useMemo(() => institutions.filter(inst => {
     if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
@@ -598,7 +690,7 @@ export default function BDCommandCenter() {
     };
     setExtraRawInsts(prev => {
       const next = [...prev, newRaw];
-      try { localStorage.setItem("hks_bd_extra_institutions_v1", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(extraInstsKey, JSON.stringify(next)); } catch {}
       return next;
     });
     setEditState(s => ({
@@ -640,13 +732,12 @@ export default function BDCommandCenter() {
     setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.map((c, j) => j === i ? { ...c, ...p } : c) } }));
   };
   const resetToDefaults = () => {
-    if (!window.confirm("Reset ALL edits to original source data?")) return;
-    const fresh = buildDefaultEditState(RAW_DATA.institutions);
+    const fresh = buildDefaultEditState(stateConfig.rawData.institutions);
     _setEditState(fresh);
-    setUndoStack([]); setRedoStack([]); clearState();
+    setUndoStack([]); setRedoStack([]); clearState(stateId);
     setRecentChangeNames([]);
     setLastSaved(null); setDirty(false);
-    saveToSupabase(fresh).catch(() => {});
+    saveToSupabase(fresh, stateId).catch(() => {});
   };
 
   const isDataView   = view === "data";
@@ -701,11 +792,22 @@ export default function BDCommandCenter() {
               <div style={{ width: 1, height: 32, background: "var(--border)" }} />
               <div>
                 <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
-                  Texas Higher Ed · FY 2026–2030
+                  {stateConfig.fullLabel}
                 </div>
                 <h1 style={{ fontSize: 18, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: text1 }}>
                   BD Command Center
                 </h1>
+              </div>
+              {/* State switcher */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
+                <div style={{ width: 1, height: 24, background: "var(--border)" }} />
+                <StateSwitcher
+                  stateId={stateId}
+                  stateConfig={stateConfig}
+                  allStates={allStates}
+                  switchState={switchState}
+                  returnToSelector={returnToSelector}
+                />
               </div>
             </div>
 
@@ -861,6 +963,7 @@ export default function BDCommandCenter() {
             const primaryViews   = VIEWS.filter(v => (PRIMARY_IDS as readonly string[]).includes(v.id));
             const analyticsViews = VIEWS.filter(v => (ANALYTICS_IDS as readonly string[]).includes(v.id));
             const dataView       = VIEWS.find(v => v.id === "data")!;
+            const officesView    = VIEWS.find(v => v.id === "offices")!;
             const analyticsActive = (ANALYTICS_IDS as readonly string[]).includes(view);
             const activeAnalyticsView = analyticsViews.find(v => v.id === view);
             const analyticsTabLabel = activeAnalyticsView ? `Analytics: ${activeAnalyticsView.label}` : "Analytics";
@@ -941,6 +1044,9 @@ export default function BDCommandCenter() {
 
                 {/* Data tab */}
                 {navTab(dataView)}
+
+                {/* HKS Offices tab */}
+                {navTab(officesView)}
               </div>
             );
           })()}
@@ -948,7 +1054,7 @@ export default function BDCommandCenter() {
       </header>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <div className="app-shell" style={{ display: "flex", maxWidth: 1700, margin: "0 auto" }}>
+      <div className="app-shell" style={{ display: "flex", maxWidth: 1700, margin: "0 auto", overflow: "hidden" }}>
 
         {!isFullWidth && (
           <>
@@ -966,10 +1072,13 @@ export default function BDCommandCenter() {
               filters={filters}
               onFiltersChange={setFilters}
               visible={visible}
+              allInstitutions={institutions}
               total={institutions.length}
               onExportPDF={() => setShowExport(true)}
               onResetData={resetToDefaults}
               mobileOpen={mobileSidebarOpen}
+              projectTypeNames={stateConfig.rawData.project_types.map(t => t.name)}
+              systemColors={stateConfig.systemColors}
             />
           </>
         )}
@@ -992,23 +1101,35 @@ export default function BDCommandCenter() {
           )}
 
           {!isFullWidth && (
-            <section aria-label="Today's BD Priorities" style={{ marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 850, letterSpacing: "-0.015em", color: text1 }}>
-                    Today&apos;s BD Priorities
-                  </h2>
-                  <div style={{ fontSize: 11.5, color: text3, marginTop: 2 }}>
-                    Actionable signals from the current filtered dashboard.
+            <section aria-label="Today's BD Priorities" style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 3, height: 18, borderRadius: 2,
+                    background: `linear-gradient(180deg, ${stateConfig.color}, ${stateConfig.color}55)`,
+                    flexShrink: 0,
+                  }} />
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: 14, fontWeight: 780, letterSpacing: "-0.01em", color: text1, lineHeight: 1 }}>
+                      Today&apos;s BD Priorities
+                    </h2>
+                    <div style={{ fontSize: 11, color: text3, marginTop: 3, lineHeight: 1 }}>
+                      Actionable signals from the current filtered view
+                    </div>
                   </div>
                 </div>
-                <span style={{ fontSize: 11, color: text3, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                <span style={{
+                  fontSize: 10.5, color: text3, fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "0.08em", whiteSpace: "nowrap",
+                  padding: "3px 9px", borderRadius: 20,
+                  background: "var(--bg-raised)", border: "1px solid var(--border)",
+                }}>
                   {visible.length} visible
                 </span>
               </div>
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(195px, 1fr))",
                 gap: 10,
               }}>
                 {bdPriorityCards.map(card => <PriorityStripCard key={card.id} card={card} />)}
@@ -1016,33 +1137,96 @@ export default function BDCommandCenter() {
             </section>
           )}
 
+          {/* Empty state banner — shown when the selected state has no data */}
+          {institutions.length === 0 && view !== "data" && (
+            <div style={{
+              margin: "0 0 24px",
+              padding: "20px 24px",
+              borderRadius: 12,
+              border: `1px dashed ${stateConfig.color}60`,
+              background: `${stateConfig.color}08`,
+              display: "flex", flexDirection: "column", gap: 10,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                  background: `${stateConfig.color}18`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <MapPin size={16} color={stateConfig.color} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: stateConfig.color }}>
+                    No {stateConfig.name} institutions have been added yet
+                  </div>
+                  <div style={{ fontSize: 12.5, color: text2, marginTop: 2 }}>
+                    {stateConfig.name} data is awaiting import. Use the Data Manager to add institutions or import project data.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setView("data")}
+                  style={{
+                    padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700,
+                    background: stateConfig.color, color: "#fff", border: "none", cursor: "pointer",
+                  }}
+                >
+                  Open Data Manager
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* View breadcrumb */}
           {!isFullWidth && (
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
-              <activeView.icon size={14} color={activeView.color} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: activeView.color }}>{activeView.label}</span>
-              <div style={{ flex: 1, height: 1, background: border }} />
-              <span style={{ fontSize: 11, color: text3 }}>
-                {visible.length} institutions · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-sub)" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "4px 10px", borderRadius: 6,
+                background: `${activeView.color}12`,
+                border: `1px solid ${activeView.color}25`,
+              }}>
+                <activeView.icon size={12} color={activeView.color} />
+                <span style={{ fontSize: 12, fontWeight: 720, color: activeView.color, letterSpacing: "0.01em" }}>{activeView.label}</span>
+              </div>
+              <div style={{ flex: 1, height: 1, background: "var(--border-sub)" }} />
+              <span style={{ fontSize: 11, color: text3, letterSpacing: "0.01em" }}>
+                {visible.length} institution{visible.length !== 1 ? "s" : ""} · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))} pipeline
               </span>
             </div>
           )}
 
           {/* Views — each wrapped for fade-in */}
           <div key={view} className="animate-fade-in">
-            {view === "matrix"    && <>
-              <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => setView("list")} />
-              <InstitutionMap institutions={visible} selectedInst={selectedInst} hoveredInst={hoveredInst} onSelect={setSelectedInst} onHover={setHoveredInst} />
-            </>}
+            {view === "matrix"    && (
+              <div style={{ display: "grid", gridTemplateColumns: matrixExpanded ? "1fr" : "3fr 2fr", gap: 18, alignItems: "start", transition: "grid-template-columns 0.35s cubic-bezier(0.22,1,0.36,1)" }}>
+                <div style={{ minWidth: 0 }}>
+                  <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => setView("list")} hoveredInst={hoveredInst} onHover={setHoveredInst} onExpand={setMatrixExpanded} systemColors={stateConfig.systemColors} />
+                </div>
+                <AnimatePresence>
+                  {!matrixExpanded && (
+                    <motion.div
+                      key="institution-map"
+                      initial={{ opacity: 0, x: 16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 16 }}
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ minWidth: 0, overflow: "hidden" }}
+                    >
+                      <InstitutionMap key={stateId} institutions={visible} selectedInst={selectedInst} hoveredInst={hoveredInst} onSelect={setSelectedInst} onHover={setHoveredInst} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
             {view === "ecosystem" && <Ecosystem       institutions={visible}      onSelect={setSelectedInst} globalEdit={globalEdit} showLost={filters.showLost} />}
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={alUpdateEdit} updateProject={alUpdateProject} />}
             {view === "forecast"  && <ForecastView    institutions={visible} showLost={filters.showLost} />}
-            {view === "scenario"  && <ScenarioPlanner institutions={visible} />}
-            {view === "funding"   && <FundingSources  globalEdit={globalEdit}     editState={editState} setEditState={setEditState} />}
-            {view === "types"     && <ProjectTypes    institutions={institutions} />}
-            {view === "space"     && <SquareFootage   institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "mix"       && <PortfolioMix    globalEdit={globalEdit} editState={editState} setEditState={setEditState} institutions={institutions} onSelect={setSelectedInst} fundingSources={stateConfig.rawData.funding_sources} />}
             {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "offices"   && <OfficesView     institutions={institutions} onSelect={setSelectedInst} />}
             {view === "data"      && (
               <DataManager
                 institutions={institutions}
@@ -1054,35 +1238,52 @@ export default function BDCommandCenter() {
                 removeProject={removeProject}
                 onSave={handleSave}
                 dirty={dirty}
+                fundingSources={stateConfig.rawData.funding_sources}
+                systemColors={stateConfig.systemColors}
               />
             )}
           </div>
         </main>
+
+        {/* ── Detail panel wrapper — Framer Motion width push ── */}
+        <motion.div
+          animate={{ width: panelOpen ? "min(520px, 40vw)" : 0, minWidth: panelOpen ? "min(520px, 40vw)" : 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 36, mass: 0.9 }}
+          style={{ flexShrink: 0, overflow: "hidden", position: "relative" }}
+        >
+          <AnimatePresence>
+            {selectedInst && (() => {
+              const inst = institutions.find(i => i._rawName === selectedInst || i.name === selectedInst);
+              return inst ? (
+                <DetailPanel
+                  key={selectedInst}
+                  inst={inst}
+                  onClose={() => setSelectedInst(null)}
+                  globalEdit={globalEdit}
+                  updateEdit={updateEdit}
+                  updateProject={updateProject}
+                  addProject={addProject}
+                  removeProject={removeProject}
+                  addContact={addContact}
+                  removeContact={removeContact}
+                  updateContact={updateContact}
+                  systemColors={stateConfig.systemColors}
+                />
+              ) : null;
+            })()}
+          </AnimatePresence>
+        </motion.div>
       </div>
 
-      {/* ── Detail panel ─────────────────────────────────────────────────── */}
-      {selectedInst && (
-        <DetailPanel
-          inst={institutions.find(i => i._rawName === selectedInst || i.name === selectedInst)}
-          onClose={() => setSelectedInst(null)}
-          globalEdit={globalEdit}
-          updateEdit={updateEdit}
-          updateProject={updateProject}
-          addProject={addProject}
-          removeProject={removeProject}
-          addContact={addContact}
-          removeContact={removeContact}
-          updateContact={updateContact}
-        />
-      )}
-
-      {showExport && (
-        <ExportModal
-          institutions={institutions}
-          visible={visible}
-          onClose={() => setShowExport(false)}
-        />
-      )}
+      <AnimatePresence>
+        {showExport && (
+          <ExportModal
+            institutions={institutions}
+            visible={visible}
+            onClose={() => setShowExport(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <LostImpactToast
         payload={activeToast}

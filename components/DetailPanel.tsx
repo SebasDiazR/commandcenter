@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap } from "lucide-react";
 import InfoTip from "./InfoTip";
 import { EnergyBreakdownPanel } from "./ScoringExplanation";
@@ -90,10 +91,22 @@ function CpField({ label, children }: { label: string; children: React.ReactNode
 function CpTextarea({ value, onChange, placeholder, rows = 3 }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (ref.current && document.activeElement !== ref.current) {
+      ref.current.value = value;
+    }
+  }, [value]);
   return (
-    <textarea value={value} onChange={e => onChange(e.target.value)}
-      rows={rows} placeholder={placeholder}
-      style={{ ...fieldStyle, resize: "vertical" }} />
+    <textarea
+      ref={ref}
+      defaultValue={value}
+      placeholder={placeholder}
+      rows={rows}
+      onBlur={() => onChange(ref.current?.value ?? "")}
+      onKeyDown={e => { if (e.key === "Escape") e.currentTarget.blur(); }}
+      style={{ ...fieldStyle, resize: "vertical" }}
+    />
   );
 }
 
@@ -531,8 +544,9 @@ function CapturePlanTab({
 export default function DetailPanel({
   inst, onClose, updateEdit, updateProject, addProject,
   removeProject, addContact, removeContact, updateContact, globalEdit,
+  systemColors: systemColorsProp,
 }: {
-  inst: EnrichedInstitution | undefined;
+  inst: EnrichedInstitution;
   onClose: () => void;
   globalEdit: boolean;
   updateEdit: (n: string, p: Record<string, unknown>) => void;
@@ -542,44 +556,39 @@ export default function DetailPanel({
   addContact: (n: string) => void;
   removeContact: (n: string, i: number) => void;
   updateContact: (n: string, i: number, p: Partial<RawContact>) => void;
+  systemColors?: Record<string, string>;
 }) {
+  const sysColors = systemColorsProp ?? SYSTEM_COLORS;
   const [activeTab, setActiveTab] = useState<"overview" | "capture">("overview");
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 16);
-    return () => clearTimeout(t);
-  }, []);
 
-  const [localNotes,      setLocalNotes]      = useState(inst?.edit?.notes       || "");
-  const [localNextAction, setLocalNextAction] = useState(inst?.edit?.next_action  || "");
-  const [localOwner,      setLocalOwner]      = useState(inst?.edit?.owner        || "");
-  const [localDispName,   setLocalDispName]   = useState(inst?.edit?.displayName  || inst?.name || "");
-  const [localGsf,        setLocalGsf]        = useState(inst?.edit?.gsf    != null ? String(inst.edit.gsf)    : inst?.gsf    != null ? String(inst.gsf)    : "");
-  const [localNasf,       setLocalNasf]       = useState(inst?.edit?.nasf   != null ? String(inst.edit.nasf)   : inst?.nasf   != null ? String(inst.nasf)   : "");
-  const [localEgNasf,     setLocalEgNasf]     = useState(inst?.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst?.eg_nasf != null ? String(inst.eg_nasf) : "");
+  const [localNotes,      setLocalNotes]      = useState(inst.edit?.notes       || "");
+  const [localNextAction, setLocalNextAction] = useState(inst.edit?.next_action  || "");
+  const [localOwner,      setLocalOwner]      = useState(inst.edit?.owner        || "");
+  const [localDispName,   setLocalDispName]   = useState(inst.edit?.displayName  || inst.name || "");
+  const [localGsf,        setLocalGsf]        = useState(inst.edit?.gsf    != null ? String(inst.edit.gsf)    : inst.gsf    != null ? String(inst.gsf)    : "");
+  const [localNasf,       setLocalNasf]       = useState(inst.edit?.nasf   != null ? String(inst.edit.nasf)   : inst.nasf   != null ? String(inst.nasf)   : "");
+  const [localEgNasf,     setLocalEgNasf]     = useState(inst.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst.eg_nasf != null ? String(inst.eg_nasf) : "");
 
   useEffect(() => {
-    setLocalNotes(inst?.edit?.notes       || "");
-    setLocalNextAction(inst?.edit?.next_action  || "");
-    setLocalOwner(inst?.edit?.owner        || "");
-    setLocalDispName(inst?.edit?.displayName  || inst?.name || "");
-    setLocalGsf(inst?.edit?.gsf    != null ? String(inst.edit.gsf)    : inst?.gsf    != null ? String(inst.gsf)    : "");
-    setLocalNasf(inst?.edit?.nasf   != null ? String(inst.edit.nasf)   : inst?.nasf   != null ? String(inst.nasf)   : "");
-    setLocalEgNasf(inst?.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst?.eg_nasf != null ? String(inst.eg_nasf) : "");
+    setLocalNotes(inst.edit?.notes       || "");
+    setLocalNextAction(inst.edit?.next_action  || "");
+    setLocalOwner(inst.edit?.owner        || "");
+    setLocalDispName(inst.edit?.displayName  || inst.name || "");
+    setLocalGsf(inst.edit?.gsf    != null ? String(inst.edit.gsf)    : inst.gsf    != null ? String(inst.gsf)    : "");
+    setLocalNasf(inst.edit?.nasf   != null ? String(inst.edit.nasf)   : inst.nasf   != null ? String(inst.nasf)   : "");
+    setLocalEgNasf(inst.edit?.eg_nasf != null ? String(inst.edit.eg_nasf) : inst.eg_nasf != null ? String(inst.eg_nasf) : "");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inst?._rawName]);
+  }, [inst._rawName]);
 
-  if (!inst) return null;
   const rawName  = inst._rawName || inst.name;
   const e        = inst.edit;
-  const sysColor = SYSTEM_COLORS[inst.system] ?? "#6366F1";
+  const sysColor = sysColors[inst.system] ?? "#6366F1";
   const cp       = e.capture_plan ?? {};
 
-  function patchCp(patch: Partial<CapturePlan>) {
+  const patchCp = (patch: Partial<CapturePlan>) => {
     updateEdit(rawName, { capture_plan: { ...cp, ...patch } });
-  }
+  };
 
-  // Capture plan completion badge
   const cpFilled = [
     cp.known_needs, cp.pain_points, cp.who_we_know, cp.who_we_need,
     cp.work_history, cp.immediate_next_steps,
@@ -593,29 +602,21 @@ export default function DetailPanel({
 
   return (
     <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{
-        position: "fixed", inset: 0,
-        background: "var(--bg-overlay)",
-        zIndex: 200,
-        backdropFilter: "blur(3px)",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 0.3s ease",
-      }} />
-
-      {/* Drawer */}
-      <aside style={{
-        position: "fixed", top: 0, right: 0, bottom: 0,
-        width: "min(660px, 100%)",
-        background: "var(--bg-detail)",
-        zIndex: 201, overflowY: "auto",
-        boxShadow: "var(--shadow-lg)",
-        fontFamily: FONT, color: "var(--text-1)",
-        borderLeft: "1px solid var(--border)",
-        transform: visible ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
-        willChange: "transform",
-      }}>
+      {/* Inline drawer — slides in from right as flex sibling */}
+      <motion.div
+        initial={{ x: 48, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 48, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 340, damping: 36, mass: 0.9 }}
+        style={{
+          position: "absolute", inset: 0,
+          background: "var(--bg-detail)",
+          overflowY: "auto",
+          fontFamily: FONT, color: "var(--text-1)",
+          borderLeft: "1px solid var(--border)",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
 
         {/* Header */}
         <div style={{
@@ -700,7 +701,15 @@ export default function DetailPanel({
           })}
         </div>
 
-        <div style={{ padding: "16px 22px" }}>
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          style={{ padding: "16px 22px" }}
+        >
 
           {/* ── OVERVIEW TAB ── */}
           {activeTab === "overview" && (
@@ -777,7 +786,7 @@ export default function DetailPanel({
                   {globalEdit ? (
                     <select value={e.system || inst.system} onChange={ev => updateEdit(rawName, { system: ev.target.value })}
                       style={{ ...fieldStyle, width: "auto", padding: "5px 10px" }}>
-                      {Object.keys(SYSTEM_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                      {Object.keys(sysColors).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   ) : (
                     <span style={{ padding: "2px 10px", background: sysColor, color: "#FFF", borderRadius: 4, fontSize: 12.5, fontWeight: 700 }}>
@@ -968,8 +977,9 @@ export default function DetailPanel({
             <CapturePlanTab cp={cp} onChange={patchCp} />
           )}
 
-        </div>
-      </aside>
+        </motion.div>
+        </AnimatePresence>
+      </motion.div>
     </>
   );
 }

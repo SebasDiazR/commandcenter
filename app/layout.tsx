@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "HKS BD Command Center",
-  description: "Texas Higher Education Business Development Pipeline — FY 2026–2030",
+  description: "National Higher Education Business Development Pipeline",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

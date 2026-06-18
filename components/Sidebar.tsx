@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { Search, Filter, Edit3, X, Download, RotateCcw, ShieldAlert, Settings } from "lucide-react";
 import { SYSTEM_COLORS, PRACTICE_COLORS, PURSUIT_STAGE_COLORS, PURSUIT_STAGES, ALL_PRACTICES, FONT } from "@/lib/constants";
-import { RAW_DATA } from "@/lib/data";
 import type { FilterState, EnrichedInstitution } from "@/lib/types";
 
 interface SidebarProps {
@@ -11,10 +10,13 @@ interface SidebarProps {
   filters: FilterState;
   onFiltersChange: (f: FilterState) => void;
   visible: EnrichedInstitution[];
+  allInstitutions: EnrichedInstitution[];
   total: number;
   onExportPDF: () => void;
   onResetData: () => void;
   mobileOpen?: boolean;
+  projectTypeNames?: string[];
+  systemColors?: Record<string, string>;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -29,12 +31,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function Sidebar({
   globalEdit, onToggleEdit, filters, onFiltersChange,
-  visible, total, onExportPDF, onResetData, mobileOpen = false,
+  visible, allInstitutions, total, onExportPDF, onResetData, mobileOpen = false,
+  projectTypeNames, systemColors: systemColorsProp,
 }: SidebarProps) {
+  const sysColors = systemColorsProp ?? SYSTEM_COLORS;
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
-  const allSystems = Array.from(new Set(RAW_DATA.institutions.map(i => i.system)));
-  const allTypes   = RAW_DATA.project_types.map(t => t.name);
+  const allSystems = Array.from(new Set(allInstitutions.map(i => i.system))).filter(Boolean);
+  const allTypes   = projectTypeNames ?? Array.from(new Set(allInstitutions.flatMap(i => i.projects.map(p => p.type)))).filter(Boolean);
   const activeCount =
     filters.systems.length + filters.practices.length + filters.types.length +
     filters.pursuitStages.length +
@@ -154,7 +158,7 @@ export default function Sidebar({
       <SectionLabel>System</SectionLabel>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         {allSystems.map(s => {
-          const c = SYSTEM_COLORS[s] ?? "var(--indigo)";
+          const c = sysColors[s] ?? "var(--indigo)";
           return (
             <button key={s} onClick={() => toggle("systems", s)}
               className="filter-chip"

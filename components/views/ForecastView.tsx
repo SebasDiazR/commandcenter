@@ -27,7 +27,7 @@ function computeRevenue(institutions: EnrichedInstitution[], winMultiplier: numb
   return institutions.reduce((total, inst) => {
     const instProb = STAGE_WIN_PROBABILITY[inst.edit.pursuit_stage ?? "Tracking"] ?? 10;
     inst.projects.forEach(p => {
-      if (p.outcome === "Lost") return;
+      if (p.outcome === "Lost" || p.pursuit_stage === "Lost") return;
       const stageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instProb) : instProb;
       const basePct = p.win_probability != null ? p.win_probability : stageProb;
       total += (p.budget_m ?? 0) * Math.min(100, basePct * winMultiplier) / 100 * (rate / 100);
@@ -103,7 +103,7 @@ export default function ForecastView({ institutions, showLost = false }: Forecas
   // Scenario-only state
   const [winMultiplier, setWinMultiplier] = useState(1.0);
   const [netFeeRate,    setNetFeeRate]    = useState(4.5);
-  const [scenarioOpen,  setScenarioOpen]  = useState(false);
+  const [scenarioOpen,  setScenarioOpen]  = useState(true);
 
   // ── By fiscal year ──────────────────────────────────────────────────────────
   const byYear = useMemo(() => {
@@ -134,7 +134,7 @@ export default function ForecastView({ institutions, showLost = false }: Forecas
     const map: Record<string, { pipeline: number; weighted: number }> = {};
     institutions.forEach(inst => {
       inst.projects.forEach(p => {
-        if (p.outcome === "Lost") return;
+        if (!showLost && (p.outcome === "Lost" || p.pursuit_stage === "Lost")) return;
         const prac = inferPractice(p.name, inst.lead_practice);
         if (!map[prac]) map[prac] = { pipeline: 0, weighted: 0 };
         map[prac].pipeline += p.budget_m ?? 0;
@@ -151,7 +151,7 @@ export default function ForecastView({ institutions, showLost = false }: Forecas
         "Gross Fee": parseFloat((vals.pipeline * (feeRate / 100)).toFixed(2)),
         "Wtd. Fee":  parseFloat((vals.weighted  * (feeRate / 100)).toFixed(2)),
       }));
-  }, [institutions, feeRate]);
+  }, [institutions, showLost, feeRate]);
 
   // ── Scenario computed values ────────────────────────────────────────────────
   const feeRevenue    = useMemo(() => computeRevenue(institutions, winMultiplier, feeRate),    [institutions, winMultiplier, feeRate]);
@@ -182,44 +182,53 @@ export default function ForecastView({ institutions, showLost = false }: Forecas
 
   return (
     <div>
-      <h2 style={SHARED_STYLES.sectionTitle}>Revenue Forecast</h2>
-      <div style={{ ...SHARED_STYLES.sectionSub, marginBottom: 20 }}>
-        Projected HKS fee revenue based on pipeline × fee rate. Scenario analysis at the bottom.
-      </div>
-
-      {/* ── Fee rate — shared with scenario below ── */}
-      <div style={{ ...SHARED_STYLES.card, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", fontFamily: FONT }}>Fee Rate</span>
+      {/* ── Section header ── */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+        <div>
+          <h2 style={{ ...SHARED_STYLES.sectionTitle, marginBottom: 4 }}>Revenue Planning</h2>
+          <div style={{ ...SHARED_STYLES.sectionSub }}>
+            Projected HKS fee revenue based on pipeline × fee rate. Scenario analysis at the bottom.
+          </div>
+        </div>
+        {/* Inline fee rate control — anchored to header */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "8px 14px", borderRadius: 10,
+          border: "1px solid var(--border)", background: "var(--bg-surface)",
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 650, color: "var(--text-2)", fontFamily: FONT, whiteSpace: "nowrap" }}>Fee Rate</span>
           <input type="range" min={3} max={12} step={0.5} value={feeRate}
             onChange={e => setFeeRate(Number(e.target.value))}
-            style={{ width: 140, accentColor: "#10B981" }} aria-label="Fee rate percentage" />
-          <span style={{ fontSize: 16, fontWeight: 800, color: "#10B981", fontFamily: FONT, minWidth: 44 }}>{feeRate}%</span>
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-3)", fontFamily: FONT }}>
-          Typical HKS fee: 5–8% of construction cost · also used in Scenario Analysis below
+            style={{ width: 110, accentColor: "#10B981" }} aria-label="Fee rate percentage" />
+          <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: "#10B981", fontFamily: FONT, minWidth: 38, textAlign: "right" as const }}>{feeRate}%</span>
         </div>
       </div>
 
       {/* ── KPI strip ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total Pipeline",     value: fmtMoney(totalPipeline), sub: "all active projects",    color: "#10B981", icon: BarChart2  },
-          { label: "Wtd. Pipeline",      value: fmtMoney(totalWeighted), sub: "confidence-adjusted",    color: "#A855F7", icon: Target     },
-          { label: "Gross Fee Potential",value: fmtMoney(totalFee),      sub: `at ${feeRate}% fee rate`,color: "#F59E0B", icon: DollarSign },
-          { label: "Wtd. Fee Revenue",   value: fmtMoney(wtdFee),        sub: "realistic forecast",     color: "#0EA5E9", icon: TrendingUp },
+          { label: "Total Pipeline",      value: fmtMoney(totalPipeline), sub: "all active projects",    color: "#10B981", icon: BarChart2  },
+          { label: "Wtd. Pipeline",       value: fmtMoney(totalWeighted), sub: "confidence-adjusted",    color: "#A855F7", icon: Target     },
+          { label: "Gross Fee Potential", value: fmtMoney(totalFee),      sub: `at ${feeRate}% fee rate`,color: "#F59E0B", icon: DollarSign },
+          { label: "Wtd. Fee Revenue",    value: fmtMoney(wtdFee),        sub: "realistic forecast",     color: "#0EA5E9", icon: TrendingUp },
         ].map(kpi => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} style={{ ...SHARED_STYLES.card, padding: "18px 20px", marginBottom: 0, display: "flex", flexDirection: "column", gap: 4, borderTop: `3px solid ${kpi.color}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-3)", fontFamily: FONT, fontWeight: 700 }}>{kpi.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color, fontFamily: FONT, letterSpacing: "-0.02em", marginTop: 4 }}>{kpi.value}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-3)", fontFamily: FONT, marginTop: 2 }}>{kpi.sub}</div>
+            <div key={kpi.label} style={{
+              ...SHARED_STYLES.card, padding: "16px 18px", marginBottom: 0,
+              display: "flex", flexDirection: "column", gap: 0,
+              borderTop: `2.5px solid ${kpi.color}`,
+              background: `linear-gradient(160deg, ${kpi.color}0a 0%, var(--bg-surface) 60%)`,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.09em", color: "var(--text-3)", fontFamily: FONT, fontWeight: 720 }}>{kpi.label}</div>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: `${kpi.color}16`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon size={14} color={kpi.color} />
                 </div>
-                <Icon size={20} color={kpi.color} style={{ opacity: 0.6 }} />
               </div>
+              <div className="tabular-nums" style={{ fontSize: 24, fontWeight: 840, color: "var(--text-1)", fontFamily: FONT, letterSpacing: "-0.035em", lineHeight: 1 }}>{kpi.value}</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", fontFamily: FONT, marginTop: 5 }}>{kpi.sub}</div>
             </div>
           );
         })}

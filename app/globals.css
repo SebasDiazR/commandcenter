@@ -250,6 +250,25 @@ textarea:focus-visible,
 .animate-scale-in   { animation: scaleIn 0.18s var(--ease-out) forwards; }
 .animate-slide-up   { animation: slideUp 0.20s var(--ease-out) forwards; }
 
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.card-enter {
+  opacity: 0;
+  animation: cardEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--card-delay, 0ms);
+}
+
+/* Meeting Mode full-slide transition — slower, gentler than generic fade-in */
+@keyframes meetingSlideEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.meeting-slide-enter {
+  animation: meetingSlideEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* ── Skeleton loader ─────────────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(
@@ -393,6 +412,112 @@ textarea:focus-visible,
   transition: background 0.12s ease !important;
 }
 .hover-row:hover { background: var(--bg-card-hov) !important; }
+
+/* ── Premium KPI card ────────────────────────────────────────────────────── */
+.kpi-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.kpi-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.kpi-card__label {
+  font-size: 10.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-3);
+}
+.kpi-card__value {
+  font-size: 28px;
+  font-weight: 860;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.kpi-card__sub {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+/* ── Chart surface wrapper ────────────────────────────────────────────────── */
+.chart-surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* ── Section header pattern ───────────────────────────────────────────────── */
+.view-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-sub);
+}
+.view-section-title {
+  font-size: 15px;
+  font-weight: 760;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.view-section-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ── Gradient text ────────────────────────────────────────────────────────── */
+.gradient-text-indigo {
+  background: linear-gradient(135deg, #6366F1, #0EA5E9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Accent divider ───────────────────────────────────────────────────────── */
+.accent-divider {
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--indigo), var(--sky));
+  border: none;
+  margin: 0;
+}
+
+/* ── Badge variants ───────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.badge-indigo { color: var(--indigo); background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.2); }
+.badge-sky    { color: var(--sky);    background: rgba(14,165,233,0.1);  border-color: rgba(14,165,233,0.2); }
+.badge-emerald{ color: var(--emerald);background: rgba(16,185,129,0.1);  border-color: rgba(16,185,129,0.2); }
+.badge-amber  { color: var(--amber);  background: rgba(245,158,11,0.1);  border-color: rgba(245,158,11,0.2); }
+.badge-rose   { color: var(--rose);   background: rgba(244,63,94,0.1);   border-color: rgba(244,63,94,0.2); }
 
 /* ── Print ────────────────────────────────────────────────────────────────── */
 @media print {

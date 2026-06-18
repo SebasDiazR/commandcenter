@@ -1,9 +1,10 @@
 "use client";
 import React, { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { SYSTEM_COLORS, PRACTICE_COLORS, STATUS_COLORS, PURSUIT_STAGE_COLORS, FONT } from "@/lib/constants";
 import { fmtMoney, inferPractice } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
-import { Users, FolderOpen } from "lucide-react";
+import { Users, FolderOpen, ChevronDown } from "lucide-react";
 
 function hexRgb(hex: string) {
   const h = hex.replace("#","");
@@ -13,6 +14,7 @@ function hexRgb(hex: string) {
 // ─── Institution card ─────────────────────────────────────────────────────────
 function InstCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: () => void }) {
   const [hov, setHov] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const color     = SYSTEM_COLORS[inst.system] ?? "#6366F1";
   const rgb       = hexRgb(color);
   const priority  = inst.edit?.priority ?? inst.strategy_priority ?? 0;
@@ -22,23 +24,23 @@ function InstCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: () 
   const practices = Array.from(new Set(
     inst.projects.slice(0,6).map(p => inferPractice(p.name, inst.lead_practice))
   )).slice(0,3);
+  const activeProjects = inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost");
 
   return (
-    <button onClick={onSelect}
+    <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: "flex", flexDirection: "column", width: "100%",
         background: hov ? `rgba(${rgb},0.1)` : "var(--bg-surface)",
         border: `1px solid ${hov ? color + "55" : "var(--border)"}`,
-        borderRadius: 10, padding: "13px 14px",
-        cursor: "pointer", textAlign: "left", fontFamily: FONT,
-        transition: "background 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s",
-        transform: hov ? "translateY(-2px)" : "none",
+        borderRadius: 10,
+        fontFamily: FONT,
+        transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
         boxShadow: hov ? `0 8px 24px rgba(${rgb},0.18)` : "var(--shadow-sm)",
         position: "relative", overflow: "hidden",
-      }}>
-
+      }}
+    >
       {/* Top colour strip */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 2,
@@ -46,78 +48,165 @@ function InstCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: () 
         opacity: hov ? 1 : 0.55,
       }} />
 
-      {/* Name + system */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-1)", lineHeight: 1.3, marginBottom: 2 }}>
-            {inst.name}
+      {/* Clickable main body */}
+      <button
+        onClick={onSelect}
+        style={{
+          display: "flex", flexDirection: "column", width: "100%",
+          background: "transparent", border: "none",
+          padding: "13px 14px 10px", cursor: "pointer", textAlign: "left",
+        }}
+      >
+        {/* Name + system */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-1)", lineHeight: 1.3, marginBottom: 2 }}>
+              {inst.name}
+            </div>
+            <div style={{ fontSize: 10.5, color, fontWeight: 600 }}>{inst.system}</div>
           </div>
-          <div style={{ fontSize: 10.5, color, fontWeight: 600 }}>{inst.system}</div>
+          {priority >= 1 && (
+            <div style={{
+              flexShrink: 0, width: 26, height: 26, borderRadius: 6,
+              background: priority >= 8 ? "rgba(245,158,11,0.28)" : priority >= 5 ? "rgba(245,158,11,0.12)" : "var(--bg-chip)",
+              border: `1px solid ${priority >= 8 ? "var(--amber)" : priority >= 5 ? "rgba(245,158,11,0.4)" : "var(--border)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontWeight: 800,
+              color: priority >= 8 ? "var(--amber)" : priority >= 5 ? "var(--amber)" : "var(--text-3)",
+              boxShadow: priority >= 8 ? "0 0 7px rgba(245,158,11,0.4)" : "none",
+            }}>{priority}</div>
+          )}
         </div>
-        {priority >= 1 && (
+
+        {/* Pipeline value */}
+        <div style={{
+          fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em",
+          color: hov ? color : "var(--text-1)",
+          marginBottom: 8,
+        }}>
+          {fmtMoney(inst.pipeline)}
+        </div>
+
+        {/* Energy bar */}
+        <div style={{ height: 3, background: "var(--border-sub)", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
           <div style={{
-            flexShrink: 0, width: 26, height: 26, borderRadius: 6,
-            background: priority >= 8 ? "rgba(245,158,11,0.28)" : priority >= 5 ? "rgba(245,158,11,0.12)" : "var(--bg-chip)",
-            border: `1px solid ${priority >= 8 ? "var(--amber)" : priority >= 5 ? "rgba(245,158,11,0.4)" : "var(--border)"}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 800,
-            color: priority >= 8 ? "var(--amber)" : priority >= 5 ? "var(--amber)" : "var(--text-3)",
-            boxShadow: priority >= 8 ? "0 0 7px rgba(245,158,11,0.4)" : "none",
-          }}>{priority}</div>
-        )}
-      </div>
-
-      {/* Pipeline value */}
-      <div style={{
-        fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em",
-        color: hov ? color : "var(--text-1)",
-        marginBottom: 8,
-      }}>
-        {fmtMoney(inst.pipeline)}
-      </div>
-
-      {/* Energy bar */}
-      <div style={{ height: 3, background: "var(--border-sub)", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
-        <div style={{
-          height: "100%", width: `${energyPct}%`,
-          background: `linear-gradient(90deg, ${color}55, ${color})`,
-          borderRadius: 2, transition: "width 0.5s ease",
-        }} />
-      </div>
-
-      {/* Meta row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: "var(--text-3)" }}>
-          <FolderOpen size={10} opacity={0.7} />{inst.projects.length}
-        </span>
-        {(inst.contacts?.length ?? 0) > 0 && (
-          <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: "var(--text-3)" }}>
-            <Users size={10} opacity={0.7} />{inst.contacts!.length}
-          </span>
-        )}
-        {practices.map(pr => (
-          <span key={pr} style={{
-            fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
-            background: `${PRACTICE_COLORS[pr] ?? "#6366F1"}22`,
-            color: PRACTICE_COLORS[pr] ?? "#6366F1",
-            border: `1px solid ${PRACTICE_COLORS[pr] ?? "#6366F1"}44`,
-          }}>{pr}</span>
-        ))}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusDot,
-            boxShadow: `0 0 4px ${statusDot}`, display: "inline-block" }} />
-          <span style={{ fontSize: 10, color: "var(--text-3)" }}>{status}</span>
+            height: "100%", width: `${energyPct}%`,
+            background: `linear-gradient(90deg, ${color}55, ${color})`,
+            borderRadius: 2, transition: "width 0.5s ease",
+          }} />
         </div>
-      </div>
 
-      {inst.edit?.next_action && (
-        <div style={{
-          marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-sub)",
-          fontSize: 10.5, color: "var(--text-3)",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>→ {inst.edit.next_action}</div>
+        {/* Meta row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: "var(--text-3)" }}>
+            <FolderOpen size={10} opacity={0.7} />{inst.projects.length}
+          </span>
+          {(inst.contacts?.length ?? 0) > 0 && (
+            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: "var(--text-3)" }}>
+              <Users size={10} opacity={0.7} />{inst.contacts!.length}
+            </span>
+          )}
+          {practices.map(pr => (
+            <span key={pr} style={{
+              fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
+              background: `${PRACTICE_COLORS[pr] ?? "#6366F1"}22`,
+              color: PRACTICE_COLORS[pr] ?? "#6366F1",
+              border: `1px solid ${PRACTICE_COLORS[pr] ?? "#6366F1"}44`,
+            }}>{pr}</span>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusDot,
+              boxShadow: `0 0 4px ${statusDot}`, display: "inline-block" }} />
+            <span style={{ fontSize: 10, color: "var(--text-3)" }}>{status}</span>
+          </div>
+        </div>
+
+        {inst.edit?.next_action && (
+          <div style={{
+            marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-sub)",
+            fontSize: 10.5, color: "var(--text-3)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>→ {inst.edit.next_action}</div>
+        )}
+      </button>
+
+      {/* Expand projects toggle */}
+      {activeProjects.length > 0 && (
+        <>
+          <button
+            onClick={e => { e.stopPropagation(); setProjectsOpen(v => !v); }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+              width: "100%", padding: "5px 14px 7px",
+              background: "none", border: "none",
+              borderTop: "1px solid var(--border-sub)",
+              cursor: "pointer", fontSize: 10.5, fontWeight: 600,
+              color: projectsOpen ? color : "var(--text-3)",
+              transition: "color 0.15s",
+            }}
+          >
+            <motion.span
+              animate={{ rotate: projectsOpen ? 180 : 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ display: "flex" }}
+            >
+              <ChevronDown size={12} />
+            </motion.span>
+            {activeProjects.length} project{activeProjects.length !== 1 ? "s" : ""}
+          </button>
+
+          <AnimatePresence initial={false}>
+            {projectsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                style={{ overflow: "hidden" }}
+              >
+                <div style={{ padding: "6px 12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
+                  {activeProjects.slice(0, 5).map((p, i) => {
+                    const stageColor = PURSUIT_STAGE_COLORS[p.pursuit_stage ?? ""] ?? "#64748B";
+                    return (
+                      <motion.div
+                        key={String(p._id ?? i)}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.18, delay: i * 0.03 }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "5px 8px", borderRadius: 6,
+                          background: "var(--bg-base)",
+                          border: "1px solid var(--border-sub)",
+                          fontSize: 11,
+                        }}
+                      >
+                        <span style={{ flex: 1, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.name}
+                        </span>
+                        {p.pursuit_stage && (
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: `${stageColor}20`, color: stageColor, border: `1px solid ${stageColor}40`, flexShrink: 0 }}>
+                            {p.pursuit_stage}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", flexShrink: 0 }}>
+                          {fmtMoney(p.budget_m)}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                  {activeProjects.length > 5 && (
+                    <div style={{ fontSize: 10, color: "var(--text-3)", textAlign: "center", paddingTop: 2 }}>
+                      +{activeProjects.length - 5} more
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -313,8 +402,8 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
       {/* Grid view */}
       {view === "grid" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
-          {sorted.map(inst => (
-            <div key={inst._rawName} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
+          {sorted.map((inst, idx) => (
+            <div key={inst._rawName} className="card-enter" style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px", ['--card-delay' as any]: `${idx * 30}ms` }}>
               <InstCard inst={inst} onSelect={() => onSelect(inst._rawName)} />
             </div>
           ))}
@@ -325,7 +414,7 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
       {view === "project" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 10 }}>
           {allProjects.map(({ p, inst, color }) => (
-            <div key={`${inst._rawName}||${p.name}`} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
+            <div key={`${inst._rawName}||${p._id != null ? String(p._id) : p.name}`} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
               <ProjectCard p={p} instName={inst.name} color={color} onSelect={() => onSelect(inst._rawName)} />
             </div>
           ))}
@@ -334,50 +423,104 @@ export default function Ecosystem({ institutions, onSelect, showLost = false }: 
 
       {/* System view */}
       {view === "system" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {systems.map(({ sys, insts, total }) => {
-            const color = SYSTEM_COLORS[sys] ?? "#6366F1";
-            const rgb   = hexRgb(color);
-            const pct   = (total / maxTotal) * 100;
-            return (
-              <div key={sys} style={{
-                background: "var(--bg-surface)", border: "1px solid var(--border)",
-                borderRadius: 10, overflow: "hidden", boxShadow: "var(--shadow-sm)",
-              }}>
-                <div style={{
-                  padding: "12px 18px", borderBottom: "1px solid var(--border-sub)",
-                  display: "flex", alignItems: "center", gap: 14,
-                  borderLeft: `4px solid ${color}`,
-                  background: `rgba(${rgb},0.06)`,
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color, fontFamily: FONT, marginBottom: 6 }}>{sys}</div>
-                    <div style={{ height: 4, background: "var(--border-sub)", borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`,
-                        background: `linear-gradient(90deg, ${color}55, ${color})`,
-                        borderRadius: 3, transition: "width 0.5s ease",
-                      }} />
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text-1)", letterSpacing: "-0.02em" }}>{fmtMoney(total)}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-3)" }}>
-                      {insts.length} inst · {insts.reduce((s,i) => s+i.projects.length, 0)} projects
-                    </div>
-                  </div>
-                </div>
-                <div style={{ padding: 10, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px,1fr))", gap: 8 }}>
-                  {insts.map(inst => (
-                    <div key={inst._rawName} style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}>
-                      <InstCard inst={inst} onSelect={() => onSelect(inst._rawName)} />
-                    </div>
-                  ))}
+        <SystemGroupList systems={systems} maxTotal={maxTotal} onSelect={onSelect} />
+      )}
+    </div>
+  );
+}
+
+// ── Collapsible system group list ─────────────────────────────────────────────
+function SystemGroupList({ systems, maxTotal, onSelect }: {
+  systems: { sys: string; insts: EnrichedInstitution[]; total: number }[];
+  maxTotal: number;
+  onSelect: (name: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggle = (sys: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(sys)) next.delete(sys); else next.add(sys);
+      return next;
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {systems.map(({ sys, insts, total }) => {
+        const color      = SYSTEM_COLORS[sys] ?? "#6366F1";
+        const rgb        = hexRgb(color);
+        const pct        = (total / maxTotal) * 100;
+        const isOpen     = !collapsed.has(sys);
+        return (
+          <div key={sys} style={{
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: 10, overflow: "hidden", boxShadow: "var(--shadow-sm)",
+          }}>
+            <button
+              onClick={() => toggle(sys)}
+              style={{
+                width: "100%", padding: "12px 18px",
+                borderBottom: isOpen ? "1px solid var(--border-sub)" : "none",
+                display: "flex", alignItems: "center", gap: 14,
+                borderLeft: `4px solid ${color}`,
+                background: `rgba(${rgb},0.06)`,
+                cursor: "pointer", border: "none", textAlign: "left",
+                borderLeftWidth: 4, borderLeftStyle: "solid", borderLeftColor: color,
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color, fontFamily: FONT, marginBottom: 6 }}>{sys}</div>
+                <div style={{ height: 4, background: "var(--border-sub)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`,
+                    background: `linear-gradient(90deg, ${color}55, ${color})`,
+                    borderRadius: 3, transition: "width 0.5s ease",
+                  }} />
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text-1)", letterSpacing: "-0.02em" }}>{fmtMoney(total)}</div>
+                <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+                  {insts.length} inst · {insts.reduce((s,i) => s+i.projects.length, 0)} projects
+                </div>
+              </div>
+              <motion.div
+                animate={{ rotate: isOpen ? 0 : -90 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                style={{ flexShrink: 0 }}
+              >
+                <ChevronDown size={16} color="var(--text-3)" />
+              </motion.div>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <div style={{ padding: 10, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px,1fr))", gap: 8 }}>
+                    {insts.map((inst, i) => (
+                      <motion.div
+                        key={inst._rawName}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.03 }}
+                        style={{ contentVisibility: "auto", containIntrinsicSize: "0 180px" }}
+                      >
+                        <InstCard inst={inst} onSelect={() => onSelect(inst._rawName)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 }

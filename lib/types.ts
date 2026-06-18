@@ -149,5 +149,20 @@ export interface PersistedState {
 
 export type ViewId =
   | "matrix" | "ecosystem" | "timeline" | "list"
-  | "forecast" | "scenario"
-  | "funding" | "types" | "space" | "growth" | "data";
+  | "forecast"
+  | "mix" | "growth" | "data" | "offices";
+
+export interface StateConfig {
+  id: string;
+  name: string;
+  abbreviation: string;
+  fullLabel: string;        // e.g. "Texas Higher Ed · FY 2026–2030"
+  tagline: string;          // short descriptor for selector card
+  color: string;            // primary brand color for the state
+  accentColor: string;      // secondary accent
+  mapCenter: [number, number];
+  mapZoom: number;
+  rawData: RawData;
+  systemColors: Record<string, string>;
+  startYear: number;
+}
