@@ -51,12 +51,10 @@ export function ThemeScaleProvider({ children }: { children: React.ReactNode }) 
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // Load persisted prefs
+  // Load persisted prefs — theme always starts as light; only scale persists
   useEffect(() => {
     try {
-      const t = localStorage.getItem("bd-theme") as Theme | null;
       const s = localStorage.getItem("bd-scale") as ScalePreset | null;
-      if (t && ["dark", "light", "system"].includes(t)) _setTheme(t);
       if (s && s in SCALE_PRESETS) _setScale(s);
     } catch {}
     setMounted(true);

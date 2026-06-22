@@ -324,51 +324,13 @@ export function SceneMarketMap() {
           );
         })}
 
-        {/* HKS office radius rings */}
-        {officeShown && (
-          <>
-            {/* Outer ring — ~100 mi */}
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.85, ease: SPRING }}
-              style={{
-                position: "absolute",
-                left: `${MAP_OFFICE.x}%`, top: `${MAP_OFFICE.y}%`,
-                transform: "translate(-50%, -50%)",
-                width: 190, height: 190,
-                borderRadius: "50%",
-                border: "1px dashed rgba(99,102,241,0.35)",
-                background: "rgba(99,102,241,0.04)",
-                pointerEvents: "none", zIndex: 1,
-              }}
-            />
-            {/* Inner ring — ~50 mi */}
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, ease: SPRING, delay: 0.12 }}
-              style={{
-                position: "absolute",
-                left: `${MAP_OFFICE.x}%`, top: `${MAP_OFFICE.y}%`,
-                transform: "translate(-50%, -50%)",
-                width: 108, height: 108,
-                borderRadius: "50%",
-                border: "1.5px dashed rgba(99,102,241,0.55)",
-                background: "rgba(99,102,241,0.07)",
-                pointerEvents: "none", zIndex: 1,
-              }}
-            />
-          </>
-        )}
-
         {/* HKS office node */}
         {officeShown && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, ease: SPRING }}
-            style={{ position: "absolute", left: `${MAP_OFFICE.x}%`, top: `${MAP_OFFICE.y}%`, transform: "translate(-50%,-160%)", width: 36, height: 36, borderRadius: "50%", background: "#6366F1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(99,102,241,0.45)", zIndex: 5 }}
+            style={{ position: "absolute", left: `${MAP_OFFICE.x}%`, top: `${MAP_OFFICE.y}%`, transform: "translate(-50%,-50%)", width: 36, height: 36, borderRadius: "50%", background: "#6366F1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(99,102,241,0.45)", zIndex: 5 }}
           >
             <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.05em", lineHeight: 1 }}>HKS</span>
           </motion.div>
