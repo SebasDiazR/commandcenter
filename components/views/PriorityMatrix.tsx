@@ -179,7 +179,7 @@ function TopInstitutionsCarousel({ allInsts, onSelect, sysColors = SYSTEM_COLORS
       return;
     }
     x.set(norm);
-    controls.start({ x: -totalW, transition: { duration: fraction * fullDuration, ease: "linear" } })
+    controls.start({ x: -totalW, transition: { duration: (1 - fraction) * fullDuration, ease: "linear" } })
       .then(() => {
         if (token.cancelled) return;
         x.set(0);

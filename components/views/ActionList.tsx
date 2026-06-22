@@ -50,12 +50,12 @@ function Stars({ value, onChange }: { value: number; onChange: (n: number) => vo
   );
 }
 
-function HoverRow({ children, onClick, isFocus, isEven, layoutId, flashDir, rowIdx }: {
+function HoverRow({ children, onClick, isFocus, isEven, layoutId, flashDir, rowIdx, overdueRow }: {
   children: React.ReactNode; onClick: () => void; isFocus: boolean; isEven: boolean;
-  layoutId?: string; flashDir?: "up" | "down" | null; rowIdx?: number;
+  layoutId?: string; flashDir?: "up" | "down" | null; rowIdx?: number; overdueRow?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
-  const base = isFocus ? "rgba(245,158,11,0.08)" : isEven ? "var(--bg-surface)" : "var(--bg-raised)";
+  const base = isFocus ? "rgba(245,158,11,0.08)" : overdueRow ? "rgba(220,38,38,0.04)" : isEven ? "var(--bg-surface)" : "var(--bg-raised)";
   const flash = flashDir === "up" ? "rgba(22,163,74,0.18)" : flashDir === "down" ? "rgba(220,38,38,0.18)" : null;
   return (
     <motion.tr
@@ -71,7 +71,9 @@ function HoverRow({ children, onClick, isFocus, isEven, layoutId, flashDir, rowI
         background: flash ?? (hovered ? "var(--bg-card-hov)" : base),
         borderBottom: "1px solid var(--border-sub)",
         cursor: "pointer",
-        boxShadow: isFocus ? "inset 0 0 0 1px rgba(245,158,11,0.25)" : undefined,
+        boxShadow: overdueRow
+          ? "inset 3px 0 0 #DC2626"
+          : isFocus ? "inset 0 0 0 1px rgba(245,158,11,0.25)" : undefined,
       }}
     >
       {children}
@@ -320,12 +322,15 @@ function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSele
   const actionDue = actionDate ? new Date(actionDate as string) : null;
   const isOverdue = actionDue && actionDue < today;
   const isDueToday = actionDue && actionDue.toDateString() === today.toDateString();
+  const daysOverdue = isOverdue && actionDue
+    ? Math.round((today.getTime() - actionDue.getTime()) / 86_400_000)
+    : 0;
   const activeCount = inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost").length;
   const COL_SPAN = 10;
 
   return (
     <>
-      <HoverRow onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0} layoutId={`row-${inst._rawName}`} flashDir={flashDir} rowIdx={idx}>
+      <HoverRow onClick={() => onSelect(inst._rawName)} isFocus={focus} isEven={idx % 2 === 0} layoutId={`row-${inst._rawName}`} flashDir={flashDir} rowIdx={idx} overdueRow={!!isOverdue}>
         <td style={{ ...tdStyle, fontWeight: 700, color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>
           {focus && (
             <span style={{ background: "var(--amber)", color: "#FFF", padding: "1px 5px", borderRadius: 3, fontSize: 10, marginRight: 5, fontWeight: 700, letterSpacing: "0.05em" }}>FOCUS</span>
@@ -374,6 +379,11 @@ function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSele
             }}>
               {(isOverdue || isDueToday) && <AlertCircle size={11} />}
               {actionDate as string}
+              {isOverdue && daysOverdue > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.85 }}>
+                  {" "}· {daysOverdue}d ago
+                </span>
+              )}
             </span>
           ) : (
             <span style={{ color: "var(--text-3)", fontSize: 12 }}>—</span>

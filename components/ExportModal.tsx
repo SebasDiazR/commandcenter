@@ -468,7 +468,7 @@ export default function ExportModal({ institutions, visible, onClose }: ExportMo
       }
 
       else if (sectionId === "ecosystem") {
-        y = drawSectionHeader("Ecosystem — University Systems by Total Pipeline", `${targetInstitutions.length} institutions across ${Object.keys(Object.fromEntries(targetInstitutions.map(i=>[i.system,1]))).length} systems`, y);
+        y = drawSectionHeader("Ecosystem — University Systems by Total Pipeline", `${targetInstitutions.length} institutions across ${new Set(targetInstitutions.map(i => i.system)).size} systems`, y);
         const grouped: Record<string, EnrichedInstitution[]> = {};
         targetInstitutions.forEach(i => { if (!grouped[i.system]) grouped[i.system]=[]; grouped[i.system].push(i); });
         const sysOrder = Object.keys(grouped).sort((a,b) => grouped[b].reduce((s,i)=>s+i.pipeline,0) - grouped[a].reduce((s,i)=>s+i.pipeline,0));

@@ -108,6 +108,7 @@ function InstRow({
 }
 
 export default function Timeline({ institutions, onSelect }: { institutions: EnrichedInstitution[]; onSelect: (name: string) => void }) {
+  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const sorted = [...institutions]
     .filter(i => i.projects.some(p => p.year))
     .sort((a, b) =>
@@ -123,6 +124,7 @@ export default function Timeline({ institutions, onSelect }: { institutions: Enr
     count: institutions.reduce((s, i) => s + i.projects.filter(p => p.year === y).length, 0),
   }));
   const peak = [...yearTotals].sort((a, b) => b.total - a.total)[0];
+  const maxTotal = peak?.total || 1;
 
   if (institutions.length === 0) {
     return (
@@ -165,9 +167,13 @@ export default function Timeline({ institutions, onSelect }: { institutions: Enr
                 const yt = yearTotals.find(t => t.year === y)!;
                 const isPeak = y === peak?.year;
                 const phase = actionPhase(y);
+                const barPct = maxTotal > 0 ? (yt.total / maxTotal) * 100 : 0;
+                const isHovered = hoveredYear === y;
                 return (
                   <div
                     key={y}
+                    onMouseEnter={() => setHoveredYear(y)}
+                    onMouseLeave={() => setHoveredYear(null)}
                     style={{
                       width: COL_W, minWidth: COL_W, flexShrink: 0,
                       marginRight: 3,
@@ -185,6 +191,19 @@ export default function Timeline({ institutions, onSelect }: { institutions: Enr
                     </div>
                     <div style={{ textAlign: "center", fontSize: 11, color: "var(--text-2)", marginTop: 2 }}>
                       {fmtMoney(yt.total)} · {yt.count}p
+                    </div>
+                    {/* Pipeline proportion bar */}
+                    <div style={{ margin: "5px 4px 2px", height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${barPct}%`,
+                        background: isPeak
+                          ? "var(--amber)"
+                          : isHovered ? "var(--sky)" : "rgba(20,184,166,0.7)",
+                        borderRadius: 3,
+                        transition: "width 0.6s cubic-bezier(0.16,1,0.3,1), background 0.2s",
+                        boxShadow: isPeak ? "0 0 6px rgba(245,158,11,0.5)" : "none",
+                      }} />
                     </div>
                     {phase && (
                       <div style={{

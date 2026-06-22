@@ -7,12 +7,12 @@ import {
   PieChart as PieIcon, Sprout, Edit3, Table2, LogOut,
   ChevronDown, Menu, X as XIcon, BarChart2, MapPin,
   AlertTriangle, Target, Clock3, TrendingUp, Activity, Presentation,
-  Globe2, ArrowLeft, Building2,
+  Globe2, ArrowLeft, Building2, Search,
 } from "lucide-react";
 
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
 import { useStateContext } from "@/lib/StateContext";
-import { inferPractice, fmtMoney } from "@/lib/helpers";
+import { inferPractice, fmtMoney, parseDateOnly, formatDateLabel } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
 import { getRankExplanation } from "@/lib/scoring";
 import { useThemeScale } from "@/lib/theme-scale";
@@ -35,9 +35,34 @@ import InstitutionMap from "./views/InstitutionMap";
 import OfficesView from "./views/OfficesView";
 import LostImpactToast from "./LostImpactToast";
 import MeetingMode from "./MeetingMode";
+import CommandPalette from "./CommandPalette";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
+
+// ── Animated count-up hook ─────────────────────────────────────────────────────
+function useCountUp(target: number, ms = 600): number {
+  const [v, setV] = React.useState(target);
+  const prev = React.useRef(target);
+  React.useEffect(() => {
+    if (prev.current === target) return;
+    prev.current = target;
+    let raf: number;
+    const t0 = performance.now();
+    const from = v;
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / ms, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setV(from + (target - from) * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else setV(target);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, ms]);
+  return v;
+}
 
 const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
   { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
@@ -67,20 +92,6 @@ type PriorityCard = {
   onClick?: () => void;
 };
 
-function parseDateOnly(raw?: string | null): Date | null {
-  if (!raw) return null;
-  const [year, month, day] = raw.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  const date = new Date(year, month - 1, day);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function formatDateLabel(raw?: string | null): string {
-  const date = parseDateOnly(raw);
-  if (!date) return "No date";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 function PriorityStripCard({ card }: { card: PriorityCard }) {
   const Icon = card.icon;
@@ -91,6 +102,8 @@ function PriorityStripCard({ card }: { card: PriorityCard }) {
       type="button"
       onClick={card.onClick}
       disabled={!clickable}
+      data-clickable={String(clickable)}
+      className="priority-strip-card"
       style={{
         minHeight: 148,
         padding: "14px 16px 14px 15px",
@@ -108,16 +121,6 @@ function PriorityStripCard({ card }: { card: PriorityCard }) {
         gap: 10,
         overflow: "hidden",
         position: "relative",
-        transition: "transform 0.15s ease, box-shadow 0.15s ease",
-      }}
-      onMouseEnter={e => {
-        if (!clickable) return;
-        e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = `var(--shadow-md), 0 0 0 1px ${card.color}30`;
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = "var(--shadow-sm)";
       }}
     >
       {/* Icon — top right */}
@@ -317,12 +320,18 @@ export default function BDCommandCenter() {
     _setEditState(next);
     setDirty(true);
   };
+  const showSaveError = (msg: string) => {
+    setSaveError(msg);
+    if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current);
+    saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000);
+  };
+
   const handleSave = () => {
     saveToSupabase(editState, stateId)
       .then(ts => { setLastSaved(ts); setDirty(false); })
       .catch(() => {
         try { const ts = saveState(editState, stateId); setLastSaved(ts); setDirty(false); }
-        catch { alert("Could not save — database unavailable and localStorage is full."); }
+        catch { showSaveError("Could not save — database unavailable and local storage is full."); }
       });
   };
 
@@ -332,6 +341,7 @@ export default function BDCommandCenter() {
       if (m && !e.shiftKey && e.key === "z") { e.preventDefault(); handleUndo(); }
       if (m && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); handleRedo(); }
       if (m && e.key === "s") { e.preventDefault(); handleSave(); }
+      if (m && e.key === "k") { e.preventDefault(); setShowCommandPalette(v => !v); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -349,11 +359,6 @@ export default function BDCommandCenter() {
   const [globalEdit, setGlobalEdit]               = useState(false);
   const [view, setView]                           = useState<ViewId>("matrix");
   const [selectedInst, setSelectedInst]           = useState<string | null>(null);
-  const [panelOpen, setPanelOpen]                 = useState(false);
-  useEffect(() => {
-    if (selectedInst) { const t = setTimeout(() => setPanelOpen(true), 16); return () => clearTimeout(t); }
-    else { setPanelOpen(false); }
-  }, [selectedInst]);
   const [hoveredInst, setHoveredInst]             = useState<string | null>(null);
   const [showExport, setShowExport]               = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -361,6 +366,10 @@ export default function BDCommandCenter() {
   const [meetingMode, setMeetingMode]             = useState(false);
   const [matrixExpanded, setMatrixExpanded]       = useState(false);
   const [recentChangeNames, setRecentChangeNames] = useState<string[]>([]);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [digestDismissed, setDigestDismissed]     = useState(false);
+  const [saveError, setSaveError]                 = useState<string | null>(null);
+  const saveErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analyticsButtonRef = useRef<HTMLButtonElement>(null);
 
   // ── Action-impact toast ───────────────────────────────────────────────────
@@ -421,6 +430,30 @@ export default function BDCommandCenter() {
       };
     }),
   [stateConfig, editState, extraRawInsts, filters.showLost]);
+
+  // All institutions across every loaded state — used by the universal Offices tab
+  const allInstitutions = useMemo((): EnrichedInstitution[] => {
+    const currentIds = new Set(institutions.map(i => i._rawName));
+    const otherInsts = allStates
+      .filter(s => s.id !== stateId)
+      .flatMap(s => s.rawData.institutions)
+      .filter(raw => !currentIds.has(raw.name))
+      .map(raw => {
+        const pipeline = raw.projects.reduce((s, p) => s + (p.budget_m || 0), 0);
+        return {
+          ...raw,
+          _rawName: raw.name,
+          pipeline,
+          weighted_pipeline: pipeline * 0.1,
+          nearestYear: null,
+          urgency: 0.4,
+          energy_score: 0,
+          edit: {} as InstEditState,
+          contacts: (raw as any).contacts ?? [],
+        } as EnrichedInstitution;
+      });
+    return [...institutions, ...otherInsts];
+  }, [institutions, allStates, stateId]);
 
   const visible = useMemo(() => institutions.filter(inst => {
     if (filters.systems.length && !filters.systems.includes(inst.system)) return false;
@@ -567,6 +600,55 @@ export default function BDCommandCenter() {
       },
     ];
   }, [dirty, filters.showLost, institutions, lastSaved, recentChangeNames, visible]);
+
+  // ── Animated header stats ────────────────────────────────────────────────────
+  const headerStatValues = useMemo(() => {
+    const isLostP = (p: { pursuit_stage?: string; outcome?: string }) =>
+      p.pursuit_stage === "Lost" || p.outcome === "Lost";
+    const activeP = (inst: EnrichedInstitution) =>
+      filters.showLost ? inst.projects : inst.projects.filter(p => !isLostP(p));
+    const totalPipeline = visible.reduce((s, i) =>
+      s + activeP(i).reduce((ps, p) => ps + (p.budget_m ?? 0), 0), 0);
+    const totalWtd = visible.reduce((s, i) => {
+      const instStage = (i.edit.pursuit_stage as string) || "Tracking";
+      const instProb = STAGE_WIN_PROBABILITY[instStage] ?? 10;
+      return s + activeP(i).reduce((ps, p) => {
+        const stageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instProb) : instProb;
+        const prob = (p.win_probability != null ? p.win_probability : stageProb) / 100;
+        return ps + (p.budget_m ?? 0) * prob;
+      }, 0);
+    }, 0);
+    return { totalPipeline, totalWtd };
+  }, [visible, filters.showLost]);
+
+  const animPipeline = useCountUp(headerStatValues.totalPipeline, 700);
+  const animWtd      = useCountUp(headerStatValues.totalWtd, 700);
+
+  // ── Daily Digest sentence ─────────────────────────────────────────────────────
+  const digestSentence = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const overdueCount = visible.filter(inst => {
+      const d = inst.edit.next_action_date ? new Date(inst.edit.next_action_date + "T00:00:00") : null;
+      return d && d < today;
+    }).length;
+
+    const reactivation = visible
+      .filter(i => i.pipeline > 0 && ((i.edit.relationship ?? 1) <= 2 || (i.edit.hks_status as string) === "Dormant"))
+      .sort((a, b) => b.pipeline - a.pipeline)[0];
+
+    const nearestPursuit = visible
+      .flatMap(inst => inst.projects
+        .filter(p => p.year != null && p.year >= today.getFullYear())
+        .map(project => ({ inst, project })))
+      .sort((a, b) => (a.project.year ?? 9999) - (b.project.year ?? 9999))[0];
+
+    const parts: string[] = [];
+    if (overdueCount > 0) parts.push(`${overdueCount} overdue action${overdueCount !== 1 ? "s" : ""}`);
+    if (reactivation) parts.push(`${reactivation.name} needs reactivation at ${fmtMoney(reactivation.pipeline)}`);
+    if (nearestPursuit) parts.push(`${nearestPursuit.project.name} due FY${nearestPursuit.project.year} at ${nearestPursuit.inst.name}`);
+    if (parts.length === 0) return null;
+    return parts.join(" · ");
+  }, [visible]);
 
   // ── Resolve action toast after energy recompute ───────────────────────────
   useEffect(() => {
@@ -788,13 +870,19 @@ export default function BDCommandCenter() {
 
             {/* Brand */}
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <Image src="/hks-logo.png" alt="HKS" width={110} height={40} style={{ objectFit: "contain", objectPosition: "left" }} />
+              <button
+                onClick={returnToSelector}
+                title="Back to state selector"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", flexShrink: 0 }}
+              >
+                <Image src="/hks-logo.png" alt="HKS" width={110} height={40} style={{ objectFit: "contain", objectPosition: "left" }} />
+              </button>
               <div style={{ width: 1, height: 32, background: "var(--border)" }} />
               <div>
                 <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
                   {stateConfig.fullLabel}
                 </div>
-                <h1 style={{ fontSize: 18, margin: 0, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: text1 }}>
+                <h1 className="heading-display" style={{ fontSize: 22, margin: 0, fontWeight: 500, lineHeight: 1, color: text1 }}>
                   BD Command Center
                 </h1>
               </div>
@@ -814,28 +902,17 @@ export default function BDCommandCenter() {
             {/* Right controls */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
 
-              {/* Stats pills — computed fresh from projects so Lost toggle always reflects */}
+              {/* Stats pills — animated pipeline values from headerStatValues useMemo */}
               {(() => {
                 const isLost = (p: { pursuit_stage?: string; outcome?: string }) =>
                   p.pursuit_stage === "Lost" || p.outcome === "Lost";
                 const activeP = (inst: EnrichedInstitution) =>
                   filters.showLost ? inst.projects : inst.projects.filter(p => !isLost(p));
-                const totalPipeline = visible.reduce((s, i) =>
-                  s + activeP(i).reduce((ps, p) => ps + (p.budget_m ?? 0), 0), 0);
-                const totalWtd = visible.reduce((s, i) => {
-                  const instStage = (i.edit.pursuit_stage as string) || "Tracking";
-                  const instProb = STAGE_WIN_PROBABILITY[instStage] ?? 10;
-                  return s + activeP(i).reduce((ps, p) => {
-                    const stageProb = p.pursuit_stage ? (STAGE_WIN_PROBABILITY[p.pursuit_stage] ?? instProb) : instProb;
-                    const prob = (p.win_probability != null ? p.win_probability : stageProb) / 100;
-                    return ps + (p.budget_m ?? 0) * prob;
-                  }, 0);
-                }, 0);
                 const totalProjs = visible.reduce((s, i) => s + activeP(i).length, 0);
                 return [
-                  { label: "Pipeline",      value: fmtMoney(totalPipeline), color: "#10B981" },
-                  { label: "Wtd. Pipeline", value: fmtMoney(totalWtd),      color: "#A855F7" },
-                  { label: "Projects",      value: totalProjs,               color: "#6366F1" },
+                  { label: "Pipeline",      value: fmtMoney(animPipeline), color: "#10B981" },
+                  { label: "Wtd. Pipeline", value: fmtMoney(animWtd),      color: "#A855F7" },
+                  { label: "Projects",      value: totalProjs,              color: "#6366F1" },
                 ];
               })().concat([
                 { label: "Institutions", value: institutions.length, color: "#F59E0B" },
@@ -889,6 +966,36 @@ export default function BDCommandCenter() {
                 <span className="hide-mobile">Meeting Mode</span>
               </button>
 
+              {/* ⌘K command palette button */}
+              <button
+                aria-label="Open command palette"
+                title="Command palette (Ctrl+K)"
+                onClick={() => setShowCommandPalette(true)}
+                className="btn-ghost"
+                style={{ gap: 5 }}
+              >
+                <Search size={12} aria-hidden="true" />
+                <span className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  Search
+                  <kbd style={{ fontSize: 9, background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 5px", fontFamily: FONT, marginLeft: 2 }}>⌘K</kbd>
+                </span>
+              </button>
+
+              {/* DB sync status */}
+              {!dbLoaded && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", borderRadius: 20,
+                  background: "rgba(14,165,233,0.08)",
+                  border: "1px solid rgba(14,165,233,0.22)",
+                  fontSize: 10.5, fontWeight: 700, color: "#0EA5E9",
+                  letterSpacing: "0.04em",
+                }}>
+                  <span className="live-dot" style={{ background: "#0EA5E9" }} />
+                  Syncing…
+                </span>
+              )}
+
               {/* Save indicator */}
               <SaveIndicator
                 dirty={dirty} lastSaved={lastSaved}
@@ -901,30 +1008,10 @@ export default function BDCommandCenter() {
               <button
                 aria-label="Log out"
                 title="Log out"
+                className="btn-ghost"
                 onClick={async () => {
                   await fetch('/api/auth/logout', { method: 'POST' });
                   window.location.href = '/login';
-                }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "6px 12px", borderRadius: 8,
-                  border: `1px solid ${border}`,
-                  background: "transparent",
-                  color: text2,
-                  fontSize: 12, fontWeight: 600,
-                  cursor: "pointer",
-                  letterSpacing: "0.02em",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
-                  el.style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)";
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.background = "transparent";
-                  el.style.borderColor = border;
                 }}
               >
                 <LogOut size={13} aria-hidden="true" />
@@ -945,15 +1032,16 @@ export default function BDCommandCenter() {
                   data-active={active}
                   style={{
                     padding: "8px 14px",
-                    background: active ? `${v.color}18` : "transparent",
+                    background: active ? `${v.color}1a` : "transparent",
                     color: active ? v.color : text3,
                     border: "none",
-                    borderBottom: active ? `2px solid ${v.color}` : "2px solid transparent",
-                    cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 500,
+                    borderBottom: active ? `2.5px solid ${v.color}` : "2.5px solid transparent",
+                    cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
                     fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 6,
                     whiteSpace: "nowrap",
                     transition: "color 0.15s, border-color 0.15s, background 0.15s",
                     borderRadius: "6px 6px 0 0",
+                    boxShadow: active ? `inset 0 -1px 0 ${v.color}` : "none",
                   }}>
                   <Icon size={13} />{v.label}
                 </button>
@@ -1086,14 +1174,7 @@ export default function BDCommandCenter() {
         <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
 
           {!isFullWidth && globalEdit && (
-            <div role="status" style={{
-              marginBottom: 16, padding: "10px 16px",
-              background: "rgba(245,158,11,0.09)",
-              border: "1px solid rgba(245,158,11,0.35)",
-              borderLeft: "3px solid #F59E0B",
-              borderRadius: 8, fontSize: 12.5, color: "var(--amber)",
-              display: "flex", alignItems: "center", gap: 9,
-            }}>
+            <div role="status" className="edit-mode-banner">
               <Edit3 size={13} aria-hidden="true" />
               <strong>Edit Mode active</strong>
               <span style={{ color: "var(--text-2)", fontWeight: 400 }}>— click any institution card to edit all fields. Changes auto-save every 60 s.</span>
@@ -1101,32 +1182,109 @@ export default function BDCommandCenter() {
           )}
 
           {!isFullWidth && (
-            <section aria-label="Today's BD Priorities" style={{ marginBottom: 20 }}>
+            <section aria-label="Today's BD Priorities" style={{ marginBottom: 22 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{
-                    width: 3, height: 18, borderRadius: 2,
-                    background: `linear-gradient(180deg, ${stateConfig.color}, ${stateConfig.color}55)`,
+                    width: 3, height: 20, borderRadius: 2,
+                    background: `linear-gradient(180deg, ${stateConfig.color}, ${stateConfig.color}44)`,
                     flexShrink: 0,
                   }} />
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 14, fontWeight: 780, letterSpacing: "-0.01em", color: text1, lineHeight: 1 }}>
+                    <h2 style={{ margin: 0, fontSize: 13.5, fontWeight: 800, letterSpacing: "-0.01em", color: text1, lineHeight: 1.1 }}>
                       Today&apos;s BD Priorities
                     </h2>
-                    <div style={{ fontSize: 11, color: text3, marginTop: 3, lineHeight: 1 }}>
-                      Actionable signals from the current filtered view
+                    <div style={{ fontSize: 10.5, color: text3, marginTop: 3, lineHeight: 1 }}>
+                      {visible.length} visible · Signals from the active filter set
                     </div>
                   </div>
                 </div>
-                <span style={{
-                  fontSize: 10.5, color: text3, fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "0.08em", whiteSpace: "nowrap",
-                  padding: "3px 9px", borderRadius: 20,
-                  background: "var(--bg-raised)", border: "1px solid var(--border)",
-                }}>
-                  {visible.length} visible
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {dirty && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase",
+                      letterSpacing: "0.08em", padding: "2px 8px", borderRadius: 20,
+                      background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)",
+                    }}>
+                      Unsaved
+                    </span>
+                  )}
+                  <span style={{
+                    fontSize: 10.5, color: text3, fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: "0.08em", whiteSpace: "nowrap",
+                    padding: "3px 10px", borderRadius: 20,
+                    background: "var(--bg-raised)", border: "1px solid var(--border)",
+                  }}>
+                    {stateConfig.name}
+                  </span>
+                </div>
               </div>
+              {/* Save error toast */}
+              <AnimatePresence>
+                {saveError && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 14px",
+                      background: "rgba(220,38,38,0.08)",
+                      border: "1px solid rgba(220,38,38,0.25)",
+                      borderLeft: "3px solid #DC2626",
+                      borderRadius: 8, overflow: "hidden",
+                    }}
+                  >
+                    <AlertTriangle size={12} color="#DC2626" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500 }}>
+                      <span style={{ fontWeight: 700, color: "#DC2626" }}>Save failed · </span>
+                      {saveError}
+                    </span>
+                    <button
+                      onClick={() => setSaveError(null)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
+                      aria-label="Dismiss error"
+                    >
+                      <XIcon size={12} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Daily Digest banner */}
+              <AnimatePresence>
+                {digestSentence && !digestDismissed && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 14px",
+                      background: "linear-gradient(90deg, rgba(99,102,241,0.1), rgba(14,165,233,0.06))",
+                      border: "1px solid rgba(99,102,241,0.22)",
+                      borderLeft: "3px solid var(--indigo)",
+                      borderRadius: 8, overflow: "hidden",
+                    }}
+                  >
+                    <Activity size={12} color="var(--indigo)" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500, lineHeight: 1.4 }}>
+                      <span style={{ fontWeight: 760, color: "var(--text-1)" }}>Today · </span>
+                      {digestSentence}
+                    </span>
+                    <button
+                      onClick={() => setDigestDismissed(true)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
+                      aria-label="Dismiss digest"
+                    >
+                      <XIcon size={12} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(195px, 1fr))",
@@ -1141,57 +1299,56 @@ export default function BDCommandCenter() {
           {institutions.length === 0 && view !== "data" && (
             <div style={{
               margin: "0 0 24px",
-              padding: "20px 24px",
-              borderRadius: 12,
-              border: `1px dashed ${stateConfig.color}60`,
-              background: `${stateConfig.color}08`,
-              display: "flex", flexDirection: "column", gap: 10,
+              padding: "22px 24px",
+              borderRadius: 14,
+              border: `1px dashed ${stateConfig.color}50`,
+              background: `linear-gradient(140deg, ${stateConfig.color}09 0%, var(--bg-surface) 65%)`,
+              display: "flex", alignItems: "center", gap: 16,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                  background: `${stateConfig.color}18`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <MapPin size={16} color={stateConfig.color} />
+              <div style={{
+                width: 44, height: 44, borderRadius: 11, flexShrink: 0,
+                background: `${stateConfig.color}15`,
+                border: `1px solid ${stateConfig.color}25`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <MapPin size={18} color={stateConfig.color} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 760, color: stateConfig.color, marginBottom: 3 }}>
+                  {stateConfig.name} market framework is configured
                 </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: stateConfig.color }}>
-                    No {stateConfig.name} institutions have been added yet
-                  </div>
-                  <div style={{ fontSize: 12.5, color: text2, marginTop: 2 }}>
-                    {stateConfig.name} data is awaiting import. Use the Data Manager to add institutions or import project data.
-                  </div>
+                <div style={{ fontSize: 12.5, color: text2, lineHeight: 1.5 }}>
+                  No institutions imported yet. Use the Data Manager to add institutions and project data.
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setView("data")}
-                  style={{
-                    padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700,
-                    background: stateConfig.color, color: "#fff", border: "none", cursor: "pointer",
-                  }}
-                >
-                  Open Data Manager
-                </button>
-              </div>
+              <button
+                onClick={() => setView("data")}
+                style={{
+                  flexShrink: 0,
+                  padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                  background: stateConfig.color, color: "#fff", border: "none", cursor: "pointer",
+                  letterSpacing: "0.01em",
+                  boxShadow: `0 4px 12px ${stateConfig.color}40`,
+                }}
+              >
+                Open Data Manager
+              </button>
             </div>
           )}
 
           {/* View breadcrumb */}
           {!isFullWidth && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-sub)" }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "4px 10px", borderRadius: 6,
+              <div className="intel-badge" style={{
                 background: `${activeView.color}12`,
-                border: `1px solid ${activeView.color}25`,
+                border: `1px solid ${activeView.color}28`,
+                color: activeView.color,
               }}>
-                <activeView.icon size={12} color={activeView.color} />
-                <span style={{ fontSize: 12, fontWeight: 720, color: activeView.color, letterSpacing: "0.01em" }}>{activeView.label}</span>
+                <activeView.icon size={12} />
+                {activeView.label}
               </div>
               <div style={{ flex: 1, height: 1, background: "var(--border-sub)" }} />
-              <span style={{ fontSize: 11, color: text3, letterSpacing: "0.01em" }}>
+              <span className="tabular-nums" style={{ fontSize: 11, color: text3, letterSpacing: "0.01em" }}>
                 {visible.length} institution{visible.length !== 1 ? "s" : ""} · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))} pipeline
               </span>
             </div>
@@ -1226,7 +1383,7 @@ export default function BDCommandCenter() {
             {view === "forecast"  && <ForecastView    institutions={visible} showLost={filters.showLost} />}
             {view === "mix"       && <PortfolioMix    globalEdit={globalEdit} editState={editState} setEditState={setEditState} institutions={institutions} onSelect={setSelectedInst} fundingSources={stateConfig.rawData.funding_sources} />}
             {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
-            {view === "offices"   && <OfficesView     institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "offices"   && <OfficesView     institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "data"      && (
               <DataManager
                 institutions={institutions}
@@ -1247,7 +1404,7 @@ export default function BDCommandCenter() {
 
         {/* ── Detail panel wrapper — Framer Motion width push ── */}
         <motion.div
-          animate={{ width: panelOpen ? "min(520px, 40vw)" : 0, minWidth: panelOpen ? "min(520px, 40vw)" : 0 }}
+          animate={{ width: selectedInst ? "min(520px, 40vw)" : 0, minWidth: selectedInst ? "min(520px, 40vw)" : 0 }}
           transition={{ type: "spring", stiffness: 340, damping: 36, mass: 0.9 }}
           style={{ flexShrink: 0, overflow: "hidden", position: "relative" }}
         >
@@ -1289,6 +1446,15 @@ export default function BDCommandCenter() {
         payload={activeToast}
         onDismiss={() => setActiveToast(null)}
       />
+
+      {showCommandPalette && (
+        <CommandPalette
+          institutions={institutions}
+          onSelectInst={name => { setSelectedInst(name); }}
+          onSelectView={v => { setView(v); }}
+          onClose={() => setShowCommandPalette(false)}
+        />
+      )}
 
     </div>
   );

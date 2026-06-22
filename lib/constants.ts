@@ -1,5 +1,5 @@
 // ─── Design tokens ────────────────────────────────────────────────────────────
-export const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
+export const FONT = "'HKS Sans', 'Inter', 'Segoe UI', system-ui, sans-serif";
 
 export const T = {
   navy:       "#0F172A",

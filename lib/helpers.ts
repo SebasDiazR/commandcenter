@@ -1,3 +1,18 @@
+export function parseDateOnly(raw?: string | null): Date | null {
+  if (!raw) return null;
+  const [year, month, day] = raw.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function formatDateLabel(raw?: string | null): string {
+  const date = parseDateOnly(raw);
+  if (!date) return "No date";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * Math.PI / 180;

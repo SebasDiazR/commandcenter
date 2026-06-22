@@ -1,76 +1,121 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { MapPin, TrendingUp, Building2, ChevronRight, Globe2, Layers, ArrowRight, Sparkles } from "lucide-react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
+import { MapPin, TrendingUp, Building2, ChevronRight, Globe2, Layers, ArrowRight, Sparkles, Sun, Sunset, Moon, Network, DollarSign, Target, Compass } from "lucide-react";
 import type { StateConfig } from "@/lib/types";
 import { ALL_STATES } from "@/lib/states";
 import { FONT } from "@/lib/constants";
 import { useThemeScale } from "@/lib/theme-scale";
 import ThemeScaleControls from "./ThemeScaleControls";
+import CapabilitiesExperience from "./capabilities/CapabilitiesExperience";
 
 // ─── Texas: geographic path ────────────────────────────────────────────────────
-// viewBox "0 0 340 260"
-// Projection: x = (106.65 - lon) * 24,  y = (37.0 - lat) * 24
-// Key coordinates verified against USGS boundary data
 const TX_PATH = [
-  "M 85 0",     // Panhandle NW   103.0°W 37.0°N
-  "L 157 0",    // Panhandle NE   100.0°W 37.0°N
-  "L 157 12",   // OK step        100.0°W 36.5°N
-  "L 169 14",   // OK step E      99.5°W  36.4°N
-  "L 229 60",   // OK border E    97.0°W  34.5°N
-  "L 254 71",   // TX/OK/AR corner 96.0°W 33.9°N
-  "L 302 82",   // NE corner      94.0°W  33.4°N
-  "L 310 100",  // East TX        93.5°W  32.4°N (adjusted)
-  "L 314 138",  // East border    94.0°W  31.5°N
-  "L 310 160",  // toward Gulf    94.0°W  30.3°N
-  "L 296 184",  // Sabine Pass    93.9°W  29.7°N
-  "L 272 207",  // Gulf coast     95.3°W  28.6°N
-  "L 246 224",  // Gulf curve     96.7°W  27.5°N
-  "L 212 238",  // Gulf mouth     98.3°W  26.7°N
-  "L 181 244",  // Brownsville    99.7°W  26.0°N (southernmost)
-  "L 153 238",  // Rio Grande W   100.9°W 26.3°N
-  "L 128 224",  // Rio Grande     101.9°W 26.9°N
-  "L 103 207",  // Big Bend N     103.0°W 28.0°N
-  "L 84 193",   // Big Bend W     103.7°W 28.8°N
-  "L 69 176",   // toward El Paso 104.5°W 29.8°N
-  "L 53 159",   // El Paso area   105.4°W 30.4°N
-  "L 20 127",   // El Paso city   106.5°W 31.8°N  ← westernmost jut
-  "L 50 116",   // NM/TX S        105.6°W 32.2°N
-  "L 85 116",   // NM/TX border   103.0°W 32.0°N
-  "L 85 0",     // NM border N — back to panhandle NW
+  "M 85 0",
+  "L 157 0",
+  "L 157 12",
+  "L 169 14",
+  "L 229 60",
+  "L 254 71",
+  "L 302 82",
+  "L 310 100",
+  "L 314 138",
+  "L 310 160",
+  "L 296 184",
+  "L 272 207",
+  "L 246 224",
+  "L 212 238",
+  "L 181 244",
+  "L 153 238",
+  "L 128 224",
+  "L 103 207",
+  "L 84 193",
+  "L 69 176",
+  "L 53 159",
+  "L 20 127",
+  "L 50 116",
+  "L 85 116",
+  "L 85 0",
 ].join(" ");
 
 // ─── California: geographic path ──────────────────────────────────────────────
-// viewBox "-5 -5 125 220"
-// Projection: x = (124.4 - lon) * 11,  y = (42.0 - lat) * 22
-// Coastline follows PCH landmarks; Nevada border has the "Great Notch"
 const CA_PATH = [
-  "M 0 0",      // NW coast / OR border    124.4°W 42.0°N
-  "L 48 0",     // OR/NV tripoint          120.0°W 42.0°N
-  "L 48 66",    // NV border straight down 120.0°W 39.0°N  — the notch
-  "L 55 92",    // NV diagonal SE          119.4°W 37.8°N
-  "L 66 124",   // NV heading SE           118.7°W 36.4°N
-  "L 76 155",   // toward AZ               118.2°W 34.9°N
-  "L 86 174",   // near AZ corner          117.6°W 34.0°N
-  "L 104 210",  // AZ/Mexico SE corner     114.6°W 32.5°N
-  "L 78 210",   // Pacific/Mexico SW       117.1°W 32.5°N
-  "L 61 200",   // San Diego coast         118.0°W 32.9°N
-  "L 47 186",   // Dana Point              118.5°W 33.5°N
-  "L 36 172",   // Long Beach area         118.2°W 33.8°N (adjusted for peninsula jut)
-  "L 25 158",   // Point Dume              118.8°W 34.0°N
-  "L 20 146",   // Point Conception        120.5°W 34.5°N
-  "L 16 130",   // Big Sur coast N         121.9°W 36.6°N (compressed)
-  "L 12 112",   // Monterey Bay            121.9°W 36.6°N
-  "L 8 96",     // Half Moon Bay           122.4°W 37.5°N
-  "L 5 80",     // San Francisco Bay area  122.5°W 37.8°N
-  "L 2 60",     // Point Reyes             122.9°W 38.0°N
-  "L 1 40",     // Cape Mendocino area     124.4°W 40.4°N
-  "L 0 0",      // back to NW
+  "M 0 0",
+  "L 48 0",
+  "L 48 66",
+  "L 55 92",
+  "L 66 124",
+  "L 76 155",
+  "L 86 174",
+  "L 104 210",
+  "L 78 210",
+  "L 61 200",
+  "L 47 186",
+  "L 36 172",
+  "L 25 158",
+  "L 20 146",
+  "L 16 130",
+  "L 12 112",
+  "L 8 96",
+  "L 5 80",
+  "L 2 60",
+  "L 1 40",
+  "L 0 0",
 ].join(" ");
+
+// ─── BlurText — React Bits, adapted for framer-motion + TypeScript ─────────────
+interface BlurTextProps {
+  text: string;
+  /** ms delay between each word */
+  delay?: number;
+  direction?: "top" | "bottom";
+  style?: React.CSSProperties;
+  className?: string;
+  /** className applied to each word span — needed for background-clip:text gradient classes */
+  spanClassName?: string;
+}
+
+function BlurText({ text, delay = 120, direction = "bottom", style, className, spanClassName }: BlurTextProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "0px 0px -20px 0px" });
+  const words = text.split(" ");
+
+  return (
+    <div ref={ref} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.28em", ...style }} className={className}>
+      {words.map((word, i) => (
+        <motion.span
+          key={i}
+          className={spanClassName}
+          style={{ display: "inline-block" }}
+          initial={{ filter: "blur(10px)", opacity: 0, y: direction === "bottom" ? 20 : -20 }}
+          animate={inView ? { filter: "blur(0px)", opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.55, delay: i * (delay / 1000), ease: [0.16, 1, 0.3, 1] }}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+// ─── Time-of-day greeting ──────────────────────────────────────────────────────
+function useGreeting() {
+  const [greeting, setGreeting] = useState<{ text: string; icon: React.ElementType }>({ text: "Good morning", icon: Sun });
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (h < 12) setGreeting({ text: "Good morning", icon: Sun });
+    else if (h < 17) setGreeting({ text: "Good afternoon", icon: Sunset });
+    else setGreeting({ text: "Good evening", icon: Moon });
+  }, []);
+  return greeting;
+}
+
+
+// ─── Sub-components (unchanged) ───────────────────────────────────────────────
 
 function StateMapPreview({ stateId, color }: { stateId: string; color: string }) {
   const gradId = `grad-${stateId}`;
-  const glowId = `glow-${stateId}`;
 
   if (stateId === "tx") {
     return (
@@ -81,16 +126,11 @@ function StateMapPreview({ stateId, color }: { stateId: string; color: string })
             <stop offset="100%" stopColor={color} stopOpacity={0.05} />
           </radialGradient>
         </defs>
-
-        <image href="/texas-outline.svg" x="0" y="0" width="962" height="658"
-          style={{ mixBlendMode: "multiply" }} />
-
+        <image href="/texas-outline.svg" x="0" y="0" width="962" height="658" style={{ mixBlendMode: "multiply" }} />
         <rect x="330" y="170" width="370" height="355" fill={`url(#${gradId})`} style={{ mixBlendMode: "multiply" }} />
-
         <circle cx={545} cy={378} r={7} fill={color} opacity={0.95} />
         <circle cx={545} cy={378} r={12} fill={color} opacity={0.15} />
         <text x={556} y={382} fontSize={12} fill={color} fontFamily={FONT} fontWeight={700} opacity={0.9}>Austin</text>
-
         <circle cx={575} cy={248} r={5} fill={color} opacity={0.55} />
         <text x={583} y={252} fontSize={10} fill={color} fontFamily={FONT} fontWeight={600} opacity={0.65}>Dallas</text>
         <circle cx={643} cy={410} r={5} fill={color} opacity={0.55} />
@@ -112,11 +152,9 @@ function StateMapPreview({ stateId, color }: { stateId: string; color: string })
         </defs>
         <path d={CA_PATH} fill={`url(#${gradId})`} stroke={`${color}55`} strokeWidth={1} strokeLinejoin="round" />
         <path d={CA_PATH} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" opacity={0.85} />
-
         <circle cx={32} cy={75} r={5.5} fill={color} opacity={0.95} />
         <circle cx={32} cy={75} r={9} fill={color} opacity={0.15} />
         <text x={39} y={79} fontSize={8.5} fill={color} fontFamily={FONT} fontWeight={700} opacity={0.9}>Sacramento</text>
-
         <circle cx={22} cy={92} r={3} fill={color} opacity={0.55} />
         <text x={27} y={96} fontSize={7.5} fill={color} fontFamily={FONT} fontWeight={600} opacity={0.65}>SF</text>
         <circle cx={68} cy={176} r={3.5} fill={color} opacity={0.55} />
@@ -142,11 +180,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: s
       background: `${color}0e`, border: `1px solid ${color}22`,
       flex: "1 1 0", minWidth: 0,
     }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: 7,
-        background: `${color}1a`, display: "flex",
-        alignItems: "center", justifyContent: "center",
-      }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: `${color}1a`, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Icon size={14} color={color} />
       </div>
       <span className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, color, letterSpacing: "-0.03em", lineHeight: 1.1, marginTop: 2 }}>{value}</span>
@@ -173,8 +207,7 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
       tabIndex={0}
       onKeyDown={e => e.key === "Enter" && onSelect(state.id)}
       style={{
-        flex: "1 1 340px",
-        maxWidth: 460,
+        width: "100%",
         borderRadius: 20,
         border: `1.5px solid ${hovered ? state.color + "70" : "var(--border)"}`,
         background: hovered
@@ -200,29 +233,38 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
       }} />
 
       <div style={{ padding: "24px 24px 24px", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-
         {/* Header row */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
               <span style={{
-                fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
+                fontSize: 9.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
                 color: state.color, background: `${state.color}18`,
-                padding: "2px 9px", borderRadius: 20,
+                padding: "3px 10px", borderRadius: 20,
               }}>
                 {state.abbreviation}
               </span>
-              {isEmpty && (
+              {isEmpty ? (
                 <span style={{
                   fontSize: 9.5, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase",
-                  color: "var(--text-3)", background: "var(--bg-base)",
-                  padding: "2px 8px", borderRadius: 20, border: "1px solid var(--border)",
+                  color: "var(--text-3)", background: "var(--bg-raised)",
+                  padding: "3px 9px", borderRadius: 20, border: "1px solid var(--border)",
                 }}>
                   Framework Ready
                 </span>
+              ) : (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  fontSize: 9.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  color: "var(--emerald)", background: "rgba(16,185,129,0.10)",
+                  padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(16,185,129,0.22)",
+                }}>
+                  <span className="live-dot" style={{ width: 5, height: 5 }} />
+                  Live Data
+                </span>
               )}
             </div>
-            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 860, letterSpacing: "-0.035em", color: "var(--text-1)", lineHeight: 1.05 }}>
+            <h2 style={{ margin: 0, fontSize: 27, fontWeight: 860, letterSpacing: "-0.035em", color: "var(--text-1)", lineHeight: 1.05 }}>
               {state.name}
             </h2>
             <p style={{ margin: "5px 0 0", fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.45, maxWidth: 260 }}>
@@ -248,17 +290,47 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
             <StatCard label="Pipeline" value={`$${pipeline.toFixed(0)}B`} icon={TrendingUp} color="#10B981" />
           </div>
         ) : (
-          <div style={{
-            padding: "13px 15px", borderRadius: 10,
-            background: "var(--bg-base)", border: "1px dashed var(--border)",
-            display: "flex", flexDirection: "column", gap: 5,
-          }}>
-            <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
-              {state.name} Command Center is configured and ready — no institutions imported yet.
-            </p>
-            <p style={{ margin: 0, fontSize: 11.5, color: "var(--text-3)" }}>
-              Start by adding institutions or importing project data.
-            </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { label: "Institutions", icon: Building2 },
+                { label: "Projects", icon: Layers },
+                { label: "Pipeline", icon: TrendingUp },
+              ].map(({ label, icon: Icon }) => (
+                <div key={label} style={{
+                  flex: "1 1 0", minWidth: 0,
+                  padding: "11px 13px", borderRadius: 10,
+                  background: "var(--bg-raised)", border: "1px solid var(--border)",
+                  display: "flex", flexDirection: "column", gap: 6,
+                  opacity: 0.45,
+                }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 7, background: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon size={13} color="var(--text-3)" />
+                  </div>
+                  <div style={{ width: "55%", height: 14, borderRadius: 4, background: "var(--border)" }} />
+                  <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{
+              padding: "10px 13px", borderRadius: 9,
+              background: `${state.color}08`, border: `1px dashed ${state.color}35`,
+              display: "flex", alignItems: "center", gap: 9,
+            }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: `${state.color}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Layers size={13} color={state.color} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: state.color, lineHeight: 1.2 }}>
+                  Market framework configured
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                  Awaiting institution data import to activate
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -289,23 +361,123 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
   );
 }
 
+// ─── Learn More CTA — sits below the state cards ────────────────────────────────
+
+const PREVIEW_CAPS = [
+  { icon: MapPin, color: "#6366F1", title: "State Intelligence" },
+  { icon: Network, color: "#F43F5E", title: "Relationship Ecosystem" },
+  { icon: DollarSign, color: "#10B981", title: "Funding Awareness" },
+  { icon: Target, color: "#8B5CF6", title: "Priority Matrix" },
+];
+
+function LearnMoreCTA({ onExplore }: { onExplore: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "0px 0px -80px 0px" });
+  const spring = [0.16, 1, 0.3, 1] as const;
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 32 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.7, ease: spring }}
+      style={{
+        position: "relative",
+        borderRadius: 24,
+        overflow: "hidden",
+        border: "1px solid rgba(99,102,241,0.22)",
+        background: "linear-gradient(155deg, rgba(99,102,241,0.10), rgba(14,165,233,0.05) 60%, var(--bg-surface))",
+        padding: "clamp(28px, 5vw, 48px)",
+        marginBottom: 80,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14 }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+          color: "var(--indigo)", background: "rgba(99,102,241,0.1)",
+          border: "1px solid rgba(99,102,241,0.22)", padding: "5px 13px", borderRadius: 20,
+        }}>
+          <Compass size={12} /> Beyond the map
+        </span>
+        <h2 className="heading-display" style={{
+          margin: 0, fontSize: "clamp(24px, 3.4vw, 36px)", fontWeight: 500,
+          letterSpacing: "-0.035em", color: "var(--text-1)", lineHeight: 1.1, maxWidth: 620,
+        }}>
+          Not just a map. Not just a dashboard.
+        </h2>
+        <p style={{ margin: 0, fontSize: 15, color: "var(--text-2)", lineHeight: 1.65, maxWidth: 580 }}>
+          The Command Center connects education market intelligence, institutional data, project
+          pipelines, funding signals, relationships, and research-backed strategies into one
+          strategic platform.
+        </p>
+
+        {/* Preview capability cards */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", margin: "8px 0 4px", width: "100%" }}>
+          {PREVIEW_CAPS.map((c, i) => (
+            <motion.div
+              key={c.title}
+              initial={{ opacity: 0, y: 16 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.2 + i * 0.08, ease: spring }}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "11px 16px", borderRadius: 12,
+                background: "var(--bg-surface)", border: "1px solid var(--border)",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: `${c.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <c.icon size={15} color={c.color} />
+              </div>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-1)", whiteSpace: "nowrap" }}>{c.title}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        <button
+          onClick={onExplore}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 9, marginTop: 8,
+            padding: "15px 30px", borderRadius: 14,
+            background: "linear-gradient(135deg, #6366F1, #0EA5E9)", color: "#fff",
+            border: "none", fontSize: 15, fontWeight: 750, fontFamily: FONT, cursor: "pointer",
+            boxShadow: "0 10px 30px rgba(99,102,241,0.4)",
+            transition: "transform 0.18s ease, box-shadow 0.18s ease",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 14px 38px rgba(99,102,241,0.5)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 10px 30px rgba(99,102,241,0.4)"; }}
+        >
+          <Sparkles size={16} />
+          Explore Capabilities
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Main screen ───────────────────────────────────────────────────────────────
 
 interface StateSelectorProps {
   onSelect: (stateId: string) => void;
 }
 
 export default function StateSelector({ onSelect }: StateSelectorProps) {
-  const { resolvedTheme } = useThemeScale();
+  useThemeScale();
+  const greeting = useGreeting();
+  const GreetIcon = greeting.icon;
+  const [showCapabilities, setShowCapabilities] = useState(false);
+  // Spring easing used throughout
+  const spring = [0.16, 1, 0.3, 1] as const;
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "var(--bg-base)",
-      fontFamily: FONT,
-      color: "var(--text-1)",
-      backgroundImage: "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(99,102,241,0.07), transparent)",
-    }}>
-      {/* Header */}
+    <div
+      style={{ minHeight: "100vh", background: "var(--bg-base)", fontFamily: FONT, color: "var(--text-1)", position: "relative", overflow: "hidden" }}
+      className="bg-dot-grid"
+    >
+
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <header style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "var(--bg-header)",
@@ -313,10 +485,7 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
         borderBottom: "1px solid var(--border)",
         boxShadow: "var(--shadow-md)",
       }}>
-        <div style={{
-          maxWidth: 1200, margin: "0 auto", padding: "11px 24px",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-        }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "11px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Image src="/hks-logo.png" alt="HKS" width={108} height={38} style={{ objectFit: "contain", objectPosition: "left" }} />
             <div style={{ width: 1, height: 30, background: "var(--border)" }} />
@@ -324,7 +493,7 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
               <div style={{ fontSize: 9.5, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
                 National · Higher Education
               </div>
-              <h1 style={{ fontSize: 17, margin: 0, fontWeight: 820, letterSpacing: "-0.025em", lineHeight: 1, color: "var(--text-1)" }}>
+              <h1 className="heading-display" style={{ fontSize: 21, margin: 0, fontWeight: 500, lineHeight: 1, color: "var(--text-1)" }}>
                 BD Command Center
               </h1>
             </div>
@@ -342,8 +511,8 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
             <ThemeScaleControls />
             <button
               onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                window.location.href = '/login';
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
               }}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
@@ -361,45 +530,140 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
         </div>
       </header>
 
-      {/* Hero */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 24px 0" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 24px 0", position: "relative", zIndex: 1 }}>
+        <div style={{ textAlign: "center", marginBottom: 52 }}>
+
+          {/* Greeting */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: spring }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              marginBottom: 16,
+              color: "var(--text-3)",
+              fontSize: 12.5,
+              fontWeight: 500,
+              letterSpacing: "0.02em",
+            }}
+          >
+            <GreetIcon size={13} style={{ opacity: 0.7 }} />
+            <span>{greeting.text}, HKS</span>
+          </motion.div>
+
           {/* Eyebrow badge */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 7,
-            padding: "5px 14px", borderRadius: 20, marginBottom: 18,
-            background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)",
-          }}>
-            <Sparkles size={12} color="#6366F1" />
-            <span style={{ fontSize: 11, fontWeight: 750, color: "#6366F1", letterSpacing: "0.07em", textTransform: "uppercase" }}>
-              National Higher Education Intelligence Platform
-            </span>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: spring }}
+            style={{
+              display: "flex", justifyContent: "center", marginBottom: 20,
+            }}
+          >
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "5px 14px", borderRadius: 20,
+              background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.20)",
+            }}>
+              <Sparkles size={11} color="#6366F1" />
+              <span style={{ fontSize: 10.5, fontWeight: 760, color: "#6366F1", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                National Higher Education Intelligence Platform
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Main headline — BlurText word-by-word */}
+          <div style={{ marginBottom: 16 }}>
+            <BlurText
+              text="Select Your"
+              delay={130}
+              direction="bottom"
+              style={{
+                fontSize: 54, fontWeight: 500, lineHeight: 1.03,
+                color: "var(--text-1)", fontFamily: FONT,
+                letterSpacing: "-0.035em",
+                justifyContent: "center",
+                marginBottom: "0.08em",
+              }}
+              className="heading-display"
+            />
+            <BlurText
+              text="Command Center"
+              delay={130}
+              direction="bottom"
+              style={{
+                fontSize: 54, fontWeight: 500, lineHeight: 1.03,
+                letterSpacing: "-0.035em",
+                justifyContent: "center",
+              }}
+              className="heading-display"
+              spanClassName="gradient-text-indigo"
+            />
           </div>
 
-          <h2 style={{
-            fontSize: 42, fontWeight: 860, letterSpacing: "-0.04em",
-            margin: "0 0 14px", lineHeight: 1.05, color: "var(--text-1)",
-          }}>
-            Select Your Command Center
-          </h2>
-          <p style={{ fontSize: 15.5, color: "var(--text-2)", maxWidth: 480, margin: "0 auto", lineHeight: 1.65 }}>
-            Each state operates as an independent intelligence hub with its own pipeline, analytics, and client ecosystem data.
-          </p>
+          {/* Subtitle — word stagger */}
+          <BlurText
+            text="Each state is an independent intelligence hub — pipeline, analytics, and client ecosystem data in one view."
+            delay={45}
+            direction="bottom"
+            style={{
+              fontSize: 15.5, color: "var(--text-2)", maxWidth: 460,
+              margin: "0 auto", lineHeight: 1.65,
+            }}
+          />
 
           {/* Divider */}
-          <div style={{ width: 48, height: 3, borderRadius: 2, background: "linear-gradient(90deg, #6366F1, #0EA5E9)", margin: "22px auto 0" }} />
+          <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.75, ease: spring }}
+            style={{
+              width: 40, height: 3, borderRadius: 2,
+              background: "linear-gradient(90deg, #6366F1, #0EA5E9)",
+              margin: "24px auto 0",
+              transformOrigin: "center",
+            }}
+          />
         </div>
 
-        {/* State cards grid */}
-        <div style={{
-          display: "flex", gap: 28, flexWrap: "wrap", justifyContent: "center",
-          paddingBottom: 72,
-        }}>
-          {ALL_STATES.map(state => (
-            <StateCard key={state.id} state={state} onSelect={onSelect} />
+        {/* ── State cards — staggered entrance ──────────────────────────── */}
+        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", justifyContent: "center", paddingBottom: 64 }}>
+          {ALL_STATES.map((state, idx) => (
+            <motion.div
+              key={state.id}
+              initial={{ opacity: 0, y: 36 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.35 + idx * 0.14, ease: spring }}
+              style={{ flex: "1 1 340px", maxWidth: 460 }}
+            >
+              <StateCard state={state} onSelect={onSelect} />
+            </motion.div>
           ))}
         </div>
+
+        {/* ── Learn More / Explore Capabilities ─────────────────────────── */}
+        <LearnMoreCTA onExplore={() => setShowCapabilities(true)} />
       </div>
+
+      {/* ── Capabilities experience (in-app, full-screen overlay) ───────── */}
+      <AnimatePresence>
+        {showCapabilities && (
+          <motion.div
+            key="capabilities"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: spring }}
+            style={{ position: "relative", zIndex: 300 }}
+          >
+            <CapabilitiesExperience
+              onBack={() => setShowCapabilities(false)}
+              onSelectState={onSelect}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

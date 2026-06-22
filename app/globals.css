@@ -1,3 +1,35 @@
+/* ── HKS Sans ─────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "HKS Sans";
+  src: url("/fonts/HKS Sans-Semilight.otf") format("opentype");
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HKS Sans";
+  src: url("/fonts/HKS Sans-Light.otf") format("opentype");
+  font-weight: 350;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HKS Sans";
+  src: url("/fonts/HKS Sans-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HKS Sans";
+  src: url("/fonts/HKS Sans-Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HKS Sans";
+  src: url("/fonts/HKS Sans-Black.otf") format("opentype");
+  font-weight: 900;
+  font-display: swap;
+}
+
 /* ── Leaflet ──────────────────────────────────────────────────────────────── */
 @import "leaflet/dist/leaflet.css";
 
@@ -43,7 +75,8 @@ button, a, input, select, textarea {
   --ui-scale: 1;
 
   /* Fonts */
-  --font: var(--font-inter, 'Inter'), 'Segoe UI', system-ui, sans-serif;
+  --font: "HKS Sans", var(--font-inter, 'Inter'), 'Segoe UI', system-ui, sans-serif;
+  --font-display: "HKS Sans", var(--font-inter, 'Inter'), system-ui, sans-serif;
 
   /* Border radius scale */
   --radius-xs: 4px;
@@ -71,6 +104,30 @@ button, a, input, select, textarea {
   --green:   #22C55E;
   --orange:  #F97316;
   --amber-brand: #B45309;
+
+  /* ── Spacing scale ─────────────────────────────────────────────────────── */
+  --sp-1:  4px;  --sp-2:  8px;  --sp-3:  12px; --sp-4:  16px;
+  --sp-5:  20px; --sp-6:  24px; --sp-8:  32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  /* ── Type scale ────────────────────────────────────────────────────────── */
+  --text-xs:   10.5px;
+  --text-sm:   12px;
+  --text-base: 14px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  38px;
+  --text-4xl:  48px;
+
+  /* ── Letter-spacing scale ──────────────────────────────────────────────── */
+  --tracking-tight:   -0.04em;
+  --tracking-snug:    -0.02em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.06em;
+  --tracking-wider:    0.09em;
+  --tracking-widest:   0.15em;
 }
 
 /* ── DARK theme (default) ─────────────────────────────────────────────────── */
@@ -111,6 +168,14 @@ button, a, input, select, textarea {
   --chart-tooltip-border: rgba(255,255,255,0.1);
   --scrollbar-thumb: rgba(255,255,255,0.12);
   --scrollbar-track: rgba(255,255,255,0.03);
+
+  /* ── Colored glows (dark) ─────────────────────────────────────────────── */
+  --glow-indigo:  0 0 32px rgba(99,102,241,0.30);
+  --glow-sky:     0 0 32px rgba(14,165,233,0.30);
+  --glow-emerald: 0 0 32px rgba(16,185,129,0.24);
+  --glow-amber:   0 0 32px rgba(245,158,11,0.26);
+  --glow-rose:    0 0 32px rgba(244,63,94,0.26);
+  --glow-violet:  0 0 32px rgba(139,92,246,0.26);
 }
 
 /* ── LIGHT theme ──────────────────────────────────────────────────────────── */
@@ -150,6 +215,14 @@ button, a, input, select, textarea {
   --chart-tooltip-border: #E4E2DD;
   --scrollbar-thumb: rgba(0,0,0,0.15);
   --scrollbar-track: rgba(0,0,0,0.04);
+
+  /* ── Colored glows (light) ────────────────────────────────────────────── */
+  --glow-indigo:  0 0 20px rgba(99,102,241,0.16);
+  --glow-sky:     0 0 20px rgba(14,165,233,0.16);
+  --glow-emerald: 0 0 20px rgba(16,185,129,0.13);
+  --glow-amber:   0 0 20px rgba(245,158,11,0.15);
+  --glow-rose:    0 0 20px rgba(244,63,94,0.15);
+  --glow-violet:  0 0 20px rgba(139,92,246,0.15);
 }
 
 /* ── Base body ────────────────────────────────────────────────────────────── */
@@ -482,6 +555,32 @@ textarea:focus-visible,
   margin-top: 2px;
 }
 
+/* ── Display / editorial heading ─────────────────────────────────────────── */
+.heading-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+/* ── Dot-grid background (StateSelector, hero areas) ────────────────────── */
+.bg-dot-grid {
+  background-image:
+    radial-gradient(ellipse 65% 38% at 50% -4%, rgba(99,102,241,0.14), transparent 52%),
+    radial-gradient(ellipse 45% 28% at 85% 18%, rgba(14,165,233,0.07), transparent 42%),
+    radial-gradient(circle, rgba(99,102,241,0.18) 1px, transparent 1px);
+  background-size: auto, auto, 28px 28px;
+  background-position: center top, right top, 0 0;
+}
+[data-theme="light"] .bg-dot-grid {
+  background-image:
+    radial-gradient(ellipse 65% 38% at 50% -4%, rgba(99,102,241,0.08), transparent 52%),
+    radial-gradient(ellipse 45% 28% at 85% 18%, rgba(14,165,233,0.04), transparent 42%),
+    radial-gradient(circle, rgba(99,102,241,0.09) 1px, transparent 1px);
+  background-size: auto, auto, 28px 28px;
+  background-position: center top, right top, 0 0;
+}
+
 /* ── Gradient text ────────────────────────────────────────────────────────── */
 .gradient-text-indigo {
   background: linear-gradient(135deg, #6366F1, #0EA5E9);
@@ -518,6 +617,170 @@ textarea:focus-visible,
 .badge-emerald{ color: var(--emerald);background: rgba(16,185,129,0.1);  border-color: rgba(16,185,129,0.2); }
 .badge-amber  { color: var(--amber);  background: rgba(245,158,11,0.1);  border-color: rgba(245,158,11,0.2); }
 .badge-rose   { color: var(--rose);   background: rgba(244,63,94,0.1);   border-color: rgba(244,63,94,0.2); }
+
+/* ── Additional gradient text variants ───────────────────────────────────── */
+.gradient-text-amber {
+  background: linear-gradient(135deg, #F59E0B, #F97316);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-emerald {
+  background: linear-gradient(135deg, #10B981, #14B8A6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-rose {
+  background: linear-gradient(135deg, #F43F5E, #EC4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Live data pulse indicator ────────────────────────────────────────────── */
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emerald);
+  animation: livePulse 2.4s ease-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── Reveal-up staggered animation ───────────────────────────────────────── */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-up {
+  animation: revealUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* ── Ghost button (replaces JS hover handlers) ───────────────────────────── */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.btn-ghost:hover {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  color: var(--text-1);
+}
+.btn-ghost:active { transform: translateY(1px); }
+
+/* ── Priority strip card (CSS hover replaces JS handlers) ────────────────── */
+.priority-strip-card {
+  transition: transform 0.16s var(--ease-out), box-shadow 0.16s ease !important;
+}
+.priority-strip-card[data-clickable="true"]:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* ── Section label (small uppercase category label) ──────────────────────── */
+.section-label {
+  font-size: 10.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-3);
+  line-height: 1;
+}
+
+/* ── Intel badge (view breadcrumb / contextual label) ────────────────────── */
+.intel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Premium empty state ─────────────────────────────────────────────────── */
+.empty-state-frame {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 48px 28px;
+  text-align: center;
+}
+.empty-state-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+/* ── Stat pill (header) ──────────────────────────────────────────────────── */
+.header-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: var(--radius-full);
+  user-select: none;
+  transition: transform 0.14s var(--ease-out), opacity 0.14s;
+}
+.header-stat:hover {
+  transform: translateY(-1px);
+}
+
+/* ── Edit Mode banner ────────────────────────────────────────────────────── */
+.edit-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.30);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  color: var(--amber);
+  margin-bottom: 16px;
+}
+
+/* ── Improved KPI card border on hover ────────────────────────────────────── */
+.kpi-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
 
 /* ── Print ────────────────────────────────────────────────────────────────── */
 @media print {
@@ -1071,3 +1334,4 @@ textarea:focus-visible,
     grid-template-columns: 1fr;
   }
 }
+
