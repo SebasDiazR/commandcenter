@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap, MessageSquare, Send, Bot, AlertCircle, RotateCcw } from "lucide-react";
+import { X, Edit3, Users, Target, Star, ClipboardList, Map, Award, Zap } from "lucide-react";
 import InfoTip from "./InfoTip";
 import { EnergyBreakdownPanel } from "./ScoringExplanation";
 import { SYSTEM_COLORS, PRACTICE_COLORS, ALL_STATUSES, STATUS_COLORS, PROJECT_TYPES, FONT, PURSUIT_STAGE_COLORS } from "@/lib/constants";
@@ -559,15 +559,7 @@ export default function DetailPanel({
   systemColors?: Record<string, string>;
 }) {
   const sysColors = systemColorsProp ?? SYSTEM_COLORS;
-  const [activeTab, setActiveTab] = useState<"overview" | "capture" | "ai">("overview");
-
-  // ── AI Chat state ──────────────────────────────────────────────────────────
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [chatInput,    setChatInput]    = useState("");
-  const [chatStreaming, setChatStreaming] = useState(false);
-  const [chatError,    setChatError]    = useState<string | null>(null);
-  const [chatModel,    setChatModel]    = useState("llama3.2");
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "capture">("overview");
 
   const [localNotes,      setLocalNotes]      = useState(inst.edit?.notes       || "");
   const [localNextAction, setLocalNextAction] = useState(inst.edit?.next_action  || "");
@@ -606,81 +598,7 @@ export default function DetailPanel({
   const TABS = [
     { id: "overview" as const,  label: "Overview" },
     { id: "capture"  as const,  label: "Capture Plan", badge: cpFilled > 0 ? `${cpFilled}/${cpTotal}` : undefined },
-    { id: "ai"       as const,  label: "AI Chat", badge: chatMessages.length > 0 ? String(chatMessages.filter(m => m.role === "user").length) : undefined },
   ];
-
-  const sendChatMessage = async (text: string) => {
-    const userMsg = text.trim();
-    if (!userMsg || chatStreaming) return;
-    setChatInput("");
-    setChatError(null);
-    const nextMessages = [...chatMessages, { role: "user" as const, content: userMsg }];
-    setChatMessages(nextMessages);
-    setChatStreaming(true);
-
-    // Append placeholder for streaming response
-    setChatMessages(prev => [...prev, { role: "assistant" as const, content: "" }]);
-
-    try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: nextMessages,
-          model: chatModel,
-          instContext: {
-            name: inst.name,
-            system: inst.system,
-            pipeline: inst.pipeline,
-            energy: inst.energy_score,
-            relationship: e.relationship ?? 1,
-            status: e.hks_status ?? "Active",
-            priority: e.priority ?? inst.strategy_priority ?? 0,
-            notes: e.notes ?? "",
-            nextAction: e.next_action ?? "",
-            projects: inst.projects.map(p => ({
-              name: p.name,
-              budget: p.budget_m ?? null,
-              year: p.year ?? null,
-              type: p.type ?? "",
-              pursuit_stage: p.pursuit_stage ?? null,
-            })),
-          },
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        setChatError(err.error ?? "Unknown error");
-        setChatMessages(prev => prev.slice(0, -1)); // remove empty placeholder
-        setChatStreaming(false);
-        return;
-      }
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let assembled = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        assembled += decoder.decode(value, { stream: true });
-        // Update the last (assistant) message in place
-        setChatMessages(prev => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: assembled };
-          return copy;
-        });
-        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
-    } catch (err) {
-      setChatError(err instanceof Error ? err.message : "Network error");
-      setChatMessages(prev => prev.slice(0, -1));
-    } finally {
-      setChatStreaming(false);
-      setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
-  };
 
   return (
     <>
@@ -1057,129 +975,6 @@ export default function DetailPanel({
           {/* ── CAPTURE PLAN TAB ── */}
           {activeTab === "capture" && (
             <CapturePlanTab cp={cp} onChange={patchCp} />
-          )}
-
-          {/* ── AI CHAT TAB ── */}
-          {activeTab === "ai" && (
-            <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 220px)", minHeight: 400 }}>
-
-              {/* Model selector + clear */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "0 2px" }}>
-                <Bot size={13} color="var(--indigo)" />
-                <select value={chatModel} onChange={e => setChatModel(e.target.value)}
-                  style={{ fontSize: 11.5, fontFamily: FONT, background: "var(--bg-chip)", border: "1px solid var(--border-strong)",
-                    borderRadius: 5, color: "var(--text-2)", padding: "3px 8px", cursor: "pointer", flex: 1 }}>
-                  {["llama3.2","llama3.1","llama3","mistral","phi3","gemma2","gemma","qwen2","codellama","deepseek-r1"].map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-                {chatMessages.length > 0 && (
-                  <button onClick={() => { setChatMessages([]); setChatError(null); }}
-                    style={{ background: "none", border: "1px solid var(--border-strong)", borderRadius: 5, padding: "3px 8px",
-                      cursor: "pointer", color: "var(--text-3)", fontSize: 11, fontFamily: FONT, display: "flex", alignItems: "center", gap: 4 }}>
-                    <RotateCcw size={10} /> Clear
-                  </button>
-                )}
-              </div>
-
-              {/* Message history */}
-              <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 2 }}>
-                {chatMessages.length === 0 && (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingTop: 8 }}>
-                    <div style={{ textAlign: "center", color: "var(--text-3)", fontSize: 13, fontFamily: FONT, paddingTop: 12 }}>
-                      <MessageSquare size={28} color="var(--indigo)" style={{ marginBottom: 8, opacity: 0.6 }} />
-                      <div style={{ fontWeight: 700, color: "var(--text-2)", marginBottom: 4 }}>Ask anything about {inst.name}</div>
-                      <div style={{ fontSize: 11.5, opacity: 0.7 }}>Powered by local Ollama · private &amp; free</div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {[
-                        "What's the best next move with this institution?",
-                        "Draft a capture plan intro paragraph.",
-                        "What are the key risks in pursuing this account?",
-                        "Who should we get to know at this institution?",
-                        "Summarize the pursuit status in 3 bullet points.",
-                      ].map(prompt => (
-                        <button key={prompt} onClick={() => sendChatMessage(prompt)}
-                          style={{ textAlign: "left", background: "var(--bg-surface)", border: "1px solid var(--border)",
-                            borderRadius: 8, padding: "9px 12px", cursor: "pointer", fontSize: 12.5, fontFamily: FONT,
-                            color: "var(--text-2)", transition: "border-color 0.15s, background 0.15s",
-                            lineHeight: 1.4 }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--indigo)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-raised)"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-surface)"; }}>
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {chatMessages.map((msg, i) => (
-                  <div key={i} style={{
-                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                    maxWidth: "88%",
-                    background: msg.role === "user" ? "var(--indigo)" : "var(--bg-surface)",
-                    color: msg.role === "user" ? "#FFF" : "var(--text-1)",
-                    border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
-                    borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "4px 12px 12px 12px",
-                    padding: "9px 13px", fontSize: 13, fontFamily: FONT, lineHeight: 1.55,
-                    whiteSpace: "pre-wrap", wordBreak: "break-word",
-                  }}>
-                    {msg.content || (
-                      <span style={{ display: "inline-flex", gap: 4, alignItems: "center", opacity: 0.6 }}>
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: "livePulse 1.2s ease-in-out infinite" }} />
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: "livePulse 1.2s ease-in-out 0.4s infinite" }} />
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: "livePulse 1.2s ease-in-out 0.8s infinite" }} />
-                      </span>
-                    )}
-                  </div>
-                ))}
-
-                {chatError && (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px",
-                    background: "#DC262618", border: "1px solid #DC262633", borderRadius: 8, fontSize: 12.5, fontFamily: FONT, color: "#DC2626" }}>
-                    <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span>{chatError}</span>
-                  </div>
-                )}
-
-                <div ref={chatBottomRef} />
-              </div>
-
-              {/* Input bar */}
-              <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <textarea
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendChatMessage(chatInput);
-                    }
-                  }}
-                  placeholder="Ask anything… (Enter to send, Shift+Enter for new line)"
-                  rows={2}
-                  style={{ flex: 1, resize: "none", padding: "9px 12px", fontSize: 13, fontFamily: FONT,
-                    border: "1.5px solid var(--border-strong)", borderRadius: 8,
-                    background: "var(--bg-input)", color: "var(--text-1)", outline: "none",
-                    lineHeight: 1.5, transition: "border-color 0.15s",
-                    boxSizing: "border-box" }}
-                  onFocus={e => { e.currentTarget.style.borderColor = "var(--indigo)"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = "var(--border-strong)"; }}
-                  disabled={chatStreaming}
-                />
-                <button
-                  onClick={() => sendChatMessage(chatInput)}
-                  disabled={!chatInput.trim() || chatStreaming}
-                  style={{ width: 40, height: 40, borderRadius: 8, border: "none",
-                    background: chatInput.trim() && !chatStreaming ? "var(--indigo)" : "var(--bg-chip)",
-                    color: chatInput.trim() && !chatStreaming ? "#FFF" : "var(--text-3)",
-                    cursor: chatInput.trim() && !chatStreaming ? "pointer" : "not-allowed",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0, transition: "background 0.15s, color 0.15s" }}>
-                  <Send size={15} />
-                </button>
-              </div>
-            </div>
           )}
 
         </motion.div>
