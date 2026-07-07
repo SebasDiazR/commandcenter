@@ -38,7 +38,8 @@ export interface ConferenceRecord {
   bookmarked?: boolean;
   archived?: boolean;
   attendees?: Attendee[];
-  custom?: Conference;   // set only for conferences added through the UI
+  custom?: Conference;   // set for conferences added through the UI or found by web refresh
+  status?: "pending" | "published";   // "pending" = surfaced by web refresh, awaiting review
 }
 
 export type ConferenceStateMap = Record<string, ConferenceRecord>;
@@ -112,4 +113,20 @@ export async function saveConferenceState(
   const p = saveChain.then(run, run);
   saveChain = p.catch(() => {});
   return p;
+}
+
+// ── On-demand web refresh (server runs Claude + web search) ───────────────────
+export type RefreshResult =
+  | { ok: true; conferences: Conference[] }
+  | { ok: false; error: string };
+
+export async function refreshConferencesFromWeb(): Promise<RefreshResult> {
+  try {
+    const res = await fetch("/api/conferences/refresh", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `Refresh failed (${res.status})` };
+    return { ok: true, conferences: (data.conferences ?? []) as Conference[] };
+  } catch {
+    return { ok: false, error: "Network error during refresh." };
+  }
 }

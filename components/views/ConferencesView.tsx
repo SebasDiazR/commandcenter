@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays, MapPin, Search, Star, Archive, ArchiveRestore,
   ExternalLink, Users, Plus, X, Building2, Clock, UserPlus, Trash2, Cloud, WifiOff,
+  RefreshCw, Check, Sparkles,
 } from "lucide-react";
 
 import { HKS_OFFICES, nearestOffices } from "@/lib/hks-offices";
@@ -17,7 +18,7 @@ import {
 } from "@/lib/conferences";
 import type { Conference, ConferenceRelevance } from "@/lib/conferences";
 import {
-  loadConferenceState, saveConferenceState, genId,
+  loadConferenceState, saveConferenceState, refreshConferencesFromWeb, genId,
 } from "@/lib/conference-persistence";
 import type { ConferenceStateMap, ConferenceRecord, Attendee } from "@/lib/conference-persistence";
 import type { EnrichedInstitution } from "@/lib/types";
@@ -117,9 +118,13 @@ function RelevancePill({ relevance, size = "sm" }: { relevance: ConferenceReleva
 
 export default function ConferencesView({ institutions, onSelect }: Props) {
   const [confState, setConfState] = useState<ConferenceStateMap>({});
+  const confStateRef = useRef(confState);
+  confStateRef.current = confState;
   const [backend, setBackend]     = useState(false);
   const [loaded, setLoaded]       = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
 
   const [search, setSearch]         = useState("");
   const [relevance, setRelevance]   = useState<ConferenceRelevance | "all">("all");
@@ -287,10 +292,61 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
     setSelectedId(conf.id);
   };
 
+  // Pending (web-refresh) review
+  const pendingIds = useMemo(
+    () => Object.entries(confState).filter(([, r]) => r.status === "pending" && !r.archived).map(([id]) => id),
+    [confState],
+  );
+  const approveConference = (id: string) => mutate(id, (r) => ({ ...r, status: "published" }));
+  const dismissConference = (id: string) => mutate(id, (r) => ({ ...r, status: "published", archived: true }));
+  const reviewAll = (action: "approve" | "dismiss") => {
+    const prev = confStateRef.current;
+    const changed: ConferenceStateMap = {};
+    for (const id of pendingIds) {
+      changed[id] = action === "approve"
+        ? { ...prev[id], status: "published" }
+        : { ...prev[id], status: "published", archived: true };
+    }
+    if (!Object.keys(changed).length) return;
+    const next = { ...prev, ...changed };
+    setConfState(next);
+    commit(next, changed);
+  };
+
+  const doRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshNote(null);
+    const result = await refreshConferencesFromWeb();
+    setRefreshing(false);
+    if (!result.ok) {
+      setRefreshNote((result as { error: string }).error);
+      return;
+    }
+
+    const prev = confStateRef.current;
+    const seedIds = new Set(CONFERENCES.map((c) => c.id));
+    const added: ConferenceStateMap = {};
+    for (const conf of result.conferences) {
+      if (seedIds.has(conf.id) || prev[conf.id]) continue;   // already known/tracked
+      added[conf.id] = { custom: conf, status: "pending" };
+    }
+    const n = Object.keys(added).length;
+    if (n) {
+      const next = { ...prev, ...added };
+      setConfState(next);
+      commit(next, added);
+    }
+    setRefreshNote(
+      n ? `${n} new conference${n > 1 ? "s" : ""} found — flagged for review below.`
+        : "No new conferences found — you're up to date.",
+    );
+  }, [commit]);
+
   const accentFor = (r: ConferenceRelevance) => RELEVANCE_COLORS[r];
 
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: FONT, overflow: "hidden" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       {/* ── Left panel — directory ── */}
       <div style={{ flex: "1 1 auto", minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -316,17 +372,34 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setShowAdd(true)}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "8px 14px", background: "#B45309", color: "#fff",
-                border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                cursor: "pointer", fontFamily: FONT,
-              }}
-            >
-              <Plus size={13} /> Add conference
-            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                onClick={doRefresh}
+                disabled={refreshing}
+                title="Search the web for new conferences (needs review before sharing)"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 12px", background: "transparent",
+                  color: refreshing ? "#94A3B8" : "var(--text-2, #64748B)",
+                  border: "1px solid var(--border-sub, #e4e2dd)", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  cursor: refreshing ? "wait" : "pointer", fontFamily: FONT,
+                }}
+              >
+                <RefreshCw size={13} style={refreshing ? { animation: "spin 1s linear infinite" } : undefined} />
+                {refreshing ? "Searching…" : "Refresh from web"}
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px", background: "#B45309", color: "#fff",
+                  border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", fontFamily: FONT,
+                }}
+              >
+                <Plus size={13} /> Add conference
+              </button>
+            </div>
           </div>
 
           {/* Stat tiles */}
@@ -452,6 +525,38 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
           )}
         </div>
 
+        {/* Refresh note + pending review banner */}
+        {(refreshNote || pendingIds.length > 0) && (
+          <div style={{ padding: "10px 16px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+            {refreshNote && (
+              <div style={{ fontSize: 12, color: "var(--text-2, #64748B)", display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={13} color="#B45309" /> {refreshNote}
+              </div>
+            )}
+            {pendingIds.length > 0 && (
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap",
+                background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.35)",
+                borderLeft: "4px solid #F59E0B", borderRadius: 8, padding: "10px 14px",
+              }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "#B45309" }}>
+                  <Sparkles size={14} /> {pendingIds.length} conference{pendingIds.length > 1 ? "s" : ""} from web refresh awaiting review
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => reviewAll("approve")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "#16A34A", color: "#fff", fontFamily: FONT }}>
+                    <Check size={13} /> Approve all
+                  </button>
+                  <button onClick={() => reviewAll("dismiss")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid var(--border-sub, #e4e2dd)", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "transparent", color: "var(--text-2, #64748B)", fontFamily: FONT }}>
+                    Dismiss all
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Cards */}
         <div style={{
           overflowY: "auto", flex: 1, padding: 16,
@@ -497,7 +602,14 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
 
                 {/* Top row: relevance + bookmark */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-                  <RelevancePill relevance={conf.relevance} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+                    <RelevancePill relevance={conf.relevance} />
+                    {record.status === "pending" && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 4, background: "#F59E0B", color: "#fff", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <Sparkles size={10} /> New · review
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleBookmark(conf.id); }}
                     aria-label={record.bookmarked ? "Remove from watchlist" : "Add to watchlist"}
@@ -584,6 +696,8 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
                 onAddAttendee={(a) => addAttendee(selected.conf.id, a)}
                 onRemoveAttendee={(attendeeId) => removeAttendee(selected.conf.id, attendeeId)}
                 onSelectInstitution={onSelect}
+                onApprove={() => approveConference(selected.conf.id)}
+                onDismiss={() => dismissConference(selected.conf.id)}
               />
             </motion.div>
           )}
@@ -600,7 +714,7 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
 
 // ─── Detail drawer ──────────────────────────────────────────────────────────────
 function ConferenceDetail({
-  data, nearbyInstitutions, onClose, onToggleBookmark, onToggleArchive, onAddAttendee, onRemoveAttendee, onSelectInstitution,
+  data, nearbyInstitutions, onClose, onToggleBookmark, onToggleArchive, onAddAttendee, onRemoveAttendee, onSelectInstitution, onApprove, onDismiss,
 }: {
   data: { conf: Conference; record: ConferenceRecord; cd: { label: string; tone: "now" | "future" | "past" } };
   nearbyInstitutions: { inst: EnrichedInstitution; dist: number }[];
@@ -610,6 +724,8 @@ function ConferenceDetail({
   onAddAttendee: (a: Omit<Attendee, "id">) => void;
   onRemoveAttendee: (attendeeId: string) => void;
   onSelectInstitution: (name: string) => void;
+  onApprove: () => void;
+  onDismiss: () => void;
 }) {
   const { conf, record, cd } = data;
   const accent = RELEVANCE_COLORS[conf.relevance];
@@ -659,6 +775,29 @@ function ConferenceDetail({
             <span style={{ fontSize: 11.5, color: "var(--text-3, #94A3B8)", padding: "4px 9px" }}>{conf.venue}</span>
           )}
         </div>
+
+        {/* Pending review (from web refresh) */}
+        {record.status === "pending" && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap",
+            background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.35)",
+            borderLeft: "4px solid #F59E0B", borderRadius: 8, padding: "10px 12px", marginBottom: 12,
+          }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "#B45309" }}>
+              <Sparkles size={13} /> Found via web refresh — verify the source, then approve.
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={onApprove}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "#16A34A", color: "#fff", fontFamily: FONT }}>
+                <Check size={13} /> Approve
+              </button>
+              <button onClick={onDismiss}
+                style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid var(--border-sub, #e4e2dd)", cursor: "pointer", fontSize: 12, fontWeight: 700, background: "transparent", color: "var(--text-2, #64748B)", fontFamily: FONT }}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
