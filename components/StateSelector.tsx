@@ -208,6 +208,13 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
       onKeyDown={e => e.key === "Enter" && onSelect(state.id)}
       style={{
         width: "100%",
+        cursor: "pointer",
+        outline: "none",
+      }}
+    >
+    <div
+      style={{
+        width: "100%",
         borderRadius: 20,
         border: `1.5px solid ${hovered ? state.color + "70" : "var(--border)"}`,
         background: hovered
@@ -221,8 +228,7 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
         transform: hovered ? "translateY(-5px)" : "translateY(0)",
         display: "flex",
         flexDirection: "column",
-        cursor: "pointer",
-        outline: "none",
+        pointerEvents: "none",
       }}
     >
       {/* Top accent bar */}
@@ -351,12 +357,14 @@ function StateCard({ state, onSelect }: { state: StateConfig; onSelect: (id: str
             transition: "all 0.18s ease",
             letterSpacing: "0.01em",
             boxShadow: hovered ? `0 4px 16px ${state.color}40` : "none",
+            pointerEvents: "auto",
           }}
         >
           Open {state.abbreviation} Command Center
           <ChevronRight size={15} style={{ transition: "transform 0.2s", transform: hovered ? "translateX(2px)" : "none" }} />
         </button>
       </div>
+    </div>
     </div>
   );
 }
