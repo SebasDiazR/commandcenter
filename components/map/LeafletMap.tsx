@@ -2,12 +2,33 @@
 import React, { useEffect, useRef, useState } from "react";
 import type LType from "leaflet";
 import { INST_COORDS } from "@/lib/coords";
-import { TEXAS_LATLNGS } from "@/lib/texas-boundary";
 import { SYSTEM_COLORS } from "@/lib/constants";
 import type { EnrichedInstitution } from "@/lib/types";
 import { fmtPipeline, haversine } from "@/lib/helpers";
 import { HKS_OFFICES } from "@/lib/hks-offices";
 import type { HKSOffice } from "@/lib/hks-offices";
+
+// Accurate state boundaries are served as GeoJSON from /public/geo and rendered
+// with L.geoJSON, so real coastlines and islands (FL Keys, CA Channel Islands)
+// draw exactly as Leaflet presents them — no hand-estimated polygons.
+const BOUNDARY_STYLE: LType.PathOptions = {
+  color: "#6366F1",
+  weight: 1.75,
+  opacity: 0.6,
+  fillColor: "#6366F1",
+  fillOpacity: 0.045,
+  lineJoin: "round",
+};
+
+async function fetchGeoJSON(url: string): Promise<unknown | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 interface Props {
   institutions: EnrichedInstitution[];
@@ -49,27 +70,22 @@ export default function LeafletMap({
   onHover,
   mapCenter = [31.5, -99.3],
   mapZoom = 5,
-  showStateBoundary = true,
-  boundaryLatlngs,
+  boundaryUrl,
   systemColors,
   selectedOffice = null,
   onOfficeSelect,
   nearbyRadius = 100,
-}: Props & { showStateBoundary?: boolean; boundaryLatlngs?: [number, number][]; systemColors?: Record<string, string> }) {
+}: Props & { boundaryUrl?: string; systemColors?: Record<string, string> }) {
   const sysColors = systemColors ?? SYSTEM_COLORS;
   const containerRef      = useRef<HTMLDivElement>(null);
   const mapRef            = useRef<LType.Map | null>(null);
   const markersRef        = useRef<Map<string, LType.CircleMarker>>(new Map());
   const LRef              = useRef<typeof LType | null>(null);
-  const boundaryLayerRef  = useRef<LType.Polygon | null>(null);
+  const boundaryLayerRef  = useRef<LType.Layer | null>(null);
   const mapCenterRef      = useRef(mapCenter);
   const mapZoomRef        = useRef(mapZoom);
-  const boundaryRef       = useRef(boundaryLatlngs);
-  const showBoundaryRef   = useRef(showStateBoundary);
   mapCenterRef.current    = mapCenter;
   mapZoomRef.current      = mapZoom;
-  boundaryRef.current     = boundaryLatlngs;
-  showBoundaryRef.current = showStateBoundary;
   const selectedOfficeRef = useRef(selectedOffice);
   selectedOfficeRef.current = selectedOffice;
   const onOfficeSelectRef = useRef(onOfficeSelect);
@@ -106,14 +122,10 @@ export default function LeafletMap({
         }
       ).addTo(map);
 
-      // Draw initial boundary polygon
-      const initLatlngs = boundaryRef.current ?? (showBoundaryRef.current ? TEXAS_LATLNGS : null);
-      if (initLatlngs) {
-        boundaryLayerRef.current = (L as typeof LType).polygon(
-          initLatlngs as LType.LatLngExpression[],
-          { color: "#6366F1", weight: 2, opacity: 0.45, fillOpacity: 0, dashArray: "6 4", interactive: false }
-        ).addTo(map);
-      }
+      // Dedicated pane so the state boundary sits above tiles but below markers,
+      // regardless of async GeoJSON fetch timing.
+      const boundaryPane = map.createPane("stateBoundary");
+      boundaryPane.style.zIndex = "250";
 
       // Custom pane behind SVG overlay (overlayPane = 400)
       const hksPane = map.createPane("hksOffices");
@@ -168,25 +180,28 @@ export default function LeafletMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap boundary polygon when state changes
+  // Load / swap the accurate GeoJSON boundary when the state changes
   useEffect(() => {
     const map = mapRef.current;
     const L   = LRef.current;
     if (!map || !L || !mapReady) return;
+    let cancelled = false;
 
     if (boundaryLayerRef.current) {
       boundaryLayerRef.current.remove();
       boundaryLayerRef.current = null;
     }
+    if (!boundaryUrl) return;
 
-    const latlngs = boundaryLatlngs ?? (showStateBoundary ? TEXAS_LATLNGS : null);
-    if (latlngs) {
-      boundaryLayerRef.current = (L as typeof LType).polygon(
-        latlngs as LType.LatLngExpression[],
-        { color: "#6366F1", weight: 2, opacity: 0.45, fillOpacity: 0, dashArray: "6 4", interactive: false }
-      ).addTo(map);
-    }
-  }, [boundaryLatlngs, showStateBoundary, mapReady]);
+    fetchGeoJSON(boundaryUrl).then(geo => {
+      if (cancelled || !geo || !mapRef.current) return;
+      boundaryLayerRef.current = (L as typeof LType)
+        .geoJSON(geo as GeoJSON.GeoJsonObject, { interactive: false, pane: "stateBoundary", style: BOUNDARY_STYLE })
+        .addTo(map);
+    });
+
+    return () => { cancelled = true; };
+  }, [boundaryUrl, mapReady]);
 
   // Re-center map when state changes
   useEffect(() => {

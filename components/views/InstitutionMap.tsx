@@ -7,8 +7,6 @@ import { INST_COORDS } from "@/lib/coords";
 import { SYSTEM_COLORS, FONT } from "@/lib/constants";
 import type { EnrichedInstitution } from "@/lib/types";
 import { useStateContext } from "@/lib/StateContext";
-import { TEXAS_LATLNGS } from "@/lib/texas-boundary";
-import { CALIFORNIA_LATLNGS } from "@/lib/california-boundary";
 import { haversine, estimateDriveTime, fmtPipeline } from "@/lib/helpers";
 import type { HKSOffice } from "@/lib/hks-offices";
 
@@ -158,8 +156,7 @@ export default function InstitutionMap({ institutions, selectedInst, hoveredInst
           onHover={onHover}
           mapCenter={stateConfig.mapCenter}
           mapZoom={stateConfig.mapZoom}
-          showStateBoundary={false}
-          boundaryLatlngs={stateConfig.id === "ca" ? CALIFORNIA_LATLNGS : TEXAS_LATLNGS}
+          boundaryUrl={`/geo/${stateConfig.id}.geojson`}
           systemColors={sysColors}
           selectedOffice={selectedOffice}
           onOfficeSelect={setSelectedOffice}

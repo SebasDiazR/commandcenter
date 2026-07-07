@@ -171,9 +171,21 @@ export function DemoStage({
 }
 
 // ─── 1 · Select a state ─────────────────────────────────────────────────────────
-const DEMO_STATES = [
+// Live markets carry real-ish metrics; a framework-ready market (Florida) shows
+// as "configured, awaiting data" — mirroring the real State Selector's empty state.
+interface DemoState {
+  abbr: string;
+  name: string;
+  color: string;
+  inst?: number;
+  proj?: number;
+  pipe?: string;
+  framework?: boolean;
+}
+const DEMO_STATES: DemoState[] = [
   { abbr: "TX", name: "Texas", color: "#BF5700", inst: 24, proj: 61, pipe: "$18B" },
   { abbr: "CA", name: "California", color: "#0EA5E9", inst: 18, proj: 44, pipe: "$12B" },
+  { abbr: "FL", name: "Florida", color: "#008E97", framework: true },
 ];
 
 export function SceneSelectState() {
@@ -208,19 +220,32 @@ export function SceneSelectState() {
               <div style={{ padding: "16px 18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
                   <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: s.color, background: `${s.color}18`, padding: "3px 8px", borderRadius: 20 }}>{s.abbr}</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--emerald)" }}>
-                    <span className="live-dot" style={{ width: 4, height: 4 }} /> Live
-                  </span>
+                  {s.framework ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-3)" }}>
+                      <Sparkles size={9} /> Framework ready
+                    </span>
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--emerald)" }}>
+                      <span className="live-dot" style={{ width: 4, height: 4 }} /> Live
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: "-0.03em", color: "var(--text-1)" }}>{s.name}</div>
-                <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-                  {[{ v: s.inst, l: "Inst", c: s.color }, { v: s.proj, l: "Proj", c: "#8B5CF6" }, { v: s.pipe, l: "Pipe", c: "#10B981" }].map((m) => (
-                    <div key={m.l}>
-                      <div style={{ fontSize: 17, fontWeight: 820, color: m.c, letterSpacing: "-0.03em" }}>{m.v}</div>
-                      <div style={{ fontSize: 9, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{m.l}</div>
-                    </div>
-                  ))}
-                </div>
+                {s.framework ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, marginBottom: 3, padding: "9px 11px", borderRadius: 9, background: `${s.color}0e`, border: `1px dashed ${s.color}44` }}>
+                    <Layers3 size={13} color={s.color} />
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: s.color, lineHeight: 1.3 }}>Market framework configured</span>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
+                    {[{ v: s.inst, l: "Inst", c: s.color }, { v: s.proj, l: "Proj", c: "#8B5CF6" }, { v: s.pipe, l: "Pipe", c: "#10B981" }].map((m) => (
+                      <div key={m.l}>
+                        <div style={{ fontSize: 17, fontWeight: 820, color: m.c, letterSpacing: "-0.03em" }}>{m.v}</div>
+                        <div style={{ fontSize: 9, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{m.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div
                   style={{
                     marginTop: 14, padding: "9px 12px", borderRadius: 10, textAlign: "center",
@@ -229,7 +254,7 @@ export function SceneSelectState() {
                     transition: "all 0.2s ease",
                   }}
                 >
-                  Open {s.abbr} Command Center →
+                  {s.framework ? "Framework ready" : `Open ${s.abbr} Command Center →`}
                 </div>
               </div>
             </motion.div>
@@ -261,138 +286,234 @@ export function SceneSelectState() {
 }
 
 // ─── 2 · Understand the market (map) ────────────────────────────────────────────
-const MAP_PINS = [
-  { x: 46, y: 52, label: "Austin", big: true },
-  { x: 58, y: 30, label: "Dallas" },
-  { x: 66, y: 64, label: "Houston" },
-  { x: 20, y: 46, label: "El Paso" },
-  { x: 50, y: 74, label: "San Antonio" },
-  { x: 70, y: 22, label: "Fort Worth" },
+// Accurate Texas silhouette, derived from the same GeoJSON the live Leaflet map
+// renders (public/geo/tx.geojson) — the demo mirrors the real product, not a sketch.
+const TX_DEMO_PATH =
+  "M159.8 49.4 L159.8 54.7 L167.2 59.8 L175.3 58.0 L179.3 64.4 L204.0 67.3 L211.0 74.7 L216.0 70.7 L221.9 75.6 L227.1 72.8 L229.2 78.4 L234.0 71.6 L247.4 78.5 L275.1 71.6 L295.9 83.3 L303.5 83.1 L303.5 126.9 L315.8 149.9 L308.4 191.9 L285.7 201.2 L292.6 196.6 L285.7 196.4 L286.6 189.2 L280.0 195.8 L283.1 203.0 L287.1 202.1 L271.2 215.2 L247.1 228.8 L256.8 221.2 L244.5 223.5 L240.3 219.9 L246.5 227.1 L237.6 228.1 L227.7 244.5 L223.0 244.2 L226.0 248.1 L222.5 258.3 L216.7 260.1 L221.9 260.3 L218.6 272.2 L225.0 292.9 L228.5 294.2 L222.3 300.0 L181.4 283.6 L173.2 267.1 L170.9 250.7 L152.8 231.8 L143.6 208.6 L126.0 190.0 L103.8 186.7 L95.0 191.0 L90.7 205.1 L84.7 211.8 L78.2 210.7 L50.9 193.3 L40.9 166.3 L0.0 130.8 L0.7 126.8 L85.9 126.8 L87.4 0.0 L159.8 0.0 L159.8 49.4 Z";
+const TX_VB = "0 0 316 300";
+const TX_OFFICE = { x: 214.2, y: 175.7 }; // HKS Austin
+// Representative institutions at true geographic positions; `hub` = metro anchor.
+const TX_INSTS: { x: number; y: number; r: number; hub?: boolean; label?: string }[] = [
+  { x: 214.2, y: 175.7, r: 6.0, hub: true },                     // Austin (office)
+  { x: 204, y: 168, r: 3.4 }, { x: 224, y: 182, r: 3.6 }, { x: 208, y: 189, r: 3.0 },
+  { x: 237.1, y: 105, r: 5.4, hub: true, label: "Dallas" },
+  { x: 224.2, y: 105.6, r: 3.8 }, { x: 233, y: 96, r: 3.0 }, { x: 245, y: 112, r: 3.1 },
+  { x: 271.5, y: 190, r: 5.6, hub: true, label: "Houston" },
+  { x: 279, y: 197, r: 3.3 }, { x: 264, y: 183, r: 3.0 },
+  { x: 196.1, y: 199.4, r: 4.6, hub: true, label: "San Antonio" },
+  { x: 189, y: 207, r: 3.0 },
+  { x: 7, y: 133.6, r: 3.6, hub: true, label: "El Paso" },
 ];
-const MAP_OFFICE = { x: 46, y: 52 };
+const TX_REACH = 37; // ~100 mi around the office, in viewBox units
 
 export function SceneMarketMap() {
-  const { ref, step } = useSceneSteps(MAP_PINS.length + 2, { stepMs: 600, holdMs: 2600 });
-  const pinsShown = Math.min(step, MAP_PINS.length);
-  const connecting = step >= MAP_PINS.length + 1;
-  const officeShown = step >= MAP_PINS.length + 2;
+  const { ref, step, reduce } = useSceneSteps(4, { stepMs: 720, holdMs: 2800 });
+  const pinsShown   = step >= 1;
+  const officeShown = step >= 2;
+  const ringsShown  = step >= 3;
+  const linked      = step >= 4;
+
+  const reachTargets = TX_INSTS.filter(p => {
+    const d = Math.hypot(p.x - TX_OFFICE.x, p.y - TX_OFFICE.y);
+    return d > 1 && d <= TX_REACH;
+  });
 
   return (
-    <DemoStage label="Institution Map · Texas" live>
-      <div ref={ref as React.RefObject<HTMLDivElement>} style={{ position: "absolute", inset: 0, padding: 20 }}>
-        {/* abstract terrain glow */}
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 46% 50%, rgba(191,87,0,0.10), transparent 55%)" }} />
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-          {/* connections from office to institutions */}
-          {connecting && MAP_PINS.map((p, i) => (
-            <motion.line
-              key={p.label}
-              x1={MAP_OFFICE.x} y1={MAP_OFFICE.y} x2={p.x} y2={p.y}
-              stroke="#6366F1" strokeWidth={0.4} strokeDasharray="1.5 1.5"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 0.6 }}
-              transition={{ duration: 0.6, delay: i * 0.08 }}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
+    <DemoStage label="Institution Map · Texas" live height={440}>
+      <div ref={ref as React.RefObject<HTMLDivElement>} style={{ position: "absolute", inset: 0, display: "flex", fontFamily: FONT }}>
+        {/* ── Map column ────────────────────────────────────────────── */}
+        <div style={{ position: "relative", flex: "1.55 1 0", minWidth: 0 }}>
+          {/* atmospheric wash beneath the office */}
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 62% 58%, rgba(99,102,241,0.10), transparent 60%)", pointerEvents: "none" }} />
 
-        {/* pins */}
-        {MAP_PINS.map((p, i) => {
-          const shown = i < pinsShown;
-          return (
-            <motion.div
-              key={p.label}
-              initial={false}
-              animate={{ scale: shown ? 1 : 0, opacity: shown ? 1 : 0 }}
-              transition={{ duration: 0.4, ease: SPRING }}
-              style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}
-            >
-              <span style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {shown && (
-                  <motion.span
-                    initial={{ scale: 1, opacity: 0.5 }}
-                    animate={{ scale: 2.6, opacity: 0 }}
-                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
-                    style={{ position: "absolute", width: p.big ? 16 : 12, height: p.big ? 16 : 12, borderRadius: "50%", background: "#BF5700" }}
+          <svg viewBox={TX_VB} preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <defs>
+              <radialGradient id="tx-fill" cx="52%" cy="46%" r="62%">
+                <stop offset="0%" stopColor="#BF5700" stopOpacity={0.14} />
+                <stop offset="100%" stopColor="#BF5700" stopOpacity={0.04} />
+              </radialGradient>
+            </defs>
+
+            {/* accurate Texas silhouette */}
+            <motion.path
+              d={TX_DEMO_PATH}
+              fill="url(#tx-fill)"
+              stroke="#BF5700" strokeOpacity={0.5} strokeWidth={1.5}
+              strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7, ease: SPRING }}
+            />
+
+            {/* coverage rings around the office */}
+            {ringsShown && [36, 18].map((r, i) => (
+              <motion.circle
+                key={r}
+                cx={TX_OFFICE.x} cy={TX_OFFICE.y} r={r}
+                fill={i === 0 ? "rgba(99,102,241,0.05)" : "none"}
+                stroke="#6366F1" strokeWidth={1.2} strokeOpacity={i === 0 ? 0.55 : 0.3}
+                strokeDasharray="4 3" vectorEffect="non-scaling-stroke"
+                style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                initial={reduce ? false : { scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.55, ease: SPRING, delay: i * 0.08 }}
+              />
+            ))}
+
+            {/* office → in-reach institution links */}
+            {linked && reachTargets.map((p, i) => (
+              <motion.line
+                key={`link-${i}`}
+                x1={TX_OFFICE.x} y1={TX_OFFICE.y} x2={p.x} y2={p.y}
+                stroke="#6366F1" strokeWidth={1.1} strokeOpacity={0.55}
+                vectorEffect="non-scaling-stroke"
+                initial={reduce ? false : { pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 0.55 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.06 }}
+              />
+            ))}
+
+            {/* institution dots */}
+            {TX_INSTS.map((p, i) => (
+              <motion.circle
+                key={`inst-${i}`}
+                cx={p.x} cy={p.y} r={p.r}
+                fill="#4F46E5"
+                stroke={p.hub ? "#ffffff" : "none"} strokeWidth={p.hub ? 1.4 : 0}
+                vectorEffect="non-scaling-stroke"
+                style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                initial={reduce ? false : { scale: 0, opacity: 0 }}
+                animate={{ scale: pinsShown ? 1 : 0, opacity: pinsShown ? (p.hub ? 1 : 0.82) : 0 }}
+                transition={{ duration: 0.4, ease: SPRING, delay: pinsShown && !reduce ? i * 0.035 : 0 }}
+              />
+            ))}
+
+            {/* office marker */}
+            {officeShown && (
+              <>
+                {!reduce && (
+                  <motion.circle
+                    cx={TX_OFFICE.x} cy={TX_OFFICE.y} r={8.5} fill="#6366F1"
+                    style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                    initial={{ scale: 1, opacity: 0.4 }}
+                    animate={{ scale: 2.8, opacity: 0 }}
+                    transition={{ duration: 1.9, repeat: Infinity, ease: "easeOut" }}
                   />
                 )}
-                <span style={{ width: p.big ? 16 : 11, height: p.big ? 16 : 11, borderRadius: "50%", background: "#BF5700", border: "2px solid var(--bg-surface)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)" }} />
-              </span>
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--text-2)", background: "var(--bg-surface)", padding: "1px 6px", borderRadius: 5, border: "1px solid var(--border-sub)", whiteSpace: "nowrap" }}>{p.label}</span>
-            </motion.div>
-          );
-        })}
+                <motion.circle
+                  cx={TX_OFFICE.x} cy={TX_OFFICE.y} r={8.5}
+                  fill="#ffffff" stroke="#6366F1" strokeWidth={2.5}
+                  vectorEffect="non-scaling-stroke"
+                  style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                  initial={reduce ? false : { scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.5, ease: SPRING }}
+                />
+                <text x={TX_OFFICE.x} y={TX_OFFICE.y + 2.3} textAnchor="middle" fontSize={6.2} fontWeight={900} fill="#4F46E5" fontFamily={FONT} letterSpacing="0.02em">HKS</text>
+              </>
+            )}
 
-        {/* HKS office node */}
-        {officeShown && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, ease: SPRING }}
-            style={{ position: "absolute", left: `${MAP_OFFICE.x}%`, top: `${MAP_OFFICE.y}%`, transform: "translate(-50%,-50%)", width: 36, height: 36, borderRadius: "50%", background: "#6366F1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(99,102,241,0.45)", zIndex: 5 }}
-          >
-            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.05em", lineHeight: 1 }}>HKS</span>
-          </motion.div>
-        )}
+            {/* metro labels */}
+            {pinsShown && TX_INSTS.filter(p => p.label).map((p, i) => {
+              const anchor = p.x < 40 ? "start" : "middle";
+              const lx = p.x < 40 ? p.x + 8 : p.x;
+              const ly = p.y > TX_OFFICE.y ? p.y + 13 : p.y - 9;
+              return (
+                <motion.text
+                  key={`lbl-${i}`}
+                  x={lx} y={ly} textAnchor={anchor}
+                  fontSize={7.5} fontWeight={700} fill="var(--text-2)" fontFamily={FONT}
+                  initial={reduce ? false : { opacity: 0 }}
+                  animate={{ opacity: 0.85 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  {p.label}
+                </motion.text>
+              );
+            })}
+          </svg>
 
-        {/* HKS Offices callout panel */}
-        {officeShown && (
-          <motion.div
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.45, delay: 0.32, ease: SPRING }}
-            style={{
-              position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-              width: 158, zIndex: 10,
-              background: "var(--bg-surface)",
-              border: "1px solid rgba(99,102,241,0.32)",
-              borderRadius: 12,
-              padding: "12px 13px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-              fontFamily: FONT,
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 9 }}>
-              <span style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(99,102,241,0.14)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Landmark size={12} color="#6366F1" />
-              </span>
-              <span style={{ fontSize: 10.5, fontWeight: 800, color: "#6366F1", textTransform: "uppercase", letterSpacing: "0.07em", lineHeight: 1.2 }}>HKS Offices</span>
-            </div>
+          {/* running count */}
+          <div style={{ position: "absolute", left: 16, top: 14, fontSize: 11, fontWeight: 750, color: "var(--text-3)" }}>
+            <AnimatedMetric value={60} /> institutions · <AnimatedMetric value={6} /> metros
+          </div>
 
-            {/* Radius pills */}
-            <div style={{ display: "flex", gap: 5, marginBottom: 9 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 700, padding: "3px 8px", borderRadius: 5, background: "rgba(99,102,241,0.14)", color: "#6366F1", border: "1px solid rgba(99,102,241,0.3)", whiteSpace: "nowrap" }}>
-                50 mi
-              </span>
-              <span style={{ fontSize: 9.5, fontWeight: 700, padding: "3px 8px", borderRadius: 5, background: "rgba(99,102,241,0.06)", color: "#6366F1", border: "1px dashed rgba(99,102,241,0.3)", whiteSpace: "nowrap" }}>
-                100 mi
-              </span>
-            </div>
-
-            {/* Body */}
-            <p style={{ margin: "0 0 9px", fontSize: 10.5, color: "var(--text-2)", lineHeight: 1.5 }}>
-              Coverage radius shows which institutions fall within driving distance of each HKS office.
-            </p>
-
-            {/* Footer CTA */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 9px", borderRadius: 7, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)" }}>
-              <span style={{ fontSize: 9.5, fontWeight: 750, color: "#6366F1", lineHeight: 1.3 }}>
-                Explore 50+ offices in the <strong>HKS Offices</strong> tab
-              </span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* legend */}
-        <div style={{ position: "absolute", left: 16, bottom: 14, display: "flex", gap: 14, fontSize: 10.5, fontWeight: 650, color: "var(--text-2)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#BF5700" }} /> Institutions</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: "#6366F1" }} /> HKS office</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: "50%", border: "1px dashed rgba(99,102,241,0.6)", background: "rgba(99,102,241,0.1)" }} /> Coverage radius</span>
+          {/* legend */}
+          <div style={{ position: "absolute", left: 16, bottom: 14, display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 10.5, fontWeight: 650, color: "var(--text-2)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#4F46E5" }} /> Institutions</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: "50%", background: "#fff", border: "2px solid #6366F1" }} /> HKS office</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", border: "1px dashed rgba(99,102,241,0.7)" }} /> Coverage</span>
+          </div>
         </div>
-        <div style={{ position: "absolute", right: 16, bottom: 14, fontSize: 11, fontWeight: 750, color: "var(--text-3)" }}>
-          <AnimatedMetric value={24} /> institutions · <AnimatedMetric value={9} /> regions
+
+        {/* ── Coverage insight panel ────────────────────────────────── */}
+        <div style={{ flex: "1 1 0", minWidth: 190, maxWidth: 262, borderLeft: "1px solid var(--border-sub)", background: "var(--bg-surface)", padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(99,102,241,0.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Landmark size={13} color="#6366F1" />
+            </span>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#6366F1", textTransform: "uppercase", letterSpacing: "0.08em" }}>Office Coverage</span>
+          </div>
+
+          {/* selected office */}
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 8 }}
+            animate={officeShown ? { opacity: 1, y: 0 } : { opacity: 0.35, y: 0 }}
+            transition={{ duration: 0.4, ease: SPRING }}
+            style={{ display: "flex", flexDirection: "column", gap: 3, padding: "11px 13px", borderRadius: 11, border: "1px solid var(--border-sub)", background: "var(--bg-raised)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ fontSize: 14, fontWeight: 820, color: "var(--text-1)", letterSpacing: "-0.02em" }}>HKS Austin</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 8.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--emerald)" }}>
+                <span className="live-dot" style={{ width: 4, height: 4 }} /> Live
+              </span>
+            </div>
+            <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>101 West 6th Street</span>
+          </motion.div>
+
+          {/* radius selector */}
+          <div style={{ display: "flex", gap: 5 }}>
+            {["50", "100", "150"].map(mi => {
+              const active = mi === "100";
+              return (
+                <span key={mi} style={{
+                  fontSize: 9.5, fontWeight: 750, padding: "4px 9px", borderRadius: 6, whiteSpace: "nowrap",
+                  background: active ? "#6366F1" : "rgba(99,102,241,0.08)",
+                  color: active ? "#fff" : "#6366F1",
+                  border: active ? "1px solid transparent" : "1px dashed rgba(99,102,241,0.3)",
+                }}>{mi} mi</span>
+              );
+            })}
+          </div>
+
+          {/* aggregate stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {[
+              { v: 60, l: "Institutions", c: "#4F46E5" },
+              { v: 6, l: "Metros", c: "#0EA5E9" },
+              { v: 4, l: "TX offices", c: "#F59E0B" },
+              { v: 9, l: "Regions", c: "#10B981" },
+            ].map(s => (
+              <motion.div
+                key={s.l}
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={linked ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+                transition={{ duration: 0.4, ease: SPRING }}
+                style={{ padding: "9px 11px", borderRadius: 10, border: "1px solid var(--border-sub)", background: "var(--bg-raised)" }}
+              >
+                <AnimatedMetric value={s.v} style={{ fontSize: 19, fontWeight: 850, letterSpacing: "-0.03em", color: s.c, lineHeight: 1 }} />
+                <div style={{ fontSize: 9, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 650, marginTop: 3 }}>{s.l}</div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* footer note */}
+          <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 9, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)" }}>
+            <MapPin size={13} color="#6366F1" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#6366F1", lineHeight: 1.35 }}>
+              Every institution maps to the office that can reach it.
+            </span>
+          </div>
         </div>
       </div>
     </DemoStage>

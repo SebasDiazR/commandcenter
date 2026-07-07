@@ -16,7 +16,7 @@ import React, { useMemo, useRef } from "react";
 import Image from "next/image";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, ChevronDown, Sparkles, MousePointerClick,
+  ArrowLeft, ArrowRight, ChevronDown, Sparkles,
   Map as MapIcon, Building2, GitBranch, DollarSign, Network, Landmark,
   BookOpen, Layers3, FlaskConical, LayoutDashboard, FileUp, Target,
   FileSpreadsheet, StickyNote, Database, Lightbulb, Compass, TrendingUp, Eye,
@@ -38,11 +38,19 @@ function useMetrics() {
     let institutions = 0;
     let projects = 0;
     let pipelineM = 0;
+    let fundingSources = 0;
+    const systems = new Set<string>();
+    const projectTypes = new Set<string>();
     for (const s of ALL_STATES) {
       institutions += s.rawData.institutions.length;
+      fundingSources += s.rawData.funding_sources.length;
       for (const inst of s.rawData.institutions) {
+        if (inst.system) systems.add(inst.system);
         projects += inst.projects.length;
-        for (const p of inst.projects) pipelineM += p.budget_m ?? 0;
+        for (const p of inst.projects) {
+          pipelineM += p.budget_m ?? 0;
+          if (p.type) projectTypes.add(p.type);
+        }
       }
     }
     return {
@@ -52,6 +60,9 @@ function useMetrics() {
       pipelineB: pipelineM / 1000,
       offices: HKS_OFFICES.length,
       domestic: HKS_OFFICES.filter((o) => o.country === "USA").length,
+      systems: systems.size,
+      fundingSources,
+      projectTypes: projectTypes.size,
     };
   }, []);
 }
@@ -227,59 +238,75 @@ export default function CapabilitiesExperience({
           padding: "40px 24px 60px", y: heroY, opacity: heroOpacity,
         }}
       >
+        {/* Scale badge */}
         <motion.div
           initial={reduce ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           style={{
             display: "inline-flex", alignItems: "center", gap: 7,
-            padding: "6px 15px", borderRadius: 20, marginBottom: 26,
+            padding: "6px 15px", borderRadius: 20, marginBottom: 22,
             background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.22)",
           }}
         >
-          <MousePointerClick size={12} color="#6366F1" />
+          <Database size={12} color="#6366F1" />
           <span style={{ fontSize: 11, fontWeight: 780, color: "#6366F1", letterSpacing: "0.09em", textTransform: "uppercase" }}>
-            Guided Product Demo
+            Live data · {m.states} states · {m.systems} systems
           </span>
         </motion.div>
 
+        {/* Framing eyebrow */}
+        <motion.span
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+          style={{ fontSize: "clamp(12px, 1.3vw, 14px)", fontWeight: 750, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-3)" }}
+        >
+          The Command Center already tracks
+        </motion.span>
+
+        {/* Hero scale number — leads with the extent of the data */}
         <motion.h1
           className="heading-display"
-          initial={reduce ? false : { opacity: 0, y: 22, filter: "blur(8px)" }}
+          initial={reduce ? false : { opacity: 0, y: 20, filter: "blur(8px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            margin: 0, fontSize: "clamp(36px, 6.5vw, 72px)", fontWeight: 500,
-            letterSpacing: "-0.04em", lineHeight: 1.02, maxWidth: 940,
-          }}
+          transition={{ duration: 0.7, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          style={{ margin: "12px 0 0", display: "flex", flexDirection: "column", alignItems: "center", fontWeight: 600, lineHeight: 0.95 }}
         >
-          Watch the Command Center{" "}
-          <span className="gradient-text-indigo">Work</span>
+          <AnimatedMetric
+            value={m.pipelineB} decimals={0} prefix="$" suffix="B"
+            className="gradient-text-indigo"
+            style={{ fontSize: "clamp(64px, 12vw, 132px)", letterSpacing: "-0.055em", lineHeight: 0.95 }}
+          />
+          <span style={{ marginTop: 8, fontSize: "clamp(14px, 1.7vw, 18px)", fontWeight: 600, color: "var(--text-2)", letterSpacing: "0.01em" }}>
+            in tracked capital pipeline
+          </span>
         </motion.h1>
 
-        <motion.p
-          initial={reduce ? false : { opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          style={{ margin: "26px auto 0", fontSize: "clamp(15px, 1.8vw, 19px)", color: "var(--text-2)", lineHeight: 1.65, maxWidth: 660 }}
-        >
-          Scroll, and the tool demonstrates itself — selecting a market, mapping institutions,
-          filtering priorities, opening an opportunity, and assembling an executive-ready view.
-          This is not a dashboard. It&rsquo;s a strategic intelligence product.
-        </motion.p>
-
+        {/* Supporting breadth — the data behind the number */}
         <motion.div
           initial={reduce ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.36, ease: [0.16, 1, 0.3, 1] }}
-          style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", marginTop: 40, maxWidth: 760 }}
+          transition={{ duration: 0.7, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(138px, 1fr))", gap: 12, marginTop: 40, width: "100%", maxWidth: 820 }}
         >
-          <StatBlock value={m.states} label="States Active" color="#6366F1" />
           <StatBlock value={m.institutions} label="Institutions" color="#0EA5E9" />
-          <StatBlock value={m.projects} label="Projects Tracked" color="#8B5CF6" />
-          <StatBlock value={m.pipelineB} decimals={0} prefix="$" suffix="B" label="Pipeline" color="#10B981" />
+          <StatBlock value={m.projects} label="Active Projects" color="#8B5CF6" />
+          <StatBlock value={m.fundingSources} label="Funding Sources" color="#10B981" />
+          <StatBlock value={m.projectTypes} label="Project Types" color="#F43F5E" />
           <StatBlock value={m.offices} label="HKS Offices" color="#F59E0B" />
         </motion.div>
+
+        {/* Transition into the walkthrough */}
+        <motion.p
+          initial={reduce ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
+          style={{ margin: "34px auto 0", fontSize: "clamp(15px, 1.7vw, 18px)", color: "var(--text-2)", lineHeight: 1.65, maxWidth: 640 }}
+        >
+          Every institution, project, funding signal, and relationship — consolidated into one
+          environment. Scroll, and watch the Command Center turn all of it into decisions.
+        </motion.p>
 
         <motion.button
           onClick={scrollToContent}

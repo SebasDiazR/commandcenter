@@ -404,7 +404,7 @@ function LearnMoreCTA({ onExplore }: { onExplore: () => void }) {
           margin: 0, fontSize: "clamp(24px, 3.4vw, 36px)", fontWeight: 500,
           letterSpacing: "-0.035em", color: "var(--text-1)", lineHeight: 1.1, maxWidth: 620,
         }}>
-          Not just a map. Not just a dashboard.
+          See the whole market — and move first.
         </h2>
         <p style={{ margin: 0, fontSize: 15, color: "var(--text-2)", lineHeight: 1.65, maxWidth: 580 }}>
           The Command Center connects education market intelligence, institutional data, project

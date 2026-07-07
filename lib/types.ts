@@ -1,3 +1,12 @@
+/** Provenance for a record added via Guided Import. Optional + additive. */
+export interface ImportMeta {
+  sourceFileName: string;
+  sourceFileType: string;
+  importedAt: string;                 // ISO
+  sourceSnippet?: string;
+  importMethod: "guided_import";
+}
+
 export interface RawProject {
   name: string;
   budget_m: number | null;
@@ -9,6 +18,7 @@ export interface RawProject {
   win_probability?: number | null;   // 0–100 confidence %
   outcome?: "Active" | "Won" | "Lost"; // pursuit result
   pursuit_stage?: string; // Tracking | Shortlist | Interview | Award | Won | Lost
+  importMeta?: ImportMeta; // set when added via Guided Import
 }
 
 export interface RawContact {

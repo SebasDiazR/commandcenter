@@ -16,7 +16,6 @@ export const HKS_OFFICES = [
   { city: "Raleigh",        state: "NC", country: "USA",           lat: 35.7788,  lng: -78.6433,  address: "1 Glenwood Avenue, Suite 500" },
   { city: "Richmond",       state: "VA", country: "USA",           lat: 37.5339,  lng: -77.4344,  address: "901 East Byrd Street, Suite 1400" },
   { city: "Salt Lake City", state: "UT", country: "USA",           lat: 40.7659,  lng: -111.8906, address: "222 South Main Street, Suite 500" },
-  { city: "San Diego",      state: "CA", country: "USA",           lat: 32.7153,  lng: -117.1573, address: "501 West Broadway, Suite 800" },
   { city: "San Francisco",  state: "CA", country: "USA",           lat: 37.7879,  lng: -122.3975, address: "55 Second Street, Suite 1500" },
   { city: "Seattle",        state: "WA", country: "USA",           lat: 47.6063,  lng: -122.3331, address: "1201 Third Avenue, Suite 2200" },
   // International offices

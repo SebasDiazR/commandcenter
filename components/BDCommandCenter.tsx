@@ -38,6 +38,7 @@ import MeetingMode from "./MeetingMode";
 import CommandPalette from "./CommandPalette";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
+import type { CommitPayload } from "@/lib/import/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
 
 // ── Animated count-up hook ─────────────────────────────────────────────────────
@@ -813,6 +814,40 @@ export default function BDCommandCenter() {
     markRecentChange(n);
     setEditState(s => ({ ...s, [n]: { ...s[n], contacts: s[n].contacts.map((c, j) => j === i ? { ...c, ...p } : c) } }));
   };
+
+  /**
+   * Guided Import commit. Applies a pre-computed payload atomically (one undo entry) and
+   * persists the resulting state directly — no reliance on a stale editState closure.
+   */
+  const importRecords = async (payload: CommitPayload): Promise<string> => {
+    const { newInstitutions, patches } = payload;
+    if (newInstitutions.length) {
+      setExtraRawInsts(prev => {
+        const next = [...prev, ...newInstitutions.map(x => x.raw)];
+        try { localStorage.setItem(extraInstsKey, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    const nextEdit: EditStateMap = { ...editState };
+    for (const { raw, edit } of newInstitutions) nextEdit[raw.name] = edit;
+    for (const { rawName, patch } of patches) {
+      if (nextEdit[rawName]) nextEdit[rawName] = { ...nextEdit[rawName], ...patch };
+    }
+    setUndoStack(s => [...s.slice(-UNDO_LIMIT + 1), editState]);
+    setRedoStack([]);
+    _setEditState(nextEdit);
+    setDirty(true);
+    [...newInstitutions.map(x => x.raw.name), ...patches.map(p => p.rawName)].forEach(markRecentChange);
+    try {
+      const ts = await saveToSupabase(nextEdit, stateId);
+      setLastSaved(ts); setDirty(false);
+      return ts;
+    } catch {
+      try { const ts = saveState(nextEdit, stateId); setLastSaved(ts); setDirty(false); return ts; }
+      catch { showSaveError("Could not save — database unavailable and local storage is full."); return ""; }
+    }
+  };
+
   const resetToDefaults = () => {
     const fresh = buildDefaultEditState(stateConfig.rawData.institutions);
     _setEditState(fresh);
@@ -1393,6 +1428,7 @@ export default function BDCommandCenter() {
                 addProject={addProject}
                 addInstitution={addInstitution}
                 removeProject={removeProject}
+                importRecords={importRecords}
                 onSave={handleSave}
                 dirty={dirty}
                 fundingSources={stateConfig.rawData.funding_sources}

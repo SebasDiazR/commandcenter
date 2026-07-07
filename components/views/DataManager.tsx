@@ -15,6 +15,8 @@ import {
 } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution, EditStateMap, RawProject, RawContact } from "@/lib/types";
+import type { CommitPayload } from "@/lib/import/types";
+import GuidedImportModal from "@/components/import/GuidedImportModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = "institutions" | "projects" | "pipeline" | "funding" | "compare";
@@ -29,6 +31,7 @@ export interface DataManagerProps {
   addProject: (rawName: string, data?: Partial<RawProject>) => void;
   addInstitution: (data: Record<string, unknown>) => void;
   removeProject: (rawName: string, projId: string) => void;
+  importRecords: (payload: CommitPayload) => Promise<string>;
   onSave: () => void;
   dirty: boolean;
   fundingSources?: FundingSource[];
@@ -78,21 +81,6 @@ function downloadCSV(content: string, filename: string) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
-}
-function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const vals: string[] = []; let cur = "", inQ = false;
-    for (const ch of line) {
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === "," && !inQ) { vals.push(cur.trim()); cur = ""; }
-      else { cur += ch; }
-    }
-    vals.push(cur.trim());
-    return Object.fromEntries(headers.map((h, i) => [h, (vals[i] ?? "").replace(/^"|"$/g, "")]));
-  });
 }
 
 // ─── Shared base styles ───────────────────────────────────────────────────────
@@ -584,7 +572,6 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
   const [showAdd, setShowAdd]     = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const { toast, show: showToast } = useToast();
-  const fileRef   = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollPos = useRef({ top: 0, left: 0 });
 
@@ -668,37 +655,6 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
     showToast(`Exported ${src.length} institutions`);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const parsed = parseCSV(ev.target?.result as string);
-      let n = 0;
-      parsed.forEach(row => {
-        const match = institutions.find(i =>
-          i.name.toLowerCase() === row.name?.toLowerCase() ||
-          i._rawName.toLowerCase() === row.name?.toLowerCase()
-        );
-        if (!match) return;
-        const patch: Record<string, unknown> = {};
-        if (row.priority)          patch.priority = Number(row.priority);
-        if (row.status)            patch.hks_status = row.status;
-        if (row.lead_practice)     patch.lead_practice = row.lead_practice || null;
-        if (row.relationship)      patch.relationship = Number(row.relationship);
-        if (row.expansion_pct)     patch.expansion = Number(row.expansion_pct);
-        if (row.next_action)       patch.next_action = row.next_action;
-        if (row.next_action_date)  patch.next_action_date = row.next_action_date;
-        if (row.owner)             patch.owner = row.owner;
-        if (row.notes)             patch.notes = row.notes;
-        if (row.gsf)               patch.gsf = Number(row.gsf);
-        if (row.nasf)              patch.nasf = Number(row.nasf);
-        if (Object.keys(patch).length) { updateEdit(match._rawName, patch); n++; }
-      });
-      showToast(`Updated ${n} institutions from CSV`);
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
 
   const activeFilters = [
     filterStatus && { label: `Status: ${filterStatus}`, key: "status" },
@@ -752,10 +708,6 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
           <button onClick={() => handleExport()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", background: "#fff", border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 600, color: D.text2, fontFamily: "inherit" }}>
             <Download size={13} /> Export CSV
           </button>
-          <button onClick={() => fileRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", background: "#fff", border: `1.5px solid ${D.amber}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 600, color: D.amber, fontFamily: "inherit" }}>
-            <Upload size={13} /> Import CSV
-          </button>
-          <input ref={fileRef} type="file" accept=".csv" onChange={handleImport} style={{ display: "none" }} />
           <button onClick={() => setShowAdd(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 14px", background: D.navy, border: "none", borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "inherit" }}>
             <Plus size={13} /> Add Institution
           </button>
@@ -972,7 +924,6 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
   const [selected, setSelected]   = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd]     = useState(false);
   const { toast, show: showToast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleSort = (col: string) =>
     setSort(s => ({ col, dir: s.col === col && s.dir === "asc" ? "desc" : "asc" }));
@@ -1035,30 +986,6 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
     showToast(`Exported ${src.length} projects`);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const parsed = parseCSV(ev.target?.result as string);
-      let n = 0;
-      parsed.forEach(row => {
-        const inst = institutions.find(i => i.name.toLowerCase() === row.institution?.toLowerCase() || i._rawName.toLowerCase() === row.institution?.toLowerCase());
-        if (!inst) return;
-        const proj = inst.projects.find(p => p.name.toLowerCase() === row.project_name?.toLowerCase());
-        if (!proj?._id) return;
-        const patch: Record<string, unknown> = {};
-        if (row.budget_m) patch.budget_m = Number(row.budget_m);
-        if (row.year)     patch.year = Number(row.year);
-        if (row.type)     patch.type = row.type;
-        if (row.notes)    patch.notes = row.notes;
-        if (Object.keys(patch).length) { updateProject(inst._rawName, proj._id, patch); n++; }
-      });
-      showToast(`Updated ${n} projects`);
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
-
   const activeFilters = [
     filterInst && { label: `Inst: ${institutions.find(i => i._rawName === filterInst)?.name ?? filterInst}`, key: "inst" },
     filterType && { label: `Type: ${filterType}`, key: "type" },
@@ -1103,10 +1030,6 @@ function ProjectsTab({ institutions, updateProject, addProject, removeProject, o
           <button onClick={() => handleExport()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", background: "#fff", border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 600, color: D.text2, fontFamily: "inherit" }}>
             <Download size={13} /> Export CSV
           </button>
-          <button onClick={() => fileRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", background: "#fff", border: `1.5px solid ${D.amber}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 600, color: D.amber, fontFamily: "inherit" }}>
-            <Upload size={13} /> Import CSV
-          </button>
-          <input ref={fileRef} type="file" accept=".csv" onChange={handleImport} style={{ display: "none" }} />
           <button onClick={() => setShowAdd(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 14px", background: D.navy, border: "none", borderRadius: D.radiusSm, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "inherit" }}>
             <Plus size={13} /> Add Project
           </button>
@@ -1947,12 +1870,13 @@ function CompareTab({ institutions, systemColors: sysCols = SYSTEM_COLORS }: { i
 // ═════════════════════════════════════════════════════════════════════════════
 export default function DataManager({
   institutions, editState, updateEdit,
-  updateProject, addProject, addInstitution, removeProject, onSave, dirty,
+  updateProject, addProject, addInstitution, removeProject, importRecords, onSave, dirty,
   fundingSources = [],
   systemColors: systemColorsProp,
 }: DataManagerProps) {
   const sysColors = systemColorsProp ?? SYSTEM_COLORS;
   const [tab, setTab] = useState<Tab>("institutions");
+  const [showImport, setShowImport] = useState(false);
   const totalProjects = institutions.reduce((s, i) => s + i.projects.length, 0);
   const totalPipeline = institutions.reduce((s, i) => s + i.pipeline, 0);
   const activeInsts   = institutions.filter(i => (i.edit.hks_status ?? "Active") === "Active").length;
@@ -1995,6 +1919,9 @@ export default function DataManager({
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setShowImport(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#fff", color: D.amber, border: `1.5px solid ${D.amber}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" }}>
+                <Upload size={14} /> Guided Import
+              </button>
               {dirty && (
                 <span style={{ fontSize: 12, color: D.amber, display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}>
                   <AlertCircle size={13} /> Unsaved changes
@@ -2058,6 +1985,15 @@ export default function DataManager({
           {tab === "compare" && <CompareTab institutions={institutions} systemColors={sysColors} />}
         </div>
       </div>
+
+      {showImport && (
+        <GuidedImportModal
+          institutions={institutions}
+          systems={Object.keys(sysColors)}
+          importRecords={importRecords}
+          onClose={() => setShowImport(false)}
+        />
+      )}
     </>
   );
 }
