@@ -491,7 +491,7 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
             <div style={{ width: 1, height: 30, background: "var(--border)" }} />
             <div>
               <div style={{ fontSize: 9.5, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--indigo)", fontWeight: 700, marginBottom: 2 }}>
-                National · Higher Education
+                Higher Education
               </div>
               <h1 className="heading-display" style={{ fontSize: 21, margin: 0, fontWeight: 500, lineHeight: 1, color: "var(--text-1)" }}>
                 BD Command Center
@@ -568,7 +568,7 @@ export default function StateSelector({ onSelect }: StateSelectorProps) {
             }}>
               <Sparkles size={11} color="#6366F1" />
               <span style={{ fontSize: 10.5, fontWeight: 760, color: "#6366F1", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                National Higher Education Intelligence Platform
+                Higher Education Intelligence Platform
               </span>
             </div>
           </motion.div>

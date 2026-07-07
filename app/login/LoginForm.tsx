@@ -122,7 +122,7 @@ export default function LoginForm() {
             }}
           >
             <p style={{ color: 'rgba(255,255,255,0.95)', fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.35, margin: 0 }}>
-              Building the future<br />of Texas higher education.
+              Building the future<br />of higher education.
             </p>
             <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 8, letterSpacing: '0.07em', textTransform: 'uppercase', fontWeight: 500 }}>
               BD Command Center · FY 2026–2030
@@ -162,7 +162,7 @@ export default function LoginForm() {
                 BD Command<br />Center
               </h1>
               <p style={{ marginTop: 10, fontSize: 13, color: '#999', lineHeight: 1.5 }}>
-                Texas Higher Education Pipeline<br />FY 2026–2030
+                Higher Education Pipeline<br />FY 2026–2030
               </p>
             </div>
 
