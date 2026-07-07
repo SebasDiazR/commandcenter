@@ -30,3 +30,18 @@ export const HKS_OFFICES = [
 ] as const;
 
 export type HKSOffice = typeof HKS_OFFICES[number];
+
+import { haversine } from "@/lib/helpers";
+
+export interface OfficeDistance {
+  office: HKSOffice;
+  miles: number;
+}
+
+/** HKS offices sorted by straight-line distance from a point, nearest first. */
+export function nearestOffices(lat: number, lng: number, limit = 3): OfficeDistance[] {
+  return HKS_OFFICES
+    .map((office) => ({ office, miles: haversine(lat, lng, office.lat, office.lng) }))
+    .sort((a, b) => a.miles - b.miles)
+    .slice(0, limit);
+}

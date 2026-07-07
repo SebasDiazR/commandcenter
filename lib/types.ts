@@ -160,7 +160,7 @@ export interface PersistedState {
 export type ViewId =
   | "matrix" | "ecosystem" | "timeline" | "list"
   | "forecast"
-  | "mix" | "growth" | "data" | "offices";
+  | "mix" | "growth" | "data" | "offices" | "conferences";
 
 export interface StateConfig {
   id: string;

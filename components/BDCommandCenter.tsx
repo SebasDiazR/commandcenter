@@ -7,7 +7,7 @@ import {
   PieChart as PieIcon, Sprout, Edit3, Table2, LogOut,
   ChevronDown, Menu, X as XIcon, BarChart2, MapPin,
   AlertTriangle, Target, Clock3, TrendingUp, Activity, Presentation,
-  Globe2, ArrowLeft, Building2, Search,
+  Globe2, ArrowLeft, Building2, Search, CalendarDays,
 } from "lucide-react";
 
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
@@ -33,6 +33,7 @@ import DataManager from "./views/DataManager";
 import ForecastView from "./views/ForecastView";
 import InstitutionMap from "./views/InstitutionMap";
 import OfficesView from "./views/OfficesView";
+import ConferencesView from "./views/ConferencesView";
 import LostImpactToast from "./LostImpactToast";
 import MeetingMode from "./MeetingMode";
 import CommandPalette from "./CommandPalette";
@@ -75,6 +76,7 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
   { id: "data",      label: "Data Manager",     icon: Table2,     color: "#F97316" },
   { id: "offices",   label: "HKS Offices",      icon: Building2,  color: "#B45309" },
+  { id: "conferences", label: "Conferences",    icon: CalendarDays, color: "#B45309" },
 ];
 
 // Nav groupings
@@ -1085,8 +1087,9 @@ export default function BDCommandCenter() {
 
             const primaryViews   = VIEWS.filter(v => (PRIMARY_IDS as readonly string[]).includes(v.id));
             const analyticsViews = VIEWS.filter(v => (ANALYTICS_IDS as readonly string[]).includes(v.id));
-            const dataView       = VIEWS.find(v => v.id === "data")!;
-            const officesView    = VIEWS.find(v => v.id === "offices")!;
+            const dataView        = VIEWS.find(v => v.id === "data")!;
+            const officesView     = VIEWS.find(v => v.id === "offices")!;
+            const conferencesView = VIEWS.find(v => v.id === "conferences")!;
             const analyticsActive = (ANALYTICS_IDS as readonly string[]).includes(view);
             const activeAnalyticsView = analyticsViews.find(v => v.id === view);
             const analyticsTabLabel = activeAnalyticsView ? `Analytics: ${activeAnalyticsView.label}` : "Analytics";
@@ -1170,6 +1173,9 @@ export default function BDCommandCenter() {
 
                 {/* HKS Offices tab */}
                 {navTab(officesView)}
+
+                {/* Conferences tab */}
+                {navTab(conferencesView)}
               </div>
             );
           })()}
@@ -1419,6 +1425,7 @@ export default function BDCommandCenter() {
             {view === "mix"       && <PortfolioMix    globalEdit={globalEdit} editState={editState} setEditState={setEditState} institutions={institutions} onSelect={setSelectedInst} fundingSources={stateConfig.rawData.funding_sources} />}
             {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
             {view === "offices"   && <OfficesView     institutions={allInstitutions} onSelect={setSelectedInst} />}
+            {view === "conferences" && <ConferencesView institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "data"      && (
               <DataManager
                 institutions={institutions}
