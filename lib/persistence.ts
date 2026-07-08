@@ -45,16 +45,36 @@ export async function loadFromSupabase(stateId = "tx"): Promise<EditStateMap | n
   }
 }
 
-export async function saveToSupabase(editState: EditStateMap, stateId = "tx"): Promise<string> {
-  const res = await fetch("/api/edits", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ editState, stateId }),
-  });
-  if (!res.ok) throw new Error("Failed to save to Supabase");
-  const { savedAt } = await res.json();
-  saveState(editState, stateId);
-  return new Date(savedAt).toLocaleTimeString();
+// Serialize backend writes so a slow save can't land after a newer one and
+// silently revert it (mirrors lib/conference-persistence.ts).
+let saveChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Persist edits. The full map is always cached to localStorage; only the rows
+ * in `changed` (defaults to the whole map) are sent to the shared backend, so
+ * concurrent editors touching *different* institutions no longer overwrite each
+ * other's rows.
+ */
+export async function saveToSupabase(
+  editState: EditStateMap,
+  stateId = "tx",
+  changed?: EditStateMap,
+): Promise<string> {
+  try { saveState(editState, stateId); } catch { /* quota/full — backend is source of truth */ }
+  const payload = changed ?? editState;   // only changed rows reach the shared backend
+  const run = async (): Promise<string> => {
+    const res = await fetch("/api/edits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ editState: payload, stateId }),
+    });
+    if (!res.ok) throw new Error("Failed to save to Supabase");
+    const { savedAt } = await res.json();
+    return new Date(savedAt).toLocaleTimeString();
+  };
+  const p = saveChain.then(run, run);
+  saveChain = p.catch(() => {});   // keep the chain alive across failures
+  return p;
 }
 
 // ── Default state builder ─────────────────────────────────────────────────────

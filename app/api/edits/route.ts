@@ -108,6 +108,10 @@ export async function POST(request: NextRequest) {
     updated_at:       new Date().toISOString(),
   }));
 
+  if (rows.length === 0) {
+    return NextResponse.json({ ok: true, savedAt: new Date().toISOString() });
+  }
+
   const { error } = await sb
     .from('institution_edits')
     .upsert(rows, { onConflict: 'institution_name' });

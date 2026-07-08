@@ -39,6 +39,9 @@ import MeetingMode from "./MeetingMode";
 import CommandPalette from "./CommandPalette";
 import ExecutiveHome from "./ExecutiveHome";
 import AdminBar from "./AdminBar";
+import SplitViewContainer from "./presentation/SplitViewContainer";
+import PresentationModeToggle from "./presentation/PresentationModeToggle";
+import type { LoadedDoc } from "./presentation/DocumentPanel/useDocumentLoader";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import type { CommitPayload } from "@/lib/import/types";
@@ -223,14 +226,32 @@ export default function BDCommandCenter() {
   );
   const [dirty, setDirty] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  // Snapshot of the rows as last persisted (per-row object identity). Saves send
+  // only rows whose reference differs from this, so we never overwrite another
+  // user's edits to institutions this session didn't touch.
+  const savedSnapshotRef = useRef<EditStateMap>({});
 
-  // Load from Supabase on mount — overrides localStorage if DB has data
+  // Load from Supabase on mount. The shared DB is authoritative, but we must not
+  // clobber edits this user has made locally but not yet saved.
   useEffect(() => {
     const freshDefault = buildDefaultEditState(stateConfig.rawData.institutions);
-    _setEditState(freshDefault);
+    const localSeed = loadPersistedState(stateId)?.editState;
+    const baseline: EditStateMap = localSeed ? { ...freshDefault, ...localSeed } : freshDefault;
+    _setEditState(baseline);
+    savedSnapshotRef.current = baseline;   // best-known persisted state until the DB responds
     loadFromSupabase(stateId).then(dbState => {
       if (dbState && Object.keys(dbState).length > 0) {
-        _setEditState(prev => ({ ...freshDefault, ...dbState }));
+        const preLoadSnapshot = savedSnapshotRef.current;   // capture before we advance it
+        const dbTruth: EditStateMap = { ...freshDefault, ...dbState };
+        _setEditState(prev => {
+          const merged: EditStateMap = { ...dbTruth };
+          // keep any row this user changed since the last save (unsaved, in-progress)
+          for (const n of Object.keys(prev)) {
+            if (prev[n] !== preLoadSnapshot[n]) merged[n] = prev[n];
+          }
+          return merged;
+        });
+        savedSnapshotRef.current = dbTruth;   // DB is the shared truth; unsaved rows now differ from it
         setLastSaved(new Date().toLocaleTimeString());
       }
       setDbLoaded(true);
@@ -271,8 +292,23 @@ export default function BDCommandCenter() {
   };
 
   const handleSave = () => {
-    saveToSupabase(editState, stateId)
-      .then(ts => { setLastSaved(ts); setDirty(false); })
+    // Only rows whose object identity differs from the last-saved snapshot.
+    const snap = savedSnapshotRef.current;
+    const changed: EditStateMap = {};
+    for (const n of Object.keys(editState)) {
+      if (editState[n] !== snap[n]) changed[n] = editState[n];
+    }
+    const names = Object.keys(changed);
+    if (names.length === 0) { setDirty(false); return; }   // nothing changed -> don't touch shared rows
+    saveToSupabase(editState, stateId, changed)
+      .then(ts => {
+        // advance the snapshot for exactly the rows we persisted; edits made
+        // during the save keep newer references and get caught next time.
+        const next = { ...savedSnapshotRef.current };
+        for (const n of names) next[n] = changed[n];
+        savedSnapshotRef.current = next;
+        setLastSaved(ts); setDirty(false);
+      })
       .catch(() => {
         try { const ts = saveState(editState, stateId); setLastSaved(ts); setDirty(false); }
         catch { showSaveError("Could not save — database unavailable and local storage is full."); }
@@ -309,11 +345,14 @@ export default function BDCommandCenter() {
   const [moreOpen, setMoreOpen]                   = useState(false);
   const [meetingMode, setMeetingMode]             = useState(false);
   const [matrixExpanded, setMatrixExpanded]       = useState(false);
+  const [splitView, setSplitView]                 = useState(false);
+  const [loadedDoc, setLoadedDoc]                 = useState<LoadedDoc | null>(null);
   const [recentChangeNames, setRecentChangeNames] = useState<string[]>([]);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [saveError, setSaveError]                 = useState<string | null>(null);
   const saveErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
   // ── Action-impact toast ───────────────────────────────────────────────────
   const [pendingToast, setPendingToast] = useState<{
@@ -657,9 +696,16 @@ export default function BDCommandCenter() {
     setRedoStack([]);
     _setEditState(nextEdit);
     setDirty(true);
-    [...newInstitutions.map(x => x.raw.name), ...patches.map(p => p.rawName)].forEach(markRecentChange);
+    const importedNames = [...newInstitutions.map(x => x.raw.name), ...patches.map(p => p.rawName)];
+    importedNames.forEach(markRecentChange);
+    const changed: EditStateMap = Object.fromEntries(
+      importedNames.filter(n => nextEdit[n]).map(n => [n, nextEdit[n]]),
+    );
     try {
-      const ts = await saveToSupabase(nextEdit, stateId);
+      const ts = await saveToSupabase(nextEdit, stateId, changed);
+      const next = { ...savedSnapshotRef.current };
+      for (const n of Object.keys(changed)) next[n] = changed[n];
+      savedSnapshotRef.current = next;
       setLastSaved(ts); setDirty(false);
       return ts;
     } catch {
@@ -671,10 +717,11 @@ export default function BDCommandCenter() {
   const resetToDefaults = () => {
     const fresh = buildDefaultEditState(stateConfig.rawData.institutions);
     _setEditState(fresh);
+    savedSnapshotRef.current = fresh;
     setUndoStack([]); setRedoStack([]); clearState(stateId);
     setRecentChangeNames([]);
     setLastSaved(null); setDirty(false);
-    saveToSupabase(fresh, stateId).catch(() => {});
+    saveToSupabase(fresh, stateId).catch(() => {});   // full map on purpose — reset overwrites every row
   };
 
   const section      = SECTION_OF[view];
@@ -697,9 +744,24 @@ export default function BDCommandCenter() {
         event.preventDefault();
         setMeetingMode(value => !value);
       }
+      if (event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        setSplitView(value => !value);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Expose the sticky header's live height so Split View can bound its panes to the viewport.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () => document.documentElement.style.setProperty("--app-header-h", `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // Colours driven by CSS vars
@@ -718,7 +780,7 @@ export default function BDCommandCenter() {
     <div style={{ minHeight: "100vh", background: bgBase, fontFamily: FONT, color: text1, fontSize: 14, lineHeight: 1.5 }}>
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="app-header" style={{
+      <header ref={headerRef} className="app-header" style={{
         position: "sticky", top: 0, zIndex: 100,
         background: headerBg,
         backdropFilter: "blur(20px)",
@@ -832,6 +894,9 @@ export default function BDCommandCenter() {
                 <Presentation size={13} aria-hidden="true" />
                 <span className="hide-mobile">Meeting Mode</span>
               </button>
+
+              {/* Split View — document companion panel */}
+              <PresentationModeToggle active={splitView} onToggle={() => setSplitView(v => !v)} />
 
               {/* ⌘K command palette button */}
               <button
@@ -1000,7 +1065,13 @@ export default function BDCommandCenter() {
           />
         )}
 
-        <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
+        <SplitViewContainer
+          splitView={splitView}
+          loadedDoc={loadedDoc}
+          onLoadedDoc={setLoadedDoc}
+          onCloseSplit={() => setSplitView(false)}
+        >
+        <main className="app-main scale-wrap" style={{ width: "100%", padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
 
           {!isFullWidth && globalEdit && (
             <div role="status" className="edit-mode-banner">
@@ -1207,6 +1278,7 @@ export default function BDCommandCenter() {
             )}
           </div>
         </main>
+        </SplitViewContainer>
 
         {/* ── Detail panel wrapper — Framer Motion width push ── */}
         <motion.div
