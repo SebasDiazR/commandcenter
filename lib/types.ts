@@ -158,6 +158,7 @@ export interface PersistedState {
 }
 
 export type ViewId =
+  | "home"
   | "matrix" | "ecosystem" | "timeline" | "list"
   | "forecast"
   | "mix" | "growth" | "data" | "offices" | "conferences";

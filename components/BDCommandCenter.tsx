@@ -5,16 +5,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutGrid, Network, Calendar, ListChecks,
   PieChart as PieIcon, Sprout, Edit3, Table2, LogOut,
-  ChevronDown, Menu, X as XIcon, BarChart2, MapPin,
-  AlertTriangle, Target, Clock3, TrendingUp, Activity, Presentation,
+  ChevronDown, X as XIcon, BarChart2, MapPin,
+  AlertTriangle, Presentation,
   Globe2, ArrowLeft, Building2, Search, CalendarDays,
+  Home, MoreHorizontal, Download,
 } from "lucide-react";
 
 import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
 import { useStateContext } from "@/lib/StateContext";
-import { inferPractice, fmtMoney, parseDateOnly, formatDateLabel } from "@/lib/helpers";
+import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
-import { getRankExplanation } from "@/lib/scoring";
 import { useThemeScale } from "@/lib/theme-scale";
 
 import Sidebar from "./Sidebar";
@@ -37,6 +37,8 @@ import ConferencesView from "./views/ConferencesView";
 import LostImpactToast from "./LostImpactToast";
 import MeetingMode from "./MeetingMode";
 import CommandPalette from "./CommandPalette";
+import ExecutiveHome from "./ExecutiveHome";
+import AdminBar from "./AdminBar";
 
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import type { CommitPayload } from "@/lib/import/types";
@@ -67,10 +69,11 @@ function useCountUp(target: number, ms = 600): number {
 }
 
 const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string }[] = [
+  { id: "home",      label: "Home",             icon: Home,       color: "#6366F1" },
   { id: "matrix",    label: "Priority Matrix", icon: LayoutGrid, color: "#6366F1" },
   { id: "ecosystem", label: "Ecosystem",        icon: Network,    color: "#0EA5E9" },
   { id: "timeline",  label: "Timeline",         icon: Calendar,   color: "#10B981" },
-  { id: "list",      label: "Action List",      icon: ListChecks, color: "#F59E0B" },
+  { id: "list",      label: "Opportunities",    icon: ListChecks, color: "#F59E0B" },
   { id: "forecast",  label: "Revenue Planning",  icon: BarChart2,  color: "#10B981" },
   { id: "mix",       label: "Portfolio Mix",    icon: PieIcon,    color: "#EC4899" },
   { id: "growth",    label: "Practice Growth",  icon: Sprout,     color: "#22C55E" },
@@ -79,103 +82,41 @@ const VIEWS: { id: ViewId; label: string; icon: React.ElementType; color: string
   { id: "conferences", label: "Conferences",    icon: CalendarDays, color: "#B45309" },
 ];
 
-// Nav groupings
-const PRIMARY_IDS   = ["matrix", "ecosystem", "timeline", "list"] as const;
-const ANALYTICS_IDS = ["forecast", "mix", "growth"] as const;
+// ── Consolidated section model ──────────────────────────────────────────────
+type Section = "home" | "opportunities" | "ecosystem" | "analytics" | "more" | "admin";
 
-type PriorityCard = {
-  id: string;
-  label: string;
-  value: string;
-  detail: string;
-  meta: string;
-  explanation?: string;
-  color: string;
-  icon: React.ElementType;
-  onClick?: () => void;
+const SECTION_OF: Record<ViewId, Section> = {
+  home: "home",
+  matrix: "opportunities", list: "opportunities", timeline: "opportunities",
+  ecosystem: "ecosystem",
+  forecast: "analytics", mix: "analytics", growth: "analytics",
+  offices: "more", conferences: "more",
+  data: "admin",
 };
 
+// Top-nav sections + the leaf each one opens to
+const SECTION_TABS: { id: Section; label: string; icon: React.ElementType; color: string; leaf: ViewId }[] = [
+  { id: "home",          label: "Home",          icon: Home,       color: "#6366F1", leaf: "home" },
+  { id: "opportunities", label: "Opportunities", icon: ListChecks, color: "#F59E0B", leaf: "list" },
+  { id: "ecosystem",     label: "Ecosystem",     icon: Network,    color: "#0EA5E9", leaf: "ecosystem" },
+  { id: "analytics",     label: "Analytics",     icon: BarChart2,  color: "#8B5CF6", leaf: "forecast" },
+];
 
-function PriorityStripCard({ card }: { card: PriorityCard }) {
-  const Icon = card.icon;
-  const clickable = Boolean(card.onClick);
+// Lens (leaf) switcher within a section
+const SECTION_LENSES: Partial<Record<Section, { id: ViewId; label: string }[]>> = {
+  opportunities: [
+    { id: "list",     label: "Table" },
+    { id: "matrix",   label: "Matrix" },
+    { id: "timeline", label: "Timeline" },
+  ],
+  analytics: [
+    { id: "forecast", label: "Revenue" },
+    { id: "mix",      label: "Portfolio" },
+    { id: "growth",   label: "Growth" },
+  ],
+};
 
-  return (
-    <button
-      type="button"
-      onClick={card.onClick}
-      disabled={!clickable}
-      data-clickable={String(clickable)}
-      className="priority-strip-card"
-      style={{
-        minHeight: 148,
-        padding: "14px 16px 14px 15px",
-        borderRadius: 10,
-        border: `1px solid ${card.color}28`,
-        borderTop: `2.5px solid ${card.color}`,
-        background: `linear-gradient(160deg, ${card.color}0f 0%, var(--bg-surface) 55%)`,
-        boxShadow: "var(--shadow-sm)",
-        color: "var(--text-1)",
-        cursor: clickable ? "pointer" : "default",
-        textAlign: "left",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        gap: 10,
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      {/* Icon — top right */}
-      <div style={{
-        position: "absolute", top: 14, right: 14,
-        width: 32, height: 32, borderRadius: 8,
-        background: `${card.color}16`, color: card.color,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-      }}>
-        <Icon size={15} />
-      </div>
-
-      <div style={{ paddingRight: 44 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 750, color: card.color, textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
-          {card.label}
-        </div>
-        <div className="tabular-nums" style={{ fontSize: 26, fontWeight: 860, letterSpacing: "-0.04em", lineHeight: 1, color: "var(--text-1)" }}>
-          {card.value}
-        </div>
-      </div>
-
-      <div style={{ minWidth: 0 }}>
-        <div style={{
-          color: "var(--text-1)", fontSize: 12.5, fontWeight: 650,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {card.detail}
-        </div>
-        <div style={{
-          color: "var(--text-3)", fontSize: 11.5, marginTop: 2,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {card.meta}
-        </div>
-        {card.explanation && (
-          <div style={{
-            marginTop: 7, paddingTop: 7,
-            borderTop: `1px solid ${card.color}18`,
-            color: "var(--text-2)", fontSize: 11, lineHeight: 1.4,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}>
-            {card.explanation}
-          </div>
-        )}
-      </div>
-    </button>
-  );
-}
+const MORE_VIEWS: ViewId[] = ["offices", "conferences"];
 
 function StateSwitcher({ stateId, stateConfig, allStates, switchState, returnToSelector }: {
   stateId: string;
@@ -360,20 +301,19 @@ export default function BDCommandCenter() {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [globalEdit, setGlobalEdit]               = useState(false);
-  const [view, setView]                           = useState<ViewId>("matrix");
+  const [view, setView]                           = useState<ViewId>("home");
   const [selectedInst, setSelectedInst]           = useState<string | null>(null);
   const [hoveredInst, setHoveredInst]             = useState<string | null>(null);
   const [showExport, setShowExport]               = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [analyticsOpen, setAnalyticsOpen]         = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed]   = useState(false);
+  const [moreOpen, setMoreOpen]                   = useState(false);
   const [meetingMode, setMeetingMode]             = useState(false);
   const [matrixExpanded, setMatrixExpanded]       = useState(false);
   const [recentChangeNames, setRecentChangeNames] = useState<string[]>([]);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [digestDismissed, setDigestDismissed]     = useState(false);
   const [saveError, setSaveError]                 = useState<string | null>(null);
   const saveErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const analyticsButtonRef = useRef<HTMLButtonElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   // ── Action-impact toast ───────────────────────────────────────────────────
   const [pendingToast, setPendingToast] = useState<{
@@ -481,128 +421,6 @@ export default function BDCommandCenter() {
     }
     return true;
   }), [institutions, filters]);
-
-  const bdPriorityCards = useMemo((): PriorityCard[] => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const nextYear = today.getFullYear() + 1;
-    const activeProjects = (inst: EnrichedInstitution) =>
-      filters.showLost
-        ? inst.projects
-        : inst.projects.filter(p => p.outcome !== "Lost" && p.pursuit_stage !== "Lost");
-
-    const overdueItems = visible
-      .map(inst => ({ inst, due: parseDateOnly(inst.edit.next_action_date) }))
-      .filter((item): item is { inst: EnrichedInstitution; due: Date } => Boolean(item.due) && item.due < today)
-      .sort((a, b) => a.due.getTime() - b.due.getTime());
-    const overdueTop = overdueItems[0]?.inst;
-
-    const reactivationTarget = visible
-      .filter(inst => {
-        const relationship = inst.edit.relationship ?? 1;
-        const status = String(inst.edit.hks_status ?? "");
-        return inst.pipeline > 0 && (relationship <= 2 || status === "Dormant" || inst.energy_score < 20);
-      })
-      .sort((a, b) => b.pipeline - a.pipeline)[0];
-
-    const upcomingPursuits = visible
-      .flatMap(inst => activeProjects(inst)
-        .filter(project => project.year != null && project.year >= today.getFullYear() && project.year <= nextYear)
-        .map(project => ({ inst, project })))
-      .sort((a, b) =>
-        (a.project.year ?? 9999) - (b.project.year ?? 9999)
-        || (b.project.budget_m ?? 0) - (a.project.budget_m ?? 0));
-    const upcomingTop = upcomingPursuits[0];
-
-    const topWeighted = visible
-      .filter(inst => inst.weighted_pipeline > 0)
-      .sort((a, b) => b.weighted_pipeline - a.weighted_pipeline)[0];
-    const byEnergyRank = [...visible].sort((a, b) => b.energy_score - a.energy_score);
-    const energyRankFor = (inst: EnrichedInstitution) => byEnergyRank.findIndex(i => i._rawName === inst._rawName) + 1;
-
-    const recentChanged = recentChangeNames
-      .map(name => institutions.find(inst => inst._rawName === name))
-      .filter(Boolean) as EnrichedInstitution[];
-    const recentTop = recentChanged[0];
-
-    return [
-      {
-        id: "overdue-actions",
-        label: "Overdue Actions",
-        value: String(overdueItems.length),
-        detail: overdueTop ? overdueTop.name : "Nothing overdue",
-        meta: overdueTop
-          ? `${overdueTop.edit.next_action || "Next action"} due ${formatDateLabel(overdueTop.edit.next_action_date)}`
-          : "Action list is current",
-        explanation: overdueTop
-          ? getRankExplanation(overdueTop, energyRankFor(overdueTop), byEnergyRank.length)
-          : "No scoring intervention needed from action timing right now.",
-        color: overdueItems.length ? "#DC2626" : "#16A34A",
-        icon: AlertTriangle,
-        onClick: () => setView("list"),
-      },
-      {
-        id: "reactivation-targets",
-        label: "Reactivation Target",
-        value: reactivationTarget ? fmtMoney(reactivationTarget.pipeline) : "$0.0M",
-        detail: reactivationTarget ? reactivationTarget.name : "No target flagged",
-        meta: reactivationTarget
-          ? `Relationship ${reactivationTarget.edit.relationship ?? 1}/5 - Energy ${reactivationTarget.energy_score.toFixed(1)}`
-          : "Low-engagement pipeline is clear",
-        explanation: reactivationTarget
-          ? getRankExplanation(reactivationTarget, energyRankFor(reactivationTarget), byEnergyRank.length)
-          : "No large-pipeline, low-relationship account is currently pulling attention.",
-        color: "#D97706",
-        icon: Target,
-        onClick: reactivationTarget ? () => setSelectedInst(reactivationTarget._rawName) : undefined,
-      },
-      {
-        id: "upcoming-pursuits",
-        label: "Upcoming Pursuits",
-        value: String(upcomingPursuits.length),
-        detail: upcomingTop ? upcomingTop.project.name : "No FY pursuits",
-        meta: upcomingTop
-          ? `${upcomingTop.inst.name} - FY${upcomingTop.project.year} - ${fmtMoney(upcomingTop.project.budget_m)}`
-          : `No active projects through FY${nextYear}`,
-        explanation: upcomingTop
-          ? getRankExplanation(upcomingTop.inst, energyRankFor(upcomingTop.inst), byEnergyRank.length)
-          : "Urgency stays low when no near-term dated pursuits are visible.",
-        color: "#2563EB",
-        icon: Clock3,
-        onClick: upcomingTop ? () => setSelectedInst(upcomingTop.inst._rawName) : undefined,
-      },
-      {
-        id: "weighted-fee",
-        label: "Top Weighted Fee",
-        value: topWeighted ? fmtMoney(topWeighted.weighted_pipeline) : "$0.0M",
-        detail: topWeighted ? topWeighted.name : "No weighted fees",
-        meta: topWeighted
-          ? `${fmtMoney(topWeighted.pipeline)} total pipeline`
-          : "Add stage or win probability to score fees",
-        explanation: topWeighted
-          ? `Weighted pipeline uses stage confidence or custom win probability. ${getRankExplanation(topWeighted, energyRankFor(topWeighted), byEnergyRank.length)}`
-          : "Weighted pipeline needs active budgets and stage confidence before it can guide fee focus.",
-        color: "#7C3AED",
-        icon: TrendingUp,
-        onClick: topWeighted ? () => setSelectedInst(topWeighted._rawName) : undefined,
-      },
-      {
-        id: "recent-changes",
-        label: "Recently Changed",
-        value: recentChanged.length ? String(recentChanged.length) : dirty ? "Unsaved" : "0",
-        detail: recentTop ? recentTop.name : "No edits this session",
-        meta: recentTop
-          ? recentChanged.slice(0, 3).map(inst => inst.name).join(", ")
-          : lastSaved ? `Last saved ${lastSaved}` : "Ready for updates",
-        explanation: recentTop
-          ? getRankExplanation(recentTop, energyRankFor(recentTop), byEnergyRank.length)
-          : "Recent edits will show score impact here after priority, relationship, stage, or pipeline changes.",
-        color: "#0EA5E9",
-        icon: Activity,
-        onClick: recentTop ? () => setSelectedInst(recentTop._rawName) : undefined,
-      },
-    ];
-  }, [dirty, filters.showLost, institutions, lastSaved, recentChangeNames, visible]);
 
   // ── Animated header stats ────────────────────────────────────────────────────
   const headerStatValues = useMemo(() => {
@@ -859,9 +677,16 @@ export default function BDCommandCenter() {
     saveToSupabase(fresh, stateId).catch(() => {});
   };
 
-  const isDataView   = view === "data";
-  const isFullWidth  = isDataView;
-  const activeView   = VIEWS.find(v => v.id === view)!;
+  const section      = SECTION_OF[view];
+  const isHome       = view === "home";
+  const isAdmin      = view === "data";
+  const isFullWidth  = isAdmin;
+  const usesFilters  = section === "home" || section === "opportunities" || section === "ecosystem" || section === "analytics";
+  const activeView   = VIEWS.find(v => v.id === view) ?? VIEWS[0];
+  const lenses       = SECTION_LENSES[section];
+
+  // Jump to a section's default leaf (or a specific leaf)
+  const goToView = (v: ViewId) => { setView(v); setMoreOpen(false); };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -939,8 +764,8 @@ export default function BDCommandCenter() {
             {/* Right controls */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
 
-              {/* Stats pills — animated pipeline values from headerStatValues useMemo */}
-              {(() => {
+              {/* Stats pills — persistent context on working views only (3 max) */}
+              {!isHome && !isAdmin && (() => {
                 const isLost = (p: { pursuit_stage?: string; outcome?: string }) =>
                   p.pursuit_stage === "Lost" || p.outcome === "Lost";
                 const activeP = (inst: EnrichedInstitution) =>
@@ -950,39 +775,44 @@ export default function BDCommandCenter() {
                   { label: "Pipeline",      value: fmtMoney(animPipeline), color: "#10B981" },
                   { label: "Wtd. Pipeline", value: fmtMoney(animWtd),      color: "#A855F7" },
                   { label: "Projects",      value: totalProjs,              color: "#6366F1" },
-                ];
-              })().concat([
-                { label: "Institutions", value: institutions.length, color: "#F59E0B" },
-                { label: "Visible",      value: visible.length,    color: "#0EA5E9" },
-              ]).map(s => (
-                <div key={s.label} className="hide-mobile stat-pill" style={{
-                  padding: "5px 13px", borderRadius: 20,
-                  background: `${s.color}14`,
-                  border: `1px solid ${s.color}30`,
-                  display: "flex", flexDirection: "column", alignItems: "center",
-                }}>
-                  <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.025em", lineHeight: 1.1 }}>{s.value}</span>
-                  <span style={{ fontSize: 9.5, color: text3, textTransform: "uppercase", letterSpacing: "0.09em", marginTop: 2, fontWeight: 600 }}>{s.label}</span>
-                </div>
-              ))}
-
-              {/* Mobile sidebar toggle — visible only on mobile via CSS */}
-              <button
-                className="mobile-menu-btn"
-                aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
-                onClick={() => setMobileSidebarOpen(o => !o)}
-                style={{
-                  alignItems: "center", justifyContent: "center",
-                  width: 36, height: 36, borderRadius: 8,
-                  border: `1px solid ${border}`,
-                  background: "transparent", color: text2, cursor: "pointer",
-                }}
-              >
-                {mobileSidebarOpen ? <XIcon size={16} /> : <Menu size={16} />}
-              </button>
+                ].map(s => (
+                  <div key={s.label} className="hide-mobile stat-pill" style={{
+                    padding: "5px 13px", borderRadius: 20,
+                    background: `${s.color}14`,
+                    border: `1px solid ${s.color}30`,
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                  }}>
+                    <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.025em", lineHeight: 1.1 }}>{s.value}</span>
+                    <span style={{ fontSize: 9.5, color: text3, textTransform: "uppercase", letterSpacing: "0.09em", marginTop: 2, fontWeight: 600 }}>{s.label}</span>
+                  </div>
+                ));
+              })()}
 
               {/* Theme + scale controls */}
               <ThemeScaleControls />
+
+              {/* Export */}
+              <button
+                aria-label="Export data"
+                title="Export data"
+                onClick={() => setShowExport(true)}
+                className="btn-ghost"
+              >
+                <Download size={13} aria-hidden="true" />
+                <span className="hide-mobile">Export</span>
+              </button>
+
+              {/* Admin — manage data */}
+              <button
+                aria-label="Admin — manage data"
+                title="Admin — manage data"
+                onClick={() => goToView("data")}
+                className="btn-ghost"
+                style={isAdmin ? { background: "rgba(180,83,9,0.12)", borderColor: "rgba(180,83,9,0.4)", color: "var(--amber-brand)" } : undefined}
+              >
+                <Table2 size={13} aria-hidden="true" />
+                <span className="hide-mobile">Admin</span>
+              </button>
 
               <button
                 aria-label="Enter Meeting Mode"
@@ -1057,159 +887,117 @@ export default function BDCommandCenter() {
             </div>
           </div>
 
-          {/* Nav tabs — 5 primary + Analytics dropdown + Data */}
-          {(() => {
-            const navTab = (v: typeof VIEWS[number]) => {
-              const Icon   = v.icon;
-              const active = view === v.id;
+          {/* Consolidated section nav */}
+          <div style={{ display: "flex", gap: 2, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" as const }}>
+            {SECTION_TABS.map(s => {
+              const Icon = s.icon;
+              const active = section === s.id;
               return (
-                <button key={v.id}
-                  onClick={() => { setView(v.id as ViewId); setMobileSidebarOpen(false); setAnalyticsOpen(false); }}
-                  className="nav-tab"
-                  data-active={active}
+                <button key={s.id}
+                  onClick={() => { if (!active) goToView(s.leaf); }}
+                  className="nav-tab" data-active={active}
                   style={{
-                    padding: "8px 14px",
-                    background: active ? `${v.color}1a` : "transparent",
-                    color: active ? v.color : text3,
+                    padding: "9px 16px",
+                    background: active ? `${s.color}1a` : "transparent",
+                    color: active ? s.color : text3,
                     border: "none",
-                    borderBottom: active ? `2.5px solid ${v.color}` : "2.5px solid transparent",
-                    cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
-                    fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 6,
+                    borderBottom: active ? `2.5px solid ${s.color}` : "2.5px solid transparent",
+                    cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
+                    fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 7,
                     whiteSpace: "nowrap",
                     transition: "color 0.15s, border-color 0.15s, background 0.15s",
                     borderRadius: "6px 6px 0 0",
-                    boxShadow: active ? `inset 0 -1px 0 ${v.color}` : "none",
                   }}>
-                  <Icon size={13} />{v.label}
+                  <Icon size={14} />{s.label}
                 </button>
               );
-            };
+            })}
 
-            const primaryViews   = VIEWS.filter(v => (PRIMARY_IDS as readonly string[]).includes(v.id));
-            const analyticsViews = VIEWS.filter(v => (ANALYTICS_IDS as readonly string[]).includes(v.id));
-            const dataView        = VIEWS.find(v => v.id === "data")!;
-            const officesView     = VIEWS.find(v => v.id === "offices")!;
-            const conferencesView = VIEWS.find(v => v.id === "conferences")!;
-            const analyticsActive = (ANALYTICS_IDS as readonly string[]).includes(view);
-            const activeAnalyticsView = analyticsViews.find(v => v.id === view);
-            const analyticsTabLabel = activeAnalyticsView ? `Analytics: ${activeAnalyticsView.label}` : "Analytics";
+            {/* More dropdown — Offices / Conferences */}
+            <div style={{ position: "relative" }}>
+              <button
+                ref={moreButtonRef}
+                aria-label="More views"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen(o => !o)}
+                className="nav-tab" data-active={section === "more"}
+                style={{
+                  padding: "9px 16px",
+                  background: section === "more" ? "rgba(180,83,9,0.12)" : moreOpen ? "var(--bg-raised)" : "transparent",
+                  color: section === "more" ? "var(--amber-brand)" : moreOpen ? "var(--text-1)" : text3,
+                  border: "none",
+                  borderBottom: section === "more" ? "2.5px solid var(--amber-brand)" : "2.5px solid transparent",
+                  cursor: "pointer", fontSize: 13, fontWeight: section === "more" || moreOpen ? 700 : 500,
+                  fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 6,
+                  whiteSpace: "nowrap", transition: "all 0.15s",
+                  borderRadius: "6px 6px 0 0",
+                }}>
+                <MoreHorizontal size={14} /> More
+                <ChevronDown size={11} style={{ transform: moreOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+              </button>
 
-            return (
-              <div style={{ display: "flex", gap: 1, overflowX: "auto", paddingBottom: 0, scrollbarWidth: "none" as const }}>
-                {/* Primary tabs */}
-                {primaryViews.map(navTab)}
-
-                {/* Analytics dropdown */}
-                <div style={{ position: "relative" }}>
-                  <button
-                    ref={analyticsButtonRef}
-                    aria-label={analyticsTabLabel}
-                    aria-expanded={analyticsOpen}
-                    onClick={() => setAnalyticsOpen(o => !o)}
-                    style={{
-                      padding: "8px 14px",
-                      background: analyticsActive ? "rgba(139,92,246,0.1)" : analyticsOpen ? "var(--bg-raised)" : "transparent",
-                      color: analyticsActive ? "#8B5CF6" : analyticsOpen ? "var(--text-1)" : text3,
-                      border: "none",
-                      borderBottom: analyticsActive ? "2px solid #8B5CF6" : "2px solid transparent",
-                      cursor: "pointer", fontSize: 12, fontWeight: analyticsActive || analyticsOpen ? 700 : 500,
-                      fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 5,
-                      whiteSpace: "nowrap", transition: "all 0.15s",
-                      borderRadius: "6px 6px 0 0",
+              {moreOpen && (() => {
+                const rect = moreButtonRef.current?.getBoundingClientRect();
+                return (
+                  <>
+                    <div style={{ position: "fixed", inset: 0, zIndex: 98 }} onClick={() => setMoreOpen(false)} />
+                    <div className="animate-scale-in" style={{
+                      position: "fixed",
+                      top: rect ? rect.bottom + 2 : "auto",
+                      left: rect ? rect.left : "auto",
+                      zIndex: 99,
+                      background: "var(--bg-header)", border: "1px solid var(--border)",
+                      borderRadius: "0 8px 8px 8px", boxShadow: "var(--shadow-lg)",
+                      minWidth: 190, overflow: "hidden", backdropFilter: "blur(20px)",
                     }}>
-                    {analyticsTabLabel}
-                    <ChevronDown size={11} style={{ transform: analyticsOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
-                  </button>
-
-                  {analyticsOpen && (() => {
-                    const rect = analyticsButtonRef.current?.getBoundingClientRect();
-                    return (
-                    <>
-                      {/* Click-away backdrop */}
-                      <div
-                        style={{ position: "fixed", inset: 0, zIndex: 98 }}
-                        onClick={() => setAnalyticsOpen(false)}
-                      />
-                      {/* Dropdown panel — fixed to escape overflowX:auto nav container */}
-                      <div className="animate-scale-in" style={{
-                        position: "fixed",
-                        top: rect ? rect.bottom + 2 : "auto",
-                        left: rect ? rect.left : "auto",
-                        zIndex: 99,
-                        background: "var(--bg-header)", border: "1px solid var(--border)",
-                        borderRadius: "0 8px 8px 8px", boxShadow: "var(--shadow-lg)",
-                        minWidth: 190, overflow: "hidden",
-                        backdropFilter: "blur(20px)",
-                      }}>
-                        {analyticsViews.map(v => {
-                          const Icon   = v.icon;
-                          const active = view === v.id;
-                          return (
-                            <button key={v.id}
-                              onClick={() => { setView(v.id as ViewId); setMobileSidebarOpen(false); setAnalyticsOpen(false); }}
-                              style={{
-                                width: "100%", display: "flex", alignItems: "center", gap: 9,
-                                padding: "10px 16px", background: active ? `${v.color}14` : "transparent",
-                                color: active ? v.color : "var(--text-2)",
-                                border: "none", borderLeft: `3px solid ${active ? v.color : "transparent"}`,
-                                cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
-                                fontFamily: FONT, textAlign: "left", transition: "all 0.12s",
-                              }}
-                              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)"; }}
-                              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                            >
-                              <Icon size={13} />{v.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                    );
-                  })()}
-                </div>
-
-                {/* Data tab */}
-                {navTab(dataView)}
-
-                {/* HKS Offices tab */}
-                {navTab(officesView)}
-
-                {/* Conferences tab */}
-                {navTab(conferencesView)}
-              </div>
-            );
-          })()}
+                      {MORE_VIEWS.map(id => {
+                        const v = VIEWS.find(x => x.id === id)!;
+                        const Icon = v.icon;
+                        const active = view === id;
+                        return (
+                          <button key={id}
+                            onClick={() => goToView(id)}
+                            style={{
+                              width: "100%", display: "flex", alignItems: "center", gap: 9,
+                              padding: "10px 16px", background: active ? `${v.color}14` : "transparent",
+                              color: active ? v.color : "var(--text-2)",
+                              border: "none", borderLeft: `3px solid ${active ? v.color : "transparent"}`,
+                              cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 500,
+                              fontFamily: FONT, textAlign: "left", transition: "all 0.12s",
+                            }}
+                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "var(--bg-raised)"; }}
+                            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                          >
+                            <Icon size={13} />{v.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       </header>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <div className="app-shell" style={{ display: "flex", maxWidth: 1700, margin: "0 auto", overflow: "hidden" }}>
 
-        {!isFullWidth && (
-          <>
-            {/* Click-away overlay — only visible on mobile when sidebar is open */}
-            {mobileSidebarOpen && (
-              <div
-                className="sidebar-overlay active"
-                onClick={() => setMobileSidebarOpen(false)}
-                aria-hidden="true"
-              />
-            )}
-            <Sidebar
-              globalEdit={globalEdit}
-              onToggleEdit={() => setGlobalEdit(g => !g)}
-              filters={filters}
-              onFiltersChange={setFilters}
-              visible={visible}
-              allInstitutions={institutions}
-              total={institutions.length}
-              onExportPDF={() => setShowExport(true)}
-              onResetData={resetToDefaults}
-              mobileOpen={mobileSidebarOpen}
-              projectTypeNames={stateConfig.rawData.project_types.map(t => t.name)}
-              systemColors={stateConfig.systemColors}
-            />
-          </>
+        {/* Inline filter sidebar — collapsible to a slim rail */}
+        {usesFilters && (
+          <Sidebar
+            filters={filters}
+            onFiltersChange={setFilters}
+            visible={visible}
+            allInstitutions={institutions}
+            total={institutions.length}
+            collapsed={filtersCollapsed}
+            onCollapse={() => setFiltersCollapsed(true)}
+            onExpand={() => setFiltersCollapsed(false)}
+            projectTypeNames={stateConfig.rawData.project_types.map(t => t.name)}
+            systemColors={stateConfig.systemColors}
+          />
         )}
 
         <main className="app-main scale-wrap" style={{ flex: 1, padding: isFullWidth ? "0" : "22px 26px", minWidth: 0 }}>
@@ -1222,119 +1010,38 @@ export default function BDCommandCenter() {
             </div>
           )}
 
-          {!isFullWidth && (
-            <section aria-label="Today's BD Priorities" style={{ marginBottom: 22 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{
-                    width: 3, height: 20, borderRadius: 2,
-                    background: `linear-gradient(180deg, ${stateConfig.color}, ${stateConfig.color}44)`,
-                    flexShrink: 0,
-                  }} />
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: 13.5, fontWeight: 800, letterSpacing: "-0.01em", color: text1, lineHeight: 1.1 }}>
-                      Today&apos;s BD Priorities
-                    </h2>
-                    <div style={{ fontSize: 10.5, color: text3, marginTop: 3, lineHeight: 1 }}>
-                      {visible.length} visible · Signals from the active filter set
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {dirty && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase",
-                      letterSpacing: "0.08em", padding: "2px 8px", borderRadius: 20,
-                      background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)",
-                    }}>
-                      Unsaved
-                    </span>
-                  )}
-                  <span style={{
-                    fontSize: 10.5, color: text3, fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: "0.08em", whiteSpace: "nowrap",
-                    padding: "3px 10px", borderRadius: 20,
-                    background: "var(--bg-raised)", border: "1px solid var(--border)",
-                  }}>
-                    {stateConfig.name}
-                  </span>
-                </div>
-              </div>
-              {/* Save error toast */}
-              <AnimatePresence>
-                {saveError && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
-                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "9px 14px",
-                      background: "rgba(220,38,38,0.08)",
-                      border: "1px solid rgba(220,38,38,0.25)",
-                      borderLeft: "3px solid #DC2626",
-                      borderRadius: 8, overflow: "hidden",
-                    }}
-                  >
-                    <AlertTriangle size={12} color="#DC2626" style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500 }}>
-                      <span style={{ fontWeight: 700, color: "#DC2626" }}>Save failed · </span>
-                      {saveError}
-                    </span>
-                    <button
-                      onClick={() => setSaveError(null)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
-                      aria-label="Dismiss error"
-                    >
-                      <XIcon size={12} />
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Daily Digest banner */}
-              <AnimatePresence>
-                {digestSentence && !digestDismissed && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
-                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "9px 14px",
-                      background: "linear-gradient(90deg, rgba(99,102,241,0.1), rgba(14,165,233,0.06))",
-                      border: "1px solid rgba(99,102,241,0.22)",
-                      borderLeft: "3px solid var(--indigo)",
-                      borderRadius: 8, overflow: "hidden",
-                    }}
-                  >
-                    <Activity size={12} color="var(--indigo)" style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500, lineHeight: 1.4 }}>
-                      <span style={{ fontWeight: 760, color: "var(--text-1)" }}>Today · </span>
-                      {digestSentence}
-                    </span>
-                    <button
-                      onClick={() => setDigestDismissed(true)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
-                      aria-label="Dismiss digest"
-                    >
-                      <XIcon size={12} />
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(195px, 1fr))",
-                gap: 10,
-              }}>
-                {bdPriorityCards.map(card => <PriorityStripCard key={card.id} card={card} />)}
-              </div>
-            </section>
-          )}
+          {/* Save error toast — surfaced above any view */}
+          <AnimatePresence>
+            {saveError && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: "auto", marginBottom: 14 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 14px",
+                  background: "rgba(220,38,38,0.08)",
+                  border: "1px solid rgba(220,38,38,0.25)",
+                  borderLeft: "3px solid #DC2626",
+                  borderRadius: 8, overflow: "hidden",
+                }}
+              >
+                <AlertTriangle size={12} color="#DC2626" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500 }}>
+                  <span style={{ fontWeight: 700, color: "#DC2626" }}>Save failed · </span>
+                  {saveError}
+                </span>
+                <button
+                  onClick={() => setSaveError(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
+                  aria-label="Dismiss error"
+                >
+                  <XIcon size={12} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Empty state banner — shown when the selected state has no data */}
           {institutions.length === 0 && view !== "data" && (
@@ -1363,7 +1070,7 @@ export default function BDCommandCenter() {
                 </div>
               </div>
               <button
-                onClick={() => setView("data")}
+                onClick={() => goToView("data")}
                 style={{
                   flexShrink: 0,
                   padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
@@ -1372,14 +1079,14 @@ export default function BDCommandCenter() {
                   boxShadow: `0 4px 12px ${stateConfig.color}40`,
                 }}
               >
-                Open Data Manager
+                Open Admin · Data Manager
               </button>
             </div>
           )}
 
-          {/* View breadcrumb */}
-          {!isFullWidth && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-sub)" }}>
+          {/* Context bar — section title · lens toggle · filters · count */}
+          {!isHome && !isAdmin && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-sub)", flexWrap: "wrap" }}>
               <div className="intel-badge" style={{
                 background: `${activeView.color}12`,
                 border: `1px solid ${activeView.color}28`,
@@ -1388,8 +1095,25 @@ export default function BDCommandCenter() {
                 <activeView.icon size={12} />
                 {activeView.label}
               </div>
-              <div style={{ flex: 1, height: 1, background: "var(--border-sub)" }} />
-              <span className="tabular-nums" style={{ fontSize: 11, color: text3, letterSpacing: "0.01em" }}>
+
+              {/* Lens segmented control */}
+              {lenses && lenses.length > 1 && (
+                <div className="lens-toggle">
+                  {lenses.map(l => (
+                    <button key={l.id}
+                      type="button"
+                      onClick={() => goToView(l.id)}
+                      data-active={view === l.id}
+                      className="lens-btn">
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ flex: 1, minWidth: 12, height: 1, background: "var(--border-sub)" }} />
+
+              <span className="tabular-nums" style={{ fontSize: 11, color: text3, letterSpacing: "0.01em", whiteSpace: "nowrap" }}>
                 {visible.length} institution{visible.length !== 1 ? "s" : ""} · {fmtMoney(visible.reduce((s,i) => s + i.pipeline, 0))} pipeline
               </span>
             </div>
@@ -1397,10 +1121,40 @@ export default function BDCommandCenter() {
 
           {/* Views — each wrapped for fade-in */}
           <div key={view} className="animate-fade-in">
+            {view === "home"      && (
+              <ExecutiveHome
+                institutions={visible}
+                digest={digestSentence}
+                stateName={stateConfig.name}
+                onSelectInst={setSelectedInst}
+                onNavigate={goToView}
+                hero={
+                  <div style={{ display: "grid", gridTemplateColumns: matrixExpanded ? "1fr" : "3fr 2fr", gap: 18, alignItems: "start", transition: "grid-template-columns 0.35s cubic-bezier(0.22,1,0.36,1)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => goToView("list")} hoveredInst={hoveredInst} onHover={setHoveredInst} onExpand={setMatrixExpanded} onNavigate={(v) => goToView(v as ViewId)} systemColors={stateConfig.systemColors} />
+                    </div>
+                    <AnimatePresence>
+                      {!matrixExpanded && (
+                        <motion.div
+                          key="home-institution-map"
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 16 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          style={{ minWidth: 0, overflow: "hidden" }}
+                        >
+                          <InstitutionMap key={stateId} institutions={visible} selectedInst={selectedInst} hoveredInst={hoveredInst} onSelect={setSelectedInst} onHover={setHoveredInst} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                }
+              />
+            )}
             {view === "matrix"    && (
               <div style={{ display: "grid", gridTemplateColumns: matrixExpanded ? "1fr" : "3fr 2fr", gap: 18, alignItems: "start", transition: "grid-template-columns 0.35s cubic-bezier(0.22,1,0.36,1)" }}>
                 <div style={{ minWidth: 0 }}>
-                  <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => setView("list")} hoveredInst={hoveredInst} onHover={setHoveredInst} onExpand={setMatrixExpanded} systemColors={stateConfig.systemColors} />
+                  <PriorityMatrix institutions={visible} onSelect={setSelectedInst} onViewActions={() => goToView("list")} hoveredInst={hoveredInst} onHover={setHoveredInst} onExpand={setMatrixExpanded} onNavigate={(v) => goToView(v as ViewId)} systemColors={stateConfig.systemColors} />
                 </div>
                 <AnimatePresence>
                   {!matrixExpanded && (
@@ -1427,20 +1181,29 @@ export default function BDCommandCenter() {
             {view === "offices"   && <OfficesView     institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "conferences" && <ConferencesView institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "data"      && (
-              <DataManager
-                institutions={institutions}
-                editState={editState}
-                updateEdit={updateEdit}
-                updateProject={updateProject}
-                addProject={addProject}
-                addInstitution={addInstitution}
-                removeProject={removeProject}
-                importRecords={importRecords}
-                onSave={handleSave}
-                dirty={dirty}
-                fundingSources={stateConfig.rawData.funding_sources}
-                systemColors={stateConfig.systemColors}
-              />
+              <div style={{ padding: "22px 26px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <AdminBar
+                  globalEdit={globalEdit}
+                  onToggleEdit={() => setGlobalEdit(g => !g)}
+                  onResetData={resetToDefaults}
+                  onExport={() => setShowExport(true)}
+                  institutions={institutions}
+                />
+                <DataManager
+                  institutions={institutions}
+                  editState={editState}
+                  updateEdit={updateEdit}
+                  updateProject={updateProject}
+                  addProject={addProject}
+                  addInstitution={addInstitution}
+                  removeProject={removeProject}
+                  importRecords={importRecords}
+                  onSave={handleSave}
+                  dirty={dirty}
+                  fundingSources={stateConfig.rawData.funding_sources}
+                  systemColors={stateConfig.systemColors}
+                />
+              </div>
             )}
           </div>
         </main>

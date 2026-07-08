@@ -4,22 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Building2, FolderOpen, LayoutGrid, Network, Calendar,
   ListChecks, BarChart2, PieChart, Sprout, Table2, Building, X,
-  ArrowRight, Zap, Clock, DollarSign,
+  ArrowRight, Zap, Clock, DollarSign, Home, CalendarDays,
 } from "lucide-react";
 import { FONT } from "@/lib/constants";
 import { fmtMoney } from "@/lib/helpers";
 import type { EnrichedInstitution, ViewId } from "@/lib/types";
 
 const VIEW_SHORTCUTS: { id: ViewId; label: string; icon: React.ElementType; color: string; desc: string }[] = [
+  { id: "home",      label: "Home",               icon: Home,       color: "#6366F1", desc: "Executive snapshot & priorities" },
+  { id: "list",      label: "Opportunities",      icon: ListChecks, color: "#F59E0B", desc: "Ranked institutions + actions table" },
   { id: "matrix",    label: "Priority Matrix",   icon: LayoutGrid, color: "#6366F1", desc: "Pipeline × Energy scatter chart" },
-  { id: "ecosystem", label: "Ecosystem",          icon: Network,    color: "#0EA5E9", desc: "Institution card grid" },
   { id: "timeline",  label: "Timeline",           icon: Calendar,   color: "#10B981", desc: "Fiscal year pipeline map" },
-  { id: "list",      label: "Action List",        icon: ListChecks, color: "#F59E0B", desc: "Ranked institutions + actions" },
+  { id: "ecosystem", label: "Ecosystem",          icon: Network,    color: "#0EA5E9", desc: "Institution card grid & relationships" },
   { id: "forecast",  label: "Revenue Planning",   icon: BarChart2,  color: "#10B981", desc: "Scenario modeling & forecasts" },
   { id: "mix",       label: "Portfolio Mix",      icon: PieChart,   color: "#EC4899", desc: "Funding sources & project types" },
   { id: "growth",    label: "Practice Growth",    icon: Sprout,     color: "#22C55E", desc: "Practice-level pipeline growth" },
-  { id: "data",      label: "Data Manager",       icon: Table2,     color: "#F97316", desc: "Edit institutions & projects" },
   { id: "offices",   label: "HKS Offices",        icon: Building,   color: "#B45309", desc: "Office proximity & coverage" },
+  { id: "conferences", label: "Conferences",      icon: CalendarDays, color: "#B45309", desc: "Higher-ed conference directory" },
+  { id: "data",      label: "Admin · Data Manager", icon: Table2,   color: "#F97316", desc: "Edit, import/export & source data" },
 ];
 
 type ResultItem =
