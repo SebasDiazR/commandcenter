@@ -186,6 +186,7 @@ const DEMO_STATES: DemoState[] = [
   { abbr: "TX", name: "Texas", color: "#BF5700", inst: 24, proj: 61, pipe: "$18B" },
   { abbr: "CA", name: "California", color: "#0EA5E9", inst: 18, proj: 44, pipe: "$12B" },
   { abbr: "FL", name: "Florida", color: "#008E97", framework: true },
+  { abbr: "NC", name: "North Carolina", color: "#4B9CD3", framework: true },
 ];
 
 export function SceneSelectState() {
