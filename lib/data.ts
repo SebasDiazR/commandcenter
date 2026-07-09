@@ -107,10 +107,6 @@ export const RAW_DATA: RawData = {
         { name: "Football Complex", budget_m: 120, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Thurgood Marshall Law School", budget_m: 120, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Residential & Living Learning Communities", budget_m: 113.5, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Catalyst for Urban Transformation", budget_m: 46, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Health & Wellness Center", budget_m: 35.25, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Nabrit Science Center", budget_m: 22.8, year: 2024, type: "New Construction", source: "thecb" },
-        { name: "Campus Wide Electrical & Power Upgrades", budget_m: 15.59, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "Student Recreation Center reno", budget_m: 12, year: 2026, type: "Repair and Renovation", source: "thecb" },
       ]
     },
@@ -125,7 +121,6 @@ export const RAW_DATA: RawData = {
         { name: "CFO Classroom & Faculty Office Renov", budget_m: 47.5, year: 2029, type: "Repair and Renovation", source: "thecb", notes: "strategy: target" },
         { name: "MAK Kirk College of Business", budget_m: 45, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Fieldhouse – New Athletics Building", budget_m: 45, year: 2028, type: "New Construction", source: "thecb" },
-        { name: "Steam Infrastructure Replacement", budget_m: 12, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "IHSH 8th and 9th Floor Renov", budget_m: 12.5, year: 2028, type: "Repair and Renovation", source: "thecb" },
         { name: "Old Main Renovation Phase II", budget_m: 10.5, year: 2029, type: "Repair and Renovation", source: "thecb" },
       ]
@@ -140,9 +135,6 @@ export const RAW_DATA: RawData = {
       thecb_total_m: 71.32,
       gsf: 42747, nasf: 25648, eg_nasf: 25648,
       projects: [
-        { name: "Teaching & Academic Student Support Services", budget_m: 45.12, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Fire Alarm System Replacements PH2", budget_m: 12.10, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "SR Collins Renovation", budget_m: 10, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -155,14 +147,12 @@ export const RAW_DATA: RawData = {
       projects: [
         { name: "College of Osteopathic Medicine", budget_m: 125, year: 2027, type: "New Construction", source: "thecb", notes: "strategy: HKS Health lead candidate" },
         { name: "Cain Street Dorm", budget_m: 120, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "Lillian Street Dorm", budget_m: 120, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Alumni and Welcome Center", budget_m: 100, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Agricultural Science Building", budget_m: 100, year: 2027, type: "New Construction", source: "thecb" },
         { name: "Fort Worth Residence Hall 1", budget_m: 81, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Fort Worth Academic Building 4", budget_m: 76, year: 2029, type: "New Construction", source: "thecb" },
         { name: "Fort Worth Building #3", budget_m: 75, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Fort Worth Central Plant", budget_m: 50, year: 2028, type: "New Construction", source: "thecb" },
-        { name: "Innovation Lab", budget_m: 48, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Parking Structure #2", budget_m: 40, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Ag Farm Tornado Shelter", budget_m: 21.62, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Recreation Center Expansion", budget_m: 20, year: 2029, type: "Addition", source: "thecb" },
@@ -181,7 +171,6 @@ export const RAW_DATA: RawData = {
         { name: "Renov/Expansion Residential Learning Comm", budget_m: 48, year: 2027, type: "Addition", source: "thecb" },
         { name: "Renovation of Kinesiology Convocation", budget_m: 40.25, year: 2030, type: "Repair and Renovation", source: "thecb" },
         { name: "Dining Hall & Auxiliary Building", budget_m: 40.25, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Killam Library Renov Ph I/II/III", budget_m: 29.7, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -191,19 +180,10 @@ export const RAW_DATA: RawData = {
       gsf: 1833687, nasf: 1387999, eg_nasf: 614755,
       strategy_notes: "Snohetta on regen master plan? Cyclotron, Vet Vivarium also in play.",
       projects: [
-        { name: "Aplin Center", budget_m: 250, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Center for Learning Arts and Innovation", budget_m: 235, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Biology Teaching and Research Building", budget_m: 220, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Mays Business Building #3", budget_m: 192, year: 2026, type: "New Construction", source: "thecb", notes: "strategy: priority target" },
         { name: "West Campus Learning Commons", budget_m: 130, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "TAR: Meat Sciences & Technology Center", budget_m: 114.60, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Discovery Drive Parking Garage", budget_m: 103.86, year: 2025, type: "New Construction", source: "thecb" },
         { name: "TEEX: TEEX RELLIS Facilities", budget_m: 85, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Entrepreneurship Building", budget_m: 65, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "TAR: Rio Grande Valley Research Center (McAllen)", budget_m: 53.5, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "TEEX San Antonio Complex", budget_m: 32.5, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Heep Lab Renovation", budget_m: 30, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Academic Building Exterior Restoration", budget_m: 30, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -214,13 +194,8 @@ export const RAW_DATA: RawData = {
       thecb_total_m: 399.28,
       gsf: 147767, nasf: 54710, eg_nasf: 70000,
       projects: [
-        { name: "Immersive Simulation & Learning Env. Bldg.", budget_m: 80.25, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Infrastructure, Dock Improv. & Ship FF&E Ph II", budget_m: 77.5, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "Recreation Sports Facility & Athletic Fields", budget_m: 77.19, year: 2028, type: "Addition", source: "thecb" },
         { name: "Campus Resiliency", budget_m: 61.25, year: 2026, type: "Infrastructure", source: "thecb" },
-        { name: "Maritime Academy Hall Envelope", budget_m: 35, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Sea Turtle Rehab Hosp. & Ed Center", budget_m: 21, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Land Acquisition", budget_m: 20.68, year: 2025, type: "Land Acquisition", source: "thecb" },
         { name: "Old Library → New Student Center", budget_m: 17.82, year: 2029, type: "Repair and Renovation", source: "thecb" },
       ]
     },
@@ -232,15 +207,10 @@ export const RAW_DATA: RawData = {
       thecb_total_m: 852.06,
       gsf: 356308, nasf: 277808, eg_nasf: 225514,
       projects: [
-        { name: "Law & Education Building", budget_m: 203.5, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "TAMU Semiconductor Institute/Infra/Equip", budget_m: 189, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Ballistic Aero-Optics Range Phase 2", budget_m: 100, year: 2026, type: "Addition", source: "thecb" },
-        { name: "TAMUS NVIDIA Supercomputer System", budget_m: 60.20, year: 2025, type: "Information Resources", source: "thecb" },
-        { name: "RELLIS STEM Education Center", budget_m: 43.43, year: 2025, type: "New Construction", source: "thecb" },
         { name: "RELLIS Campus Admin Complex & Police", budget_m: 24.89, year: 2027, type: "New Construction", source: "thecb" },
         { name: "RELLIS Blvd Phase I (Kuder to Grissom)", budget_m: 29.26, year: 2026, type: "Infrastructure", source: "thecb" },
         { name: "RELLIS New Water Well", budget_m: 26.68, year: 2029, type: "Infrastructure", source: "thecb" },
-        { name: "Easterwood Airport Runway Improvements", budget_m: 25, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -250,10 +220,6 @@ export const RAW_DATA: RawData = {
       thecb_total_m: 253.61,
       gsf: 186500, nasf: 112000, eg_nasf: 92200,
       projects: [
-        { name: "Alkek IBT Building Lab Expansion + EnMed", budget_m: 100, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Health Education & Research Building (McAllen)", budget_m: 50, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Nursing Ed & Research Center (McAllen)", budget_m: 47.25, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "School of Dentistry Main Renov (Dallas)", budget_m: 22.4, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -262,9 +228,6 @@ export const RAW_DATA: RawData = {
       strategy_notes: "Fort Hood/Killeen adjacent — student success building and housing. Modest pipeline, watch for follow-on.",
       gsf: 237801, nasf: 159710, eg_nasf: 81500,
       projects: [
-        { name: "Student Housing Phase 1", budget_m: 67.03, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Student Success Building", budget_m: 65, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Community Saferoom", budget_m: 9.02, year: 2025, type: "New Construction", source: "thecb" },
       ]
     },
     {
@@ -273,12 +236,9 @@ export const RAW_DATA: RawData = {
       strategy_notes: "DFW metro catchment. Event Center/Arena and new Residence Hall are competitive-facing targets.",
       gsf: 123455, nasf: 68468, eg_nasf: 404,
       projects: [
-        { name: "New Event Center / Arena", budget_m: 76.52, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Agricultural Multipurpose Ed & Training Ctr Ph 2", budget_m: 65, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Central Utility Plant", budget_m: 45, year: 2027, type: "New Construction", source: "thecb" },
         { name: "New Residence Hall", budget_m: 40, year: 2028, type: "New Construction", source: "thecb" },
         { name: "Memorial Stadium Renovation", budget_m: 27, year: 2028, type: "Repair and Renovation", source: "thecb" },
-        { name: "Renovate Binnion Hall", budget_m: 24.8, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Rayburn Student Center Expansion", budget_m: 17, year: 2029, type: "Addition", source: "thecb" },
       ]
     },
@@ -288,8 +248,6 @@ export const RAW_DATA: RawData = {
       strategy_notes: "Large $747M pipeline. Miramar Housing replacement ($333M) is near-term. Arts & Media Building and Health Center also attractive.",
       gsf: 921366, nasf: 712194, eg_nasf: 215314,
       projects: [
-        { name: "Miramar Housing Apartment Replacement", budget_m: 333, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Arts and Media Building", budget_m: 83.89, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Student Success & Classroom Space", budget_m: 65, year: 2029, type: "Repair and Renovation", source: "thecb" },
         { name: "Multi Purpose Community Center / Safe Room", budget_m: 55, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Housing Residence Halls Retrofit", budget_m: 41.63, year: 2029, type: "Repair and Renovation", source: "thecb" },
@@ -323,12 +281,7 @@ export const RAW_DATA: RawData = {
       projects: [
         { name: "Academic Building V / Data Center", budget_m: 130, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Student Housing Phase IV", budget_m: 130, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "Biomedical Sciences Building", budget_m: 120, year: 2025, type: "New Construction", source: "thecb", notes: "HKS Health opportunity" },
-        { name: "Campus Utility Plant", budget_m: 84.3, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "Health Sciences Building", budget_m: 80, year: 2027, type: "New Construction", source: "thecb", notes: "HKS Health opportunity" },
-        { name: "Student Housing Phase III & Dining", budget_m: 80, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Student Union", budget_m: 60, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Jaguar Dome / Hurricane Safe Room", budget_m: 44.6, year: 2025, type: "New Construction", source: "thecb" },
       ]
     },
     {
@@ -336,8 +289,6 @@ export const RAW_DATA: RawData = {
       strategy_priority: 2, thecb_total_m: 47.90,
       gsf: 72716, nasf: 37975, eg_nasf: 0,
       projects: [
-        { name: "Athletics Complex", budget_m: 23, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Storm Shelter / Safe Room", budget_m: 16.40, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Eagle Landing Phase 3", budget_m: 8.5, year: 2026, type: "New Construction", source: "thecb" },
       ]
     },
@@ -351,9 +302,7 @@ export const RAW_DATA: RawData = {
         { name: "Panhandle-Plains Historical Museum Reno", budget_m: 152, year: 2027, type: "Repair and Renovation", source: "thecb" },
         { name: "Multi-Disciplinary Research Complex", budget_m: 77, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Old Main Renovation", budget_m: 65, year: 2027, type: "Repair and Renovation", source: "thecb" },
-        { name: "Renov of Education Building", budget_m: 44.92, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Learning Commons", budget_m: 21.5, year: 2029, type: "New Construction", source: "thecb" },
-        { name: "Multipurpose Tornado Safe Building", budget_m: 13.99, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Cousins Hall Renovation", budget_m: 12.5, year: 2027, type: "Repair and Renovation", source: "thecb" },
       ]
     },
@@ -478,7 +427,6 @@ export const RAW_DATA: RawData = {
         { name: "Jones AT&T Stadium West Facade", budget_m: 60, year: 2026, type: "Repair and Renovation", source: "thecb", notes: "HKS Sports opportunity" },
         { name: "Music Project", budget_m: 50, year: 2027, type: "New Construction", source: "thecb" },
         { name: "NRHC Red Steagall Institute", budget_m: 30, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "Doak Hall Renovations", budget_m: 30, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Rawls College of Business South Addition", budget_m: 25, year: 2027, type: "Addition", source: "thecb" },
       ]
     },
@@ -494,7 +442,6 @@ export const RAW_DATA: RawData = {
         { name: "Abilene Clinical and Research Expansion", budget_m: 40, year: 2029, type: "New Construction", source: "thecb" },
         { name: "Facility Research Lab Modernization Ph 2&3", budget_m: 32, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Preston Smith Library Renov 1st Floor/Atrium", budget_m: 17, year: 2026, type: "Repair and Renovation", source: "thecb" },
-        { name: "Midland Physicians Asst Remodel", budget_m: 16.2, year: 2025, type: "New Construction", source: "thecb" },
       ]
     },
     {
@@ -503,14 +450,10 @@ export const RAW_DATA: RawData = {
       strategy_notes: "$697M pipeline. Clinical Sciences Building, Dental School, and Cancer Center — three major HKS Health targets at one campus. El Paso underserved healthcare market.",
       gsf: 986551, nasf: 378758, eg_nasf: 323131,
       projects: [
-        { name: "Clinical Sciences Building (CCAP)", budget_m: 203.7, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Dental School Building", budget_m: 180, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Cancer Center Building", budget_m: 138.2, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Renov, Repair & Completion of Academy", budget_m: 100, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Warehouse Building Renovation", budget_m: 52.4, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "El Paso Parking Garage #2", budget_m: 50, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "Family Medicine Clinic", budget_m: 36.7, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Dept of Public Health Renov", budget_m: 26.85, year: 2025, type: "Repair and Renovation", source: "thecb" },
       ]
     },
     {
@@ -573,16 +516,12 @@ export const RAW_DATA: RawData = {
       strategy_priority: 10, thecb_total_m: 987.74,
       strategy_notes: "Top-tier. SLC working Music Building.",
       projects: [
-        { name: "Hilltop Housing Phase II", budget_m: 251.28, year: 2024, type: "New Construction", source: "thecb" },
         { name: "Chemistry Building", budget_m: 226.8, year: 2028, type: "New Construction", source: "thecb", notes: "strategy: priority target" },
         { name: "Round Rock Multi-Purpose Building", budget_m: 110, year: 2028, type: "New Construction", source: "thecb" },
         { name: "Music Building", budget_m: 90, year: 2027, type: "New Construction", source: "thecb", notes: "strategy: SLC working" },
-        { name: "STAR Park Multi-Tenant Building", budget_m: 40, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Aquarena / Charles Austin Garage", budget_m: 32.4, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Renovate Theatre Building", budget_m: 30, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Facilities / Live Oak Parking Garage", budget_m: 29.16, year: 2028, type: "New Construction", source: "thecb" },
-        { name: "ALERRT Center Improvements", budget_m: 25, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Athletic Practice Facility", budget_m: 25, year: 2025, type: "New Construction", source: "thecb", notes: "HKS Sports opportunity" },
         { name: "STEM Ingram Parking Garage", budget_m: 21.6, year: 2026, type: "New Construction", source: "thecb" },
       ]
     },
@@ -632,7 +571,6 @@ export const RAW_DATA: RawData = {
         { name: "McKibben Reno for School of Nursing", budget_m: 50, year: 2029, type: "Repair and Renovation", source: "thecb", notes: "HKS Health opportunity" },
         { name: "Baseball/Softball Complex", budget_m: 40, year: 2028, type: "New Construction", source: "thecb" },
         { name: "Replacement of Kennedy Auditorium", budget_m: 35, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "New Entrepreneurship Center", budget_m: 40, year: 2025, type: "New Construction", source: "thecb" },
       ]
     },
     {
@@ -640,7 +578,6 @@ export const RAW_DATA: RawData = {
       strategy_priority: 10, thecb_total_m: 791.23,
       gsf: 865064, nasf: 421951, eg_nasf: 400180,
       projects: [
-        { name: "University Center Addition/Renovation", budget_m: 175, year: 2025, type: "Addition", source: "thecb" },
         { name: "UTA West Building A", budget_m: 161, year: 2026, type: "New Construction", source: "thecb" },
         { name: "E&G Facility Renewal", budget_m: 137, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Fine Arts Renovation", budget_m: 113.4, year: 2030, type: "Repair and Renovation", source: "thecb" },
@@ -670,18 +607,13 @@ export const RAW_DATA: RawData = {
         { name: "NEW: Construct Bluebonnet Hill", budget_m: 1360, year: 2026, type: "New Construction", source: "thecb" },
         { name: "PMA: Sciences and Research Complex", budget_m: 810, year: 2027, type: "Repair and Renovation", source: "thecb" },
         { name: "ARC Replacement", budget_m: 810, year: 2027, type: "Repair and Renovation", source: "thecb" },
-        { name: "MCP Enabling: UTL and Infrastructure", budget_m: 600, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "PAT Full Renovation", budget_m: 450, year: 2027, type: "Repair and Renovation", source: "thecb" },
-        { name: "ET Student & Financial Sys Transformation", budget_m: 318, year: 2025, type: "Information Resources", source: "thecb" },
         { name: "I35 Cap: Masterplan and Cap", budget_m: 156, year: 2026, type: "New Construction", source: "thecb" },
         { name: "UTC: Renovate Building", budget_m: 149.15, year: 2027, type: "Repair and Renovation", source: "thecb" },
         { name: "GSH II: Graduate Student Housing Ph II", budget_m: 142.5, year: 2026, type: "New Construction", source: "thecb" },
         { name: "CMB: Renov Complex to Advance Creative AI", budget_m: 130.81, year: 2027, type: "Repair and Renovation", source: "thecb" },
         { name: "CBA/GSB: Renovate Space", budget_m: 130, year: 2027, type: "Repair and Renovation", source: "thecb" },
-        { name: "ET Equipment Lifecycle & Remediation", budget_m: 131, year: 2025, type: "Information Resources", source: "thecb" },
-        { name: "Law School Village", budget_m: 105, year: 2025, type: "New Construction", source: "thecb" },
         { name: "BIO: Biological Labs Renov", budget_m: 100, year: 2026, type: "Repair and Renovation", source: "thecb" },
-        { name: "Symphony Square Acquisition & Build-out", budget_m: 86, year: 2025, type: "Land Acquisition", source: "thecb" },
       ]
     },
     {
@@ -689,14 +621,10 @@ export const RAW_DATA: RawData = {
       strategy_priority: 10, thecb_total_m: 1923.75,
       gsf: 3265052, nasf: 1239783, eg_nasf: 750800,
       projects: [
-        { name: "Student Success Center | Student Union", budget_m: 292.5, year: 2023, type: "New Construction", source: "thecb" },
         { name: "Multidisciplinary Science & Technology Building", budget_m: 240, year: 2026, type: "New Construction", source: "thecb", notes: "strategy: Payette? Ballinger?" },
         { name: "Event Center", budget_m: 220, year: 2026, type: "New Construction", source: "thecb", notes: "strategy: target" },
-        { name: "Student Housing VIII", budget_m: 201, year: 2024, type: "New Construction", source: "thecb" },
         { name: "Behavioral and Brain Sciences", budget_m: 175, year: 2028, type: "New Construction", source: "thecb", notes: "strategy: target" },
         { name: "Student Housing IX", budget_m: 145, year: 2029, type: "New Construction", source: "thecb", notes: "strategy: target" },
-        { name: "School of Management Expansion III", budget_m: 98, year: 2024, type: "New Construction", source: "thecb" },
-        { name: "Arts & Performance Complex Ph 2", budget_m: 93.75, year: 2024, type: "New Construction", source: "thecb" },
         { name: "Parking Structure II – Housing", budget_m: 83.5, year: 2028, type: "New Construction", source: "thecb" },
         { name: "Parking Structure VI", budget_m: 83.5, year: 2030, type: "New Construction", source: "thecb" },
         { name: "Replacement of Hoblitzelle Hall", budget_m: 60, year: 2030, type: "New Construction", source: "thecb" },
@@ -711,14 +639,11 @@ export const RAW_DATA: RawData = {
       strategy_notes: "HSI flagship — $569M pipeline. Texas Western Hall, Student Success Building, and Student Housing are near-term. DoD/Fort Bliss adjacency.",
       gsf: 647205, nasf: 364797, eg_nasf: 133467,
       projects: [
-        { name: "Texas Western Hall", budget_m: 109.52, year: 2023, type: "New Construction", source: "thecb" },
         { name: "Renov, Repair & Completion of Existing Academy", budget_m: 100, year: 2026, type: "Repair and Renovation", source: "thecb" },
-        { name: "Advanced Manufacturing & Aerospace Center", budget_m: 80, year: 2023, type: "New Construction", source: "thecb" },
         { name: "Union West Renovation", budget_m: 70, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Student Success Building", budget_m: 64.5, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Student Housing", budget_m: 62.7, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Parking Garage", budget_m: 37.31, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Property Acquisition", budget_m: 20, year: 2025, type: "Land Acquisition", source: "thecb" },
       ]
     },
     {
@@ -786,7 +711,6 @@ export const RAW_DATA: RawData = {
         { name: "New School of Behavioral Sciences", budget_m: 93.5, year: 2027, type: "New Construction", source: "thecb" },
         { name: "Sugarland Multi-Specialty Clinic", budget_m: 75, year: 2027, type: "New Construction", source: "thecb" },
         { name: "Digital Innovation Tower", budget_m: 72, year: 2029, type: "New Construction", source: "thecb" },
-        { name: "Bellaire Station Renovation", budget_m: 27.48, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Expanded Parking", budget_m: 24, year: 2026, type: "New Construction", source: "thecb" },
         { name: "UCT Repurpose/Modernization", budget_m: 19.6, year: 2026, type: "Repair and Renovation", source: "thecb" },
       ]
@@ -798,10 +722,6 @@ export const RAW_DATA: RawData = {
       projects: [
         { name: "Research Expansion Facility (Science Two)", budget_m: 300, year: 2028, type: "New Construction", source: "thecb" },
         { name: "Clinical Expansion Projects", budget_m: 200, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "Campus Renewal and Maintenance (FY26-30)", budget_m: 110, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Science One Research Building", budget_m: 100, year: 2024, type: "New Construction", source: "thecb" },
-        { name: "Center For Brain Health Building", budget_m: 99.90, year: 2023, type: "New Construction", source: "thecb" },
-        { name: "Renovation of Research Space Phase Two", budget_m: 40, year: 2023, type: "Repair and Renovation", source: "thecb" },
         { name: "2nd Hospital Garage", budget_m: 33.8, year: 2027, type: "New Construction", source: "thecb" },
         { name: "Renovation of Research Space Phase Three", budget_m: 25, year: 2027, type: "Repair and Renovation", source: "thecb" },
       ]
@@ -813,18 +733,12 @@ export const RAW_DATA: RawData = {
       strategy_notes: "Second-largest pipeline at $6.78B. Patient Care + Austin Medical Complex each $2.5B.",
       projects: [
         { name: "1 Patient Care", budget_m: 2500, year: 2026, type: "New Construction", source: "thecb", notes: "HKS Health flagship" },
-        { name: "Austin Medical Complex Project", budget_m: 2500, year: 2020, type: "New Construction", source: "thecb", notes: "HKS Health flagship" },
         { name: "Radiology Outpatient Center Replacement", budget_m: 213, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Jones Bates-Freeman AC Demo", budget_m: 188.49, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Pressler Street Garage 2", budget_m: 145, year: 2026, type: "New Construction", source: "thecb" },
-        { name: "CRR Renovation Budget", budget_m: 122.81, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "Proton Therapy Center 1 – Equipment Replace", budget_m: 124.7, year: 2026, type: "Repair and Renovation", source: "thecb" },
         { name: "Permian Basin", budget_m: 110, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Clinics of the Future", budget_m: 90.8, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Clark Clinics Facility Renewal", budget_m: 73.3, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "6624 Fannin Lease", budget_m: 62, year: 2026, type: "Repair and Renovation", source: "thecb" },
-        { name: "Information Technology Projects", budget_m: 373.37, year: 2025, type: "Information Resources", source: "thecb" },
-        { name: "Land Acquisitions (1, 2, 3)", budget_m: 92, year: 2025, type: "Land Acquisition", source: "thecb" },
         { name: "Expansion – Woodlands", budget_m: 20, year: 2026, type: "Addition", source: "thecb" },
       ]
     },
@@ -834,14 +748,7 @@ export const RAW_DATA: RawData = {
       gsf: 658386, nasf: 434549, eg_nasf: 60350,
       projects: [
         { name: "Construct New Research Building 1", budget_m: 510, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Institutional Infrastructure Refresh & Renewal", budget_m: 421.02, year: 2025, type: "Infrastructure", source: "thecb" },
         { name: "League City Campus Phase 3 Expansion", budget_m: 150, year: 2026, type: "Addition", source: "thecb" },
-        { name: "Information Technology Investments", budget_m: 127.68, year: 2025, type: "Information Resources", source: "thecb" },
-        { name: "Student Housing", budget_m: 85, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "East Plant Chiller Build-Out & Utility Loop", budget_m: 54.94, year: 2025, type: "Infrastructure", source: "thecb" },
-        { name: "School of Medicine Renovation", budget_m: 50, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Texas Medical Center Research & Innovation (lease)", budget_m: 25, year: 2025, type: "Leased Space", source: "thecb" },
-        { name: "Clear Lake Multispecialty Clinic", budget_m: 23, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Angleton MOB", budget_m: 20, year: 2027, type: "New Construction", source: "thecb" },
       ]
     },
@@ -852,9 +759,7 @@ export const RAW_DATA: RawData = {
       projects: [
         { name: "Deferred Maintenance & Resiliency Projects", budget_m: 340, year: 2027, type: "Repair and Renovation", source: "thecb" },
         { name: "SOPH & SHP Academic Center", budget_m: 290, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Fort Worth Medical Center", budget_m: 106.93, year: 2025, type: "Repair and Renovation", source: "thecb" },
         { name: "Health System IP or OP Expansion TBD", budget_m: 89.7, year: 2026, type: "Repair and Renovation", source: "thecb" },
-        { name: "Purchase Area Parcels", budget_m: 75, year: 2025, type: "Land Acquisition", source: "thecb" },
         { name: "Salvation Army Property Purchase", budget_m: 24, year: 2026, type: "Land Acquisition", source: "thecb" },
         { name: "Cancer Center Outpatient Shell Buildout", budget_m: 9, year: 2026, type: "Repair and Renovation", source: "thecb" },
       ]
@@ -864,18 +769,8 @@ export const RAW_DATA: RawData = {
       strategy_priority: 2, thecb_total_m: 1347.64,
       projects: [
         { name: "New Hospital", budget_m: 550, year: 2027, type: "New Construction", source: "thecb", notes: "HKS Health opportunity" },
-        { name: "New Research with Vivarium Building", budget_m: 160, year: 2025, type: "Addition", source: "thecb" },
-        { name: "Brw Engineering Building & Chilled Water Plant", budget_m: 150, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Medical Office Building (McAllen)", budget_m: 70, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Student Dining", budget_m: 62, year: 2026, type: "New Construction", source: "thecb" },
         { name: "Majestic Theater", budget_m: 60, year: 2027, type: "New Construction", source: "thecb" },
-        { name: "Student Housing", budget_m: 50, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Physical/Occupational Therapy Remodel", budget_m: 42.3, year: 2025, type: "Repair and Renovation", source: "thecb", notes: "HKS Health opportunity" },
-        { name: "Optometry Remodel", budget_m: 41.3, year: 2025, type: "Repair and Renovation", source: "thecb" },
-        { name: "Edinburg Railway Safety Lab", budget_m: 15, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Property: 1400 E Nolana (10 ac)", budget_m: 12.1, year: 2025, type: "Land Acquisition", source: "thecb" },
-        { name: "New Gym at Brownsville Area", budget_m: 11, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Brownsville Machine Shop", budget_m: 10, year: 2025, type: "New Construction", source: "thecb" },
       ]
     },
 
@@ -890,7 +785,6 @@ export const RAW_DATA: RawData = {
         { name: "Research Support Satellite Plant", budget_m: 200, year: 2027, type: "Infrastructure", source: "thecb" },
         { name: "New Moody Towers Residence Hall Replacement", budget_m: 200, year: 2027, type: "New Construction", source: "thecb", notes: "strategy: target" },
         { name: "Center for Innov in Adv Mfg & AI", budget_m: 168, year: 2027, type: "New Construction", source: "thecb", notes: "strategy: target" },
-        { name: "New Freshman Housing", budget_m: 167, year: 2025, type: "New Construction", source: "thecb" },
         { name: "Law Complex Renovation", budget_m: 115.48, year: 2029, type: "Repair and Renovation", source: "thecb" },
         { name: "Research Infrastructure Phase 1", budget_m: 100, year: 2027, type: "Infrastructure", source: "thecb" },
         { name: "E. Cullen Renovation", budget_m: 79, year: 2029, type: "Repair and Renovation", source: "thecb" },
@@ -898,8 +792,6 @@ export const RAW_DATA: RawData = {
         { name: "Campus Life Safety Building", budget_m: 68.75, year: 2027, type: "New Construction", source: "thecb" },
         { name: "Renovate Lamar Fleming Jr.", budget_m: 67.7, year: 2029, type: "Repair and Renovation", source: "thecb" },
         { name: "Renovate Fred J. Heyne Building", budget_m: 40.63, year: 2029, type: "Repair and Renovation", source: "thecb" },
-        { name: "Agrawal Level 2 and 4 Buildout", budget_m: 35, year: 2025, type: "New Construction", source: "thecb" },
-        { name: "Student Center Addition", budget_m: 28.6, year: 2024, type: "Addition", source: "thecb" },
       ]
     },
     {

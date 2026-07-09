@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Sun, Moon, Monitor, Type, ChevronDown } from "lucide-react";
+import { Sun, Moon, Type, ChevronDown } from "lucide-react";
 import { useThemeScale, SCALE_PRESETS, type Theme, type ScalePreset } from "@/lib/theme-scale";
 import { FONT } from "@/lib/constants";
 
@@ -10,9 +10,8 @@ export default function ThemeScaleControls() {
   const dark = resolvedTheme === "dark";
 
   const themeOpts: { id: Theme; icon: React.ElementType; label: string }[] = [
-    { id: "light",  icon: Sun,     label: "Light"  },
-    { id: "system", icon: Monitor, label: "System" },
-    { id: "dark",   icon: Moon,    label: "Dark"   },
+    { id: "light", icon: Sun,  label: "Light" },
+    { id: "dark",  icon: Moon, label: "Dark"  },
   ];
 
   const btn: React.CSSProperties = {

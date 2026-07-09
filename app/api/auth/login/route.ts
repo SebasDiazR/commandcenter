@@ -8,7 +8,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Server misconfiguration.' }, { status: 500 });
   }
 
-  if (password !== sitePassword) {
+  // Trim both sides: pasted passwords and Vercel env vars commonly carry
+  // trailing whitespace/newlines that would silently fail an exact match.
+  const submitted = String(password ?? '').trim();
+  if (submitted !== sitePassword.trim()) {
     return NextResponse.json({ error: 'Invalid password.' }, { status: 401 });
   }
 

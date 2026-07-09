@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays, MapPin, Search, Star, Archive, ArchiveRestore,
-  ExternalLink, Users, Plus, X, Building2, Clock, UserPlus, Trash2, Cloud, WifiOff,
+  ExternalLink, Users, Plus, X, Building2, Clock, UserPlus, Trash2, Cloud,
   RefreshCw, Check, Sparkles,
 } from "lucide-react";
 
@@ -367,7 +367,7 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-3, #94A3B8)", marginTop: 2 }}>
                   {backend
                     ? <><Cloud size={11} color="#16A34A" /> Shared across the team</>
-                    : <><WifiOff size={11} color="#D97706" /> Local only — run the Supabase migration to share</>}
+                    : <><span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--text-3, #94A3B8)", opacity: 0.7 }} /> Local only</>}
                   {saving && <span style={{ color: "#B45309" }}>· saving…</span>}
                 </div>
               </div>

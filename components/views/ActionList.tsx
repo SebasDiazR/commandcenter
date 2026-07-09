@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, AlertCircle, List, FolderOpen, Building2, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Trophy, ChevronRight } from "lucide-react";
 import InfoTip from "../InfoTip";
@@ -10,10 +10,57 @@ import { getRankExplanation } from "@/lib/scoring";
 import type { EnrichedInstitution } from "@/lib/types";
 
 const cardStyle  = SHARED_STYLES.card;
-const thStyle    = SHARED_STYLES.th;
-const tdStyle    = SHARED_STYLES.td;
 const sectionTitleStyle = SHARED_STYLES.sectionTitle;
 const sectionSubStyle   = SHARED_STYLES.sectionSub;
+
+// ── Responsive density ────────────────────────────────────────────────────────
+// The Opportunities tables live inside the dashboard pane, which narrows when
+// Split View opens. Rather than fall back to a horizontal scrollbar, we measure
+// the available width and tighten cell padding / font / controls so every column
+// stays visible and long text wraps instead of forcing overflow.
+type Density = "comfortable" | "compact" | "tight";
+
+function useElementWidth<T extends HTMLElement>(ref: React.RefObject<T | null>) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => {
+      const cw = entries[0]?.contentRect.width;
+      if (cw != null) setW(cw);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
+
+// 0 = not yet measured → assume comfortable (avoids a compact→comfortable flash on mount).
+function densityFor(width: number): Density {
+  if (width === 0 || width >= 1040) return "comfortable";
+  if (width >= 780) return "compact";
+  return "tight";
+}
+
+interface DensityStyles { density: Density; th: React.CSSProperties; td: React.CSSProperties; }
+
+function makeDensityStyles(density: Density): DensityStyles {
+  const th = density === "tight"
+    ? { ...SHARED_STYLES.th, padding: "8px 7px", fontSize: 10, letterSpacing: "0.04em" }
+    : density === "compact"
+      ? { ...SHARED_STYLES.th, padding: "9px 9px", fontSize: 10.5 }
+      : SHARED_STYLES.th;
+  const td = density === "tight"
+    ? { ...SHARED_STYLES.td, padding: "8px 7px", fontSize: 12 }
+    : density === "compact"
+      ? { ...SHARED_STYLES.td, padding: "10px 9px", fontSize: 12.5 }
+      : SHARED_STYLES.td;
+  return { density, th, td };
+}
+
+const DensityCtx = createContext<DensityStyles>(makeDensityStyles("comfortable"));
+const DensityProvider = DensityCtx.Provider;
+const useDensity = () => useContext(DensityCtx);
 
 interface ActionListProps {
   institutions: EnrichedInstitution[];
@@ -29,8 +76,11 @@ type SortDir = "asc" | "desc";
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Stars({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const { density } = useDensity();
+  const size = density === "tight" ? 13 : density === "compact" ? 14 : 16;
+  const pad  = density === "comfortable" ? 2 : 1;
   return (
-    <span style={{ display: "inline-flex", gap: 2 }} role="group" aria-label={`Relationship: ${value} of 5 stars`}>
+    <span style={{ display: "inline-flex", gap: density === "comfortable" ? 2 : 1 }} role="group" aria-label={`Relationship: ${value} of 5 stars`}>
       {[1, 2, 3, 4, 5].map(n => (
         <button
           key={n}
@@ -38,12 +88,12 @@ function Stars({ value, onChange }: { value: number; onChange: (n: number) => vo
           aria-label={`Set relationship to ${n} star${n !== 1 ? "s" : ""}`}
           aria-pressed={n <= value}
           style={{
-            background: "none", border: "none", padding: 2,
+            background: "none", border: "none", padding: pad,
             cursor: "pointer", color: n <= value ? "#D97706" : "var(--border-strong)",
             display: "inline-flex", lineHeight: 1,
           }}
         >
-          <Star size={16} fill={n <= value ? "#D97706" : "none"} />
+          <Star size={size} fill={n <= value ? "#D97706" : "none"} />
         </button>
       ))}
     </span>
@@ -134,6 +184,7 @@ function SortableHeader({
   label?: string; sortKey: SortKey; currentKey: SortKey; dir: SortDir;
   onSort: (k: SortKey) => void; align?: "left" | "right"; children?: React.ReactNode;
 }) {
+  const { th: thStyle } = useDensity();
   const active = currentKey === key;
   const Icon = active ? (dir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
   return (
@@ -156,6 +207,7 @@ function SortableHeader({
 // ── Win/Loss tab ──────────────────────────────────────────────────────────────
 
 function WinLossTab({ institutions }: { institutions: EnrichedInstitution[] }) {
+  const { th: thStyle, td: tdStyle } = useDensity();
   const stats = useMemo(() => {
     const bySystem: Record<string, { won: number; lost: number; wonPipeline: number; lostPipeline: number }> = {};
     let totalWon = 0, totalLost = 0, totalWonPipeline = 0, totalLostPipeline = 0;
@@ -305,6 +357,8 @@ interface InstitutionRowProps {
 }
 
 function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSelect, onToggle, updateEdit, byEnergyLength, rankDelta }: InstitutionRowProps) {
+  const { td: tdStyle, density } = useDensity();
+  const ctrl = density === "tight" ? 20 : density === "compact" ? 22 : 24;
   const [flashDir, setFlashDir] = useState<"up" | "down" | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -337,7 +391,7 @@ function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSele
           )}
           {idx + 1}
         </td>
-        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 160 }}>
+        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: density === "comfortable" ? 160 : 110 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
               onClick={e => onToggle(inst._rawName, e)}
@@ -368,7 +422,7 @@ function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSele
             {inst.system}
           </span>
         </td>
-        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+        <td style={{ ...tdStyle, whiteSpace: density === "tight" ? "normal" : "nowrap" }}>
           {actionDate ? (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: 4,
@@ -400,15 +454,15 @@ function InstitutionRow({ inst, idx, focus, rank, totalCount, isExpanded, onSele
             <button
               onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.max(0, (inst.edit.priority ?? inst.strategy_priority ?? 0) - 1) }); }}
               aria-label={`Decrease priority for ${inst.name}`}
-              style={{ width: 24, height: 24, border: "1px solid var(--border-strong)", background: "var(--bg-chip)", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "var(--text-1)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−
+              style={{ width: ctrl, height: ctrl, border: "1px solid var(--border-strong)", background: "var(--bg-chip)", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "var(--text-1)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−
             </button>
-            <strong style={{ minWidth: 22, textAlign: "center", color: "var(--amber)", fontSize: 14 }}>
+            <strong style={{ minWidth: density === "tight" ? 16 : 22, textAlign: "center", color: "var(--amber)", fontSize: 14 }}>
               {inst.edit.priority ?? inst.strategy_priority ?? "—"}
             </strong>
             <button
               onClick={e => { e.stopPropagation(); updateEdit(inst._rawName, { priority: Math.min(10, (inst.edit.priority ?? inst.strategy_priority ?? 0) + 1) }); }}
               aria-label={`Increase priority for ${inst.name}`}
-              style={{ width: 24, height: 24, border: "1px solid var(--border-strong)", background: "var(--bg-chip)", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "var(--text-1)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+
+              style={{ width: ctrl, height: ctrl, border: "1px solid var(--border-strong)", background: "var(--bg-chip)", borderRadius: 4, cursor: "pointer", fontWeight: 700, color: "var(--text-1)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+
             </button>
           </div>
         </td>
@@ -455,6 +509,12 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
   const prevOrderRef = useRef<string[]>([]);
   const rankDeltaRef = useRef<Map<string, number>>(new Map());
 
+  // Density follows the view's own rendered width — so the tables condense the
+  // moment the dashboard pane narrows (Split View, small windows) with no scroll.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(rootRef);
+  const ds = useMemo(() => makeDensityStyles(densityFor(width)), [width]);
+  const { th: thStyle, td: tdStyle, density } = ds;
 
   const toggleRow = (rawName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -552,7 +612,8 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
   ];
 
   return (
-    <div>
+    <DensityProvider value={ds}>
+    <div ref={rootRef}>
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
         <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Action List</h2>
@@ -678,7 +739,7 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
                           )}
                           {idx + 1}
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: 180 }}>{p.name}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: "var(--text-1)", minWidth: density === "comfortable" ? 180 : 120 }}>{p.name}</td>
                         <td style={{ ...tdStyle, color: "var(--text-2)" }}>{inst.name}</td>
                         <td style={tdStyle}>
                           <span style={{ display: "inline-block", padding: "2px 8px", background: SYSTEM_COLORS[inst.system] ?? "var(--bg-raised)", color: "#FFF", fontSize: 11, borderRadius: 4, fontWeight: 700, whiteSpace: "nowrap" }}>
@@ -727,5 +788,6 @@ export default function ActionList({ institutions, onSelect, updateEdit, updateP
       </AnimatePresence>
 
     </div>
+    </DensityProvider>
   );
 }

@@ -41,12 +41,12 @@ type MeetingFilterState = {
 };
 
 const SLIDES = [
-  "Executive Overview",
-  "Pipeline View",
-  "Risk View",
-  "Geographic View",
-  "Forecast View",
-];
+  { title: "Executive Overview", kicker: "01 — Portfolio", subtitle: "The pipeline at a glance" },
+  { title: "Pipeline",          kicker: "02 — Opportunity", subtitle: "Where the fees are" },
+  { title: "Risk",              kicker: "03 — Exposure", subtitle: "What needs leadership attention" },
+  { title: "Geography",         kicker: "04 — Territory", subtitle: "How the opportunity is distributed" },
+  { title: "Forecast",          kicker: "05 — Outlook", subtitle: "Revenue, net fee, and capacity" },
+] as const;
 
 const FEE_RATE = 0.065;
 const NET_FEE_RATE = 0.045;
@@ -90,13 +90,13 @@ function MetricCard({ label, value, sub, color, icon: Icon }: {
   icon: React.ElementType;
 }) {
   return (
-    <div className="meeting-card meeting-metric" style={{ borderTopColor: color }}>
-      <div>
-        <div className="meeting-kicker">{label}</div>
-        <div className="meeting-metric-value tabular-nums" style={{ color }}>{value}</div>
-        <div className="meeting-muted">{sub}</div>
+    <div className="meeting-metric" style={{ "--accent": color } as React.CSSProperties}>
+      <div className="meeting-metric-head">
+        <span className="meeting-kicker">{label}</span>
+        <span className="meeting-metric-icon"><Icon size={16} /></span>
       </div>
-      <Icon size={24} color={color} />
+      <div className="meeting-metric-value tabular-nums">{value}</div>
+      <div className="meeting-muted">{sub}</div>
     </div>
   );
 }
@@ -105,7 +105,7 @@ function SeverityPill({ score }: { score: number }) {
   const color = score >= 80 ? "#DC2626" : score >= 60 ? "#F59E0B" : "#2563EB";
   const label = score >= 80 ? "Critical" : score >= 60 ? "Watch" : "Moderate";
   return (
-    <span className="meeting-pill" style={{ color, background: `${color}18`, borderColor: `${color}55` }}>
+    <span className="meeting-pill" style={{ color, background: `${color}18`, border: `1px solid ${color}55` }}>
       {label} {Math.round(score)}
     </span>
   );
@@ -120,6 +120,7 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
   const [hoveredInst, setHoveredInst] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [filters, setFilters] = useState<MeetingFilterState>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const tick = window.setInterval(() => setUpdatedAt(new Date()), 60_000);
@@ -138,7 +139,7 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
 
     const schedule = () => {
       cancel();
-      if (document.hidden || selectedInst) return;
+      if (document.hidden || selectedInst || showFilters) return;
       tickRef.current = window.setTimeout(() => {
         setSlide(s => (s + 1) % SLIDES.length);
         schedule();
@@ -161,16 +162,29 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
       cancel();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [autoPlay, selectedInst]);
+  }, [autoPlay, selectedInst, showFilters]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const editing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+      if (event.key === "Escape") {
+        // Peel back layers before leaving: drawer → selection → exit.
+        setShowFilters(prev => {
+          if (prev) return false;
+          setSelectedInst(sel => {
+            if (sel) return null;
+            onExit();
+            return sel;
+          });
+          return prev;
+        });
+        return;
+      }
       if (editing) return;
-      if (event.key === "Escape") onExit();
       if (event.key === "ArrowRight") setSlide(s => (s + 1) % SLIDES.length);
       if (event.key === "ArrowLeft") setSlide(s => (s - 1 + SLIDES.length) % SLIDES.length);
+      if (event.key.toLowerCase() === "f") setShowFilters(v => !v);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -419,7 +433,7 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
   };
 
   const renderTopPipeline = () => (
-    <div className="meeting-grid meeting-grid-four">
+    <div className="meeting-grid meeting-grid-four meeting-pipeline">
       <div className="meeting-card meeting-span-two">
         <div className="meeting-section-head">
           <div>
@@ -441,14 +455,15 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
           ))}
         </div>
       </div>
-      <div className="meeting-card meeting-span-two">
+      <div className="meeting-card meeting-span-two meeting-chart-card">
         <div className="meeting-section-head">
           <div>
             <div className="meeting-kicker">Pipeline By Stage</div>
             <h2>Conversion position</h2>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="meeting-chart">
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data.byStage} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
             <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey="stage" tick={{ fill: "var(--text-2)", fontSize: 12, fontFamily: FONT }} axisLine={false} tickLine={false} />
@@ -459,8 +474,9 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        </div>
       </div>
-      <MetricCard label="Period Trend" value={`${data.trendPct >= 0 ? "+" : ""}${data.trendPct.toFixed(0)}%`} sub="FY26 pipeline vs FY25 baseline" color={data.trendPct >= 0 ? "#10B981" : "#DC2626"} icon={TrendingUp} />
+      <MetricCard label="Period Trend" value={`${data.trendPct >= 0 ? "+" : ""}${data.trendPct.toFixed(0)}%`} sub="FY26 pipeline vs FY25 baseline" color={data.trendPct >= 0 ? "var(--emerald)" : "var(--rose)"} icon={TrendingUp} />
       <div className="meeting-card meeting-span-three">
         <div className="meeting-section-head">
           <div>
@@ -482,14 +498,14 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
   );
 
   const renderRisks = () => (
-    <div className="meeting-grid meeting-grid-four">
+    <div className="meeting-grid meeting-grid-four meeting-risk">
       <div className="meeting-card meeting-span-two">
         <div className="meeting-section-head">
           <div>
             <div className="meeting-kicker">Top Risks</div>
             <h2>Leadership attention required</h2>
           </div>
-          <ShieldAlert color="#DC2626" />
+          <ShieldAlert color="var(--rose)" />
         </div>
         <div className="meeting-list">
           {data.risks.map(row => (
@@ -540,19 +556,25 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
   );
 
   const renderForecast = () => (
-    <div className="meeting-grid meeting-grid-four">
-      <MetricCard label="Revenue Forecast" value={fmtMoney(data.grossFee)} sub="gross fee at 6.5%" color="#0EA5E9" icon={DollarSign} />
-      <MetricCard label="Net Fee Forecast" value={fmtMoney(data.netFee)} sub="weighted at 4.5%" color="#10B981" icon={Target} />
-      <MetricCard label="Win Probability" value={`${data.avgProbability.toFixed(0)}%`} sub="weighted portfolio average" color="#8B5CF6" icon={Gauge} />
-      <MetricCard label="Conversion Forecast" value={fmtMoney(data.weightedPipeline)} sub="probability-adjusted pipeline" color="#F59E0B" icon={TrendingUp} />
-      <div className="meeting-card meeting-span-four">
+    <div className="meeting-grid meeting-grid-four meeting-forecast">
+      <MetricCard label="Revenue Forecast" value={fmtMoney(data.grossFee)} sub="gross fee at 6.5%" color="var(--sky)" icon={DollarSign} />
+      <MetricCard label="Net Fee Forecast" value={fmtMoney(data.netFee)} sub="weighted at 4.5%" color="var(--emerald)" icon={Target} />
+      <MetricCard label="Win Probability" value={`${data.avgProbability.toFixed(0)}%`} sub="weighted portfolio average" color="var(--indigo)" icon={Gauge} />
+      <MetricCard label="Conversion Forecast" value={fmtMoney(data.weightedPipeline)} sub="probability-adjusted pipeline" color="var(--amber)" icon={TrendingUp} />
+      <div className="meeting-card meeting-span-four meeting-chart-card">
         <div className="meeting-section-head">
           <div>
             <div className="meeting-kicker">Forecast</div>
             <h2>Revenue, net fee, and capacity outlook</h2>
           </div>
+          <div className="meeting-legend">
+            <span style={{ "--dot": "var(--sky)" } as React.CSSProperties}>Revenue</span>
+            <span style={{ "--dot": "var(--emerald)" } as React.CSSProperties}>Net Fee</span>
+            <span style={{ "--dot": "var(--amber)" } as React.CSSProperties}>Capacity</span>
+          </div>
         </div>
-        <ResponsiveContainer width="100%" height={360}>
+        <div className="meeting-chart">
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data.byYear} margin={{ top: 12, right: 24, left: 10, bottom: 0 }}>
             <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey="year" tick={{ fill: "var(--text-2)", fontSize: 12, fontFamily: FONT }} axisLine={false} tickLine={false} />
@@ -563,12 +585,13 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
             <Line type="monotone" dataKey="weighted" name="Capacity Outlook" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
 
   const renderGeography = () => (
-    <div className="meeting-grid meeting-grid-four">
+    <div className="meeting-grid meeting-grid-four meeting-geo">
       <div className="meeting-card meeting-span-three meeting-map-card">
         <div className="meeting-section-head">
           <div>
@@ -608,16 +631,76 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
     </div>
   );
 
-  const renderOverview = () => (
-    <div className="meeting-grid meeting-grid-four">
-      <MetricCard label="Total Pipeline" value={fmtMoney(data.totalPipeline)} sub={`${data.projects.length} active projects`} color="#10B981" icon={BarChart3} />
-      <MetricCard label="Weighted Pipeline" value={fmtMoney(data.weightedPipeline)} sub="confidence-adjusted" color="#8B5CF6" icon={Target} />
-      <MetricCard label="Top Opportunity" value={fmtMoney(data.topOpportunities[0]?.project.budget_m ?? 0)} sub={data.topOpportunities[0]?.project.name ?? "No active projects"} color="#F59E0B" icon={DollarSign} />
-      <MetricCard label="Immediate Risks" value={String(data.risks.filter(row => row.riskScore >= 80).length)} sub="critical leadership items" color="#DC2626" icon={AlertTriangle} />
-      <div className="meeting-span-two">{renderTopPipeline()}</div>
-      <div className="meeting-span-two">{renderRisks()}</div>
-    </div>
-  );
+  const renderOverview = () => {
+    const lead = data.topOpportunities[0];
+    const topRisk = data.risks[0];
+    const stageStripColors: Record<string, string> = {
+      Won: "#16A34A", Active: "#0EA5E9", Pursuit: "#6366F1", Proposal: "#8B5CF6", Lost: "#64748B",
+    };
+    const liveStages = data.byStage.filter(row => row.pipeline > 0);
+
+    return (
+      <div className="meeting-grid meeting-grid-four meeting-overview">
+        <MetricCard label="Total Pipeline" value={fmtMoney(data.totalPipeline)} sub={`${data.projects.length} active pursuits`} color="var(--sky)" icon={BarChart3} />
+        <MetricCard label="Weighted Pipeline" value={fmtMoney(data.weightedPipeline)} sub={`${data.avgProbability.toFixed(0)}% avg win confidence`} color="var(--indigo)" icon={Target} />
+        <MetricCard label="Net Fee Forecast" value={fmtMoney(data.netFee)} sub="probability-adjusted at 4.5%" color="var(--emerald)" icon={DollarSign} />
+        <MetricCard label="Critical Risks" value={String(data.risks.filter(row => row.riskScore >= 80).length)} sub="items needing leadership" color="var(--rose)" icon={AlertTriangle} />
+
+        <button
+          type="button"
+          className="meeting-card meeting-span-two meeting-story"
+          onClick={() => lead && setSelectedInst(lead.institution._rawName)}
+          disabled={!lead}
+        >
+          <div className="meeting-story-head">
+            <span className="meeting-kicker">Lead Opportunity</span>
+            <TrendingUp size={16} />
+          </div>
+          <div className="meeting-story-value tabular-nums">{fmtMoney(lead?.project.budget_m ?? 0)}</div>
+          <h2>{lead ? shortName(lead.project.name, 54) : "No active pursuits"}</h2>
+          <p>{lead ? `${lead.institution.name} · ${lead.stage} · FY ${lead.project.year ?? "TBD"}` : "Adjust filters to surface opportunities"}</p>
+        </button>
+
+        <button
+          type="button"
+          className="meeting-card meeting-span-two meeting-story meeting-story-risk"
+          onClick={() => topRisk && setSelectedInst(topRisk.institution._rawName)}
+          disabled={!topRisk}
+        >
+          <div className="meeting-story-head">
+            <span className="meeting-kicker">Top Risk</span>
+            {topRisk && <SeverityPill score={topRisk.riskScore} />}
+          </div>
+          <div className="meeting-story-value meeting-story-value-risk">{topRisk ? shortName(topRisk.project.name, 40) : "Clear"}</div>
+          <p>{topRisk ? `${topRisk.institution.name} · ${topRisk.riskReasons.join(", ") || "monitor"}` : "No elevated risks in view"}</p>
+        </button>
+
+        <div className="meeting-card meeting-span-four meeting-stagebar-card">
+          <div className="meeting-section-head">
+            <div>
+              <div className="meeting-kicker">Pipeline by Stage</div>
+              <h2>Conversion position</h2>
+            </div>
+            <span className="meeting-pill">{fmtMoney(data.totalPipeline)} in play</span>
+          </div>
+          <div className="meeting-stagebar" role="img" aria-label="Pipeline distributed by pursuit stage">
+            {liveStages.length === 0 && <div className="meeting-stagebar-empty">No pipeline in current view</div>}
+            {liveStages.map(row => (
+              <div
+                key={row.stage}
+                className="meeting-stagebar-seg"
+                style={{ flexGrow: row.pipeline, "--seg": stageStripColors[row.stage] ?? "#0EA5E9" } as React.CSSProperties}
+                title={`${row.stage} — ${fmtMoney(row.pipeline)}`}
+              >
+                <span className="meeting-stagebar-label">{row.stage}</span>
+                <span className="meeting-stagebar-val tabular-nums">{fmtMoney(row.pipeline)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const slideBody = [
     renderOverview,
@@ -649,49 +732,103 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
   );
 
   return (
-    <div ref={rootRef} className="meeting-mode">
+    <div ref={rootRef} className="meeting-mode" data-slide={slide}>
+      <div className="meeting-ambient" aria-hidden="true" />
+
       <header className="meeting-header">
-        <div>
-          <div className="meeting-kicker">Meeting Mode - Texas Higher Ed FY 2026-2030</div>
-          <h1>{SLIDES[slide]}</h1>
+        <div className="meeting-brand">
+          <div className="meeting-eyebrow">
+            <span className="meeting-eyebrow-dot" />
+            Meeting Mode
+            <span className="meeting-eyebrow-sep">/</span>
+            Texas Higher Ed · FY 2026–2030
+          </div>
+          <div className="meeting-title-row">
+            <span className="meeting-slide-index tabular-nums">{String(slide + 1).padStart(2, "0")}</span>
+            <div>
+              <h1>{SLIDES[slide].title}</h1>
+              <p className="meeting-subtitle">{SLIDES[slide].subtitle}</p>
+            </div>
+          </div>
         </div>
+
         <div className="meeting-header-actions">
-          <span className="meeting-updated"><Clock3 size={14} /> Updated {updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+          <span className="meeting-updated"><Clock3 size={13} /> {updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+          <button
+            type="button"
+            className="meeting-filters-btn"
+            data-active={activeFilterCount > 0}
+            onClick={() => setShowFilters(true)}
+            aria-label="Open filters"
+          >
+            <Filter size={15} />
+            <span className="hide-mobile">Filters</span>
+            {activeFilterCount > 0 && <span className="meeting-filters-count tabular-nums">{activeFilterCount}</span>}
+          </button>
+          <div className="meeting-header-divider" />
           <button type="button" onClick={() => go(-1)} aria-label="Previous slide"><ChevronLeft size={18} /></button>
-          <button type="button" onClick={() => setAutoPlay(value => !value)} aria-label={autoPlay ? "Pause slideshow" : "Play slideshow"}>
+          <button
+            type="button"
+            className="meeting-play-btn"
+            data-active={autoPlay}
+            onClick={() => setAutoPlay(value => !value)}
+            aria-label={autoPlay ? "Pause slideshow" : "Play slideshow"}
+          >
             {autoPlay ? <Pause size={16} /> : <Play size={16} />}
           </button>
           <button type="button" onClick={() => go(1)} aria-label="Next slide"><ChevronRight size={18} /></button>
+          <div className="meeting-header-divider" />
           <button type="button" onClick={toggleFullscreen} aria-label="Toggle fullscreen"><Expand size={16} /></button>
           <button type="button" onClick={onExit} aria-label="Exit Meeting Mode"><X size={18} /></button>
         </div>
       </header>
 
-      <div className="meeting-slide-tabs">
-        {SLIDES.map((label, index) => (
-          <button key={label} type="button" data-active={index === slide} onClick={() => setSlide(index)}>
-            <span>{index + 1}</span>{label}
-          </button>
-        ))}
-      </div>
-
-      <main key={slide} className="meeting-slide meeting-slide-enter">
-        {slideBody}
+      <main className="meeting-stage">
+        <div key={slide} className="meeting-slide meeting-slide-enter">
+          {slideBody}
+        </div>
       </main>
 
-      <aside className="meeting-control-panel" aria-label="Meeting Mode filters">
-        <div className="meeting-control-primary">
-          <div className="meeting-control-summary">
-            <div>
-              <div className="meeting-kicker"><Filter size={12} /> Control Panel</div>
-              <strong>{filteredInstitutions.length}/{institutions.length} institutions</strong>
-              <span>{activeFilterCount ? `${activeFilterCount} filters active` : "All meeting data visible"}</span>
-            </div>
-            <button type="button" onClick={() => setFilters(DEFAULT_FILTERS)} aria-label="Reset Meeting Mode filters">
-              <RotateCcw size={14} /> Reset
-            </button>
-          </div>
+      <nav className="meeting-progress" data-playing={autoPlay} aria-label="Slides">
+        {SLIDES.map((entry, index) => (
+          <button
+            key={entry.title}
+            type="button"
+            className="meeting-progress-seg"
+            data-active={index === slide}
+            data-done={index < slide}
+            onClick={() => setSlide(index)}
+            aria-label={`Go to ${entry.title}`}
+            aria-current={index === slide}
+          >
+            <span className="meeting-progress-num tabular-nums">{String(index + 1).padStart(2, "0")}</span>
+            <span className="meeting-progress-label">{entry.title}</span>
+            <span className="meeting-progress-track">
+              {index === slide && autoPlay && (
+                <i key={slide} style={{ animationDuration: `${SLIDE_MS}ms` }} />
+              )}
+            </span>
+          </button>
+        ))}
+      </nav>
 
+      {showFilters && (
+        <div className="meeting-drawer-scrim" onClick={() => setShowFilters(false)} aria-hidden="true" />
+      )}
+      <aside className="meeting-drawer" data-open={showFilters} aria-label="Meeting Mode filters" aria-hidden={!showFilters}>
+        <div className="meeting-drawer-head">
+          <div>
+            <div className="meeting-kicker"><Filter size={12} /> Control Panel</div>
+            <strong className="tabular-nums">{filteredInstitutions.length}<span>/{institutions.length} institutions</span></strong>
+            <span className="meeting-drawer-sub">{activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active` : "All meeting data visible"}</span>
+          </div>
+          <div className="meeting-drawer-head-actions">
+            <button type="button" onClick={() => setFilters(DEFAULT_FILTERS)} aria-label="Reset filters"><RotateCcw size={13} /> Reset</button>
+            <button type="button" className="meeting-drawer-close" onClick={() => setShowFilters(false)} aria-label="Close filters"><X size={18} /></button>
+          </div>
+        </div>
+
+        <div className="meeting-drawer-body">
           <label className="meeting-search">
             <Search size={14} />
             <input
@@ -702,31 +839,31 @@ export default function MeetingMode({ institutions, onExit }: MeetingModeProps) 
             />
           </label>
 
-          <div className="meeting-filter-range">
-            <span>Min Priority</span>
-            <input
-              type="range"
-              min={0}
-              max={10}
-              step={1}
-              value={filters.minPriority}
-              onChange={event => setFilters(prev => ({ ...prev, minPriority: Number(event.target.value) }))}
-              aria-label="Minimum priority"
-            />
-            <b>{filters.minPriority}</b>
+          <div className="meeting-drawer-controls">
+            <div className="meeting-filter-range">
+              <span>Min Priority</span>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={filters.minPriority}
+                onChange={event => setFilters(prev => ({ ...prev, minPriority: Number(event.target.value) }))}
+                aria-label="Minimum priority"
+              />
+              <b className="tabular-nums">{filters.minPriority}</b>
+            </div>
+
+            <label className="meeting-toggle">
+              <input
+                type="checkbox"
+                checked={filters.showLost}
+                onChange={event => setFilters(prev => ({ ...prev, showLost: event.target.checked }))}
+              />
+              <span>Show Lost</span>
+            </label>
           </div>
 
-          <label className="meeting-toggle">
-            <input
-              type="checkbox"
-              checked={filters.showLost}
-              onChange={event => setFilters(prev => ({ ...prev, showLost: event.target.checked }))}
-            />
-            <span>Show Lost</span>
-          </label>
-        </div>
-
-        <div className="meeting-filter-strip">
           {renderChipGroup("System", "systems", filterOptions.systems)}
           {renderChipGroup("Stage", "stages", filterOptions.stages)}
           {renderChipGroup("Practice", "practices", filterOptions.practices, 8)}
