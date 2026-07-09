@@ -3,6 +3,7 @@ import React from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie } from "recharts";
 import InfoTip from "../InfoTip";
 import { SYSTEM_COLORS, SHARED_STYLES, FONT } from "@/lib/constants";
+import { fmtMoney, activeProjects } from "@/lib/helpers";
 import type { EnrichedInstitution, ProjectTypeRollup } from "@/lib/types";
 
 const cardStyle         = SHARED_STYLES.card;
@@ -19,7 +20,7 @@ interface ProjectTypesProps {
 }
 
 export default function ProjectTypes({ institutions }: ProjectTypesProps) {
-  const allProjects = institutions.flatMap(i => i.projects);
+  const allProjects = institutions.flatMap(i => activeProjects(i.projects));
   const totalBudget = allProjects.reduce((s, p) => s + (p.budget_m ?? 0), 0);
   const typeMap: Record<string, { count: number; total_m: number }> = {};
   allProjects.forEach(p => {
@@ -37,7 +38,7 @@ export default function ProjectTypes({ institutions }: ProjectTypesProps) {
   const systemList = Array.from(new Set(institutions.map(i => i.system)));
   const matrix: Record<string, Record<string, number>> = {};
   systemList.forEach(s => { matrix[s] = {}; typeNames.forEach(t => { matrix[s][t] = 0; }); });
-  institutions.forEach(i => i.projects.forEach(p => { if (matrix[i.system]?.[p.type] != null) matrix[i.system][p.type]++; }));
+  institutions.forEach(i => activeProjects(i.projects).forEach(p => { if (matrix[i.system]?.[p.type] != null) matrix[i.system][p.type]++; }));
 
   const tooltipStyle: React.CSSProperties = {
     background: "var(--chart-tooltip-bg)",
@@ -48,16 +49,19 @@ export default function ProjectTypes({ institutions }: ProjectTypesProps) {
   return (
     <div>
       <h2 style={sectionTitleStyle}>Project Types <InfoTip term="New Construction" /></h2>
-      <div style={sectionSubStyle}>How the $50B splits across the THECB&apos;s seven classifications.</div>
+      <div style={sectionSubStyle}>How {fmtMoney(totalBudget)} of active pipeline splits across {types.length} project type{types.length !== 1 ? "s" : ""} in the current view.</div>
 
       <div style={insightCard}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
           What this is telling you
         </div>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--text-1)", lineHeight: 1.7 }}>
-          <li><strong>New Construction = 67.7%</strong> ($33.9B, 311 projects) — this is where HKS earns design fees.</li>
-          <li><strong>R&R = 21.2%</strong> ($10.6B, 252 projects) — adaptive reuse, often comparable fee margins.</li>
-          <li><strong>Infrastructure +180% YoY</strong> to $3.1B — central plants, utility loops, campus resiliency.</li>
+          {types.slice(0, 3).map(t => (
+            <li key={t.name}>
+              <strong>{t.name} = {t.pct.toFixed(1)}%</strong> ({fmtMoney(t.total_b * 1000)}, {t.count} project{t.count !== 1 ? "s" : ""})
+            </li>
+          ))}
+          {types.length === 0 && <li>No active projects in the current view.</li>}
         </ul>
       </div>
 

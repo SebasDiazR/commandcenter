@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 import { SYSTEM_COLORS, PRACTICE_COLORS, ESTABLISHED_PRACTICES, SHARED_STYLES, FONT } from "@/lib/constants";
-import { fmtMoney, inferPractice } from "@/lib/helpers";
+import { fmtMoney, inferPractice, activeProjects } from "@/lib/helpers";
 import type { EnrichedInstitution } from "@/lib/types";
 
 const cardStyle         = SHARED_STYLES.card;
@@ -33,10 +33,10 @@ function EntryCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: ()
     >
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{inst.name}</div>
       <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
-        {fmtMoney(inst.pipeline)} · {inst.projects.length} projects · {inst.system}
+        {fmtMoney(inst.pipeline)} · {activeProjects(inst.projects).length} projects · {inst.system}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        {Array.from(new Set(inst.projects.map(p => inferPractice(p.name, inst.lead_practice)))).slice(0, 4).map(pr => (
+        {Array.from(new Set(activeProjects(inst.projects).map(p => inferPractice(p.name, inst.lead_practice)))).slice(0, 4).map(pr => (
           <span key={pr} style={{ padding: "1px 7px", background: PRACTICE_COLORS[pr], color: "#FFF", fontSize: 10.5, borderRadius: 3, fontWeight: 700 }}>
             {pr}
           </span>
@@ -48,7 +48,7 @@ function EntryCard({ inst, onSelect }: { inst: EnrichedInstitution; onSelect: ()
 
 export default function PracticeGrowth({ institutions, onSelect }: PracticeGrowthProps) {
   const allProjects: Array<{ name: string; budget_m: number | null; year?: number; instName: string; _rawName: string; system: string; practice: string }> = [];
-  institutions.forEach(inst => inst.projects.forEach(p => allProjects.push({
+  institutions.forEach(inst => activeProjects(inst.projects).forEach(p => allProjects.push({
     ...p, instName: inst.name, _rawName: inst._rawName, system: inst.system,
     practice: inferPractice(p.name, inst.lead_practice),
   })));

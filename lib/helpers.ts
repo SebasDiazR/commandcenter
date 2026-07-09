@@ -56,6 +56,20 @@ export function pipelineTotal(projects: { budget_m: number | null }[]): number {
   return projects.reduce((s, p) => s + (p.budget_m || 0), 0);
 }
 
+/**
+ * Canonical "is this pursuit lost?" test. A project is Lost if EITHER its
+ * outcome or its pursuit_stage is "Lost". Use this everywhere so pipeline $
+ * (which already excludes Lost) and project counts stay on the same basis.
+ */
+export function isLostProject(p: { outcome?: string | null; pursuit_stage?: string | null }): boolean {
+  return p.outcome === "Lost" || p.pursuit_stage === "Lost";
+}
+
+/** Active pursuits — every project that isn't Lost. */
+export function activeProjects<T extends { outcome?: string | null; pursuit_stage?: string | null }>(projects: T[]): T[] {
+  return projects.filter(p => !isLostProject(p));
+}
+
 export function nearestYear(projects: { year: number | null }[]): number | null {
   const ys = projects.map(p => p.year).filter(Boolean) as number[];
   return ys.length ? Math.min(...ys) : null;
