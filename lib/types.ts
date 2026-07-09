@@ -38,6 +38,14 @@ export interface RawInstitution {
   gsf?: number | null;
   nasf?: number | null;
   eg_nasf?: number | null;
+  // Optional geocoded location — set when an institution is added via the
+  // LocationPicker so it appears on the map anywhere in the world. Legacy seed
+  // institutions resolve their coordinates from lib/coords.ts by name instead.
+  lat?: number | null;
+  lng?: number | null;
+  city?: string | null;
+  region?: string | null;  // state / province
+  country?: string | null;
 }
 
 export interface FundingSource {

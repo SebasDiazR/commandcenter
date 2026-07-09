@@ -34,14 +34,36 @@ export function clearState(stateId = "tx"): void {
 
 // ── Supabase (primary persistence) ───────────────────────────────────────────
 
-export async function loadFromSupabase(stateId = "tx"): Promise<EditStateMap | null> {
+// Why a DB read/write failed, so the UI can say something useful instead of
+// silently masking it. "session" = auth cookie missing/expired (the request was
+// redirected to /login); "config" = Supabase creds not set on the server (503);
+// "server" = backend error; "network" = fetch threw.
+export type DbFailure = "session" | "config" | "server" | "network";
+
+// A single object shape (not a discriminated union) on purpose: this project
+// runs with strictNullChecks off, where union narrowing on a boolean flag is
+// unreliable. `error` is non-null only on a genuine failure; `editState` is
+// null when the load failed OR the DB is simply empty.
+export type LoadResult = { editState: EditStateMap | null; error: DbFailure | null };
+
+export async function loadFromSupabase(stateId = "tx"): Promise<LoadResult> {
   try {
     const res = await fetch(`/api/edits?state=${stateId}`);
-    if (!res.ok) return null;
+    // Classify in order of specificity — otherwise an infra 5xx served as an
+    // HTML error page (non-JSON, but not a login redirect) gets mislabeled as a
+    // session expiry.
+    // 1. Auth: the middleware 307-redirects an unauthenticated call to /login,
+    //    and fetch follows it (res.ok stays true) — detect the redirect itself.
+    if (res.redirected || res.url.includes("/login")) return { editState: null, error: "session" };
+    // 2. Status: real backend/config errors (503 = creds missing on the server).
+    if (!res.ok) return { editState: null, error: res.status === 503 ? "config" : "server" };
+    // 3. A 200 that still isn't JSON means something upstream intercepted it.
+    const isJson = res.headers.get("content-type")?.includes("application/json");
+    if (!isJson) return { editState: null, error: "server" };
     const { editState } = await res.json();
-    return editState ?? null;
+    return { editState: editState ?? null, error: null };
   } catch {
-    return null;
+    return { editState: null, error: "network" };
   }
 }
 
@@ -49,11 +71,24 @@ export async function loadFromSupabase(stateId = "tx"): Promise<EditStateMap | n
 // silently revert it (mirrors lib/conference-persistence.ts).
 let saveChain: Promise<unknown> = Promise.resolve();
 
+// A save rejection carrying a machine-readable reason, so the UI can explain
+// *why* the shared DB didn't get the edits (same vocabulary as the load path).
+export type SaveError = Error & { reason: DbFailure };
+function saveError(reason: DbFailure): SaveError {
+  return Object.assign(new Error(`save failed: ${reason}`), { reason });
+}
+// Read the reason off a caught save rejection without relying on `instanceof`
+// (which is unreliable across transpile targets). Defaults to "server".
+export function saveFailureReason(err: unknown): DbFailure {
+  return (err as { reason?: DbFailure } | null)?.reason ?? "server";
+}
+
 /**
  * Persist edits. The full map is always cached to localStorage; only the rows
  * in `changed` (defaults to the whole map) are sent to the shared backend, so
  * concurrent editors touching *different* institutions no longer overwrite each
- * other's rows.
+ * other's rows. On failure the promise rejects with a SaveError whose `reason`
+ * says why the shared DB didn't get the write.
  */
 export async function saveToSupabase(
   editState: EditStateMap,
@@ -63,12 +98,22 @@ export async function saveToSupabase(
   try { saveState(editState, stateId); } catch { /* quota/full — backend is source of truth */ }
   const payload = changed ?? editState;   // only changed rows reach the shared backend
   const run = async (): Promise<string> => {
-    const res = await fetch("/api/edits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ editState: payload, stateId }),
-    });
-    if (!res.ok) throw new Error("Failed to save to Supabase");
+    let res: Response;
+    try {
+      res = await fetch("/api/edits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ editState: payload, stateId }),
+      });
+    } catch {
+      throw saveError("network");
+    }
+    // Same classification order as the load path (auth redirect → status →
+    // non-JSON), so an infra 5xx HTML page isn't mistaken for a session expiry.
+    if (res.redirected || res.url.includes("/login")) throw saveError("session");
+    if (!res.ok) throw saveError(res.status === 503 ? "config" : "server");
+    const isJson = res.headers.get("content-type")?.includes("application/json");
+    if (!isJson) throw saveError("server");
     const { savedAt } = await res.json();
     return new Date(savedAt).toLocaleTimeString();
   };

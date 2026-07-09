@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   Plus, Trash2, Download, Upload, Search, ChevronUp, ChevronDown,
   Save, X, Check, CheckSquare, Square, Filter, MoreHorizontal,
@@ -13,10 +14,20 @@ import {
   SYSTEM_COLORS, PRACTICE_COLORS, ALL_PRACTICES,
   PROJECT_TYPES, STATUS_COLORS, ALL_STATUSES,
 } from "@/lib/constants";
-import { fmtMoney } from "@/lib/helpers";
+import { fmtMoney, activeProjects } from "@/lib/helpers";
 import type { EnrichedInstitution, EditStateMap, RawProject, RawContact } from "@/lib/types";
 import type { CommitPayload } from "@/lib/import/types";
 import GuidedImportModal from "@/components/import/GuidedImportModal";
+import type { GeoPlace } from "@/lib/geo";
+
+const LocationPicker = dynamic(() => import("@/components/map/LocationPicker"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8", fontSize: 12 }}>
+      Loading map…
+    </div>
+  ),
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = "institutions" | "projects" | "pipeline" | "funding" | "compare";
@@ -446,10 +457,19 @@ function AddInstitutionModal({ onClose, onAdd, systemColors: sysCols = SYSTEM_CO
     name: "", system: Object.keys(sysCols)[0] ?? "Other Public", hks_status: "Active",
     lead_practice: "", priority: "", owner: "", notes: "",
   });
+  const [location, setLocation] = useState<GeoPlace | null>(null);
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
   const handleSubmit = () => {
     if (!form.name.trim()) return;
-    onAdd({ ...form, priority: form.priority ? Number(form.priority) : null });
+    onAdd({
+      ...form,
+      priority: form.priority ? Number(form.priority) : null,
+      ...(location && {
+        lat: location.lat, lng: location.lng,
+        city: location.city || null, region: location.region,
+        country: location.country || null,
+      }),
+    });
     onClose();
   };
   return (
@@ -483,6 +503,10 @@ function AddInstitutionModal({ onClose, onAdd, systemColors: sysCols = SYSTEM_CO
         <Field label="Notes">
           <textarea style={{ ...fieldInput, height: 80, resize: "vertical" } as React.CSSProperties} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Context, background…" />
         </Field>
+      </div>
+      <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${D.border}` }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: D.text2, marginBottom: 4 }}>Location {location ? "" : <span style={{ fontWeight: 500, color: D.text3 }}>· optional — places it on the map</span>}</div>
+        <LocationPicker value={location} onChange={setLocation} />
       </div>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20, paddingTop: 16, borderTop: `1px solid ${D.border}` }}>
         <button onClick={onClose} style={{ padding: "9px 18px", background: "#fff", border: `1.5px solid ${D.border}`, borderRadius: D.radiusSm, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit", color: D.text2 }}>Cancel</button>
@@ -670,6 +694,8 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
 
   const totalPipeline = rows.reduce((s, i) => s + i.pipeline, 0);
   const activeCount = rows.filter(i => (i.edit.hks_status ?? "Active") === "Active").length;
+  const totalProjects = rows.reduce((s, i) => s + i.projects.length, 0);
+  const activeProjectCount = rows.reduce((s, i) => s + activeProjects(i.projects).length, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -678,7 +704,9 @@ function InstitutionsTab({ institutions, updateEdit, addInstitution, onSave, dir
         { label: "Institutions", value: String(rows.length), icon: <Building size={10} /> },
         { label: "Active", value: String(activeCount), color: D.green, icon: <Zap size={10} /> },
         { label: "Pipeline", value: fmtMoney(totalPipeline), color: D.amber, icon: <TrendingUp size={10} /> },
-        { label: "Projects", value: String(rows.reduce((s, i) => s + i.projects.length, 0)), icon: <FolderOpen size={10} /> },
+        // Data Manager is the raw editor, so it counts every row (Lost included) —
+        // but labels the active split so it reconciles with the rest of the app.
+        { label: "Projects", value: activeProjectCount === totalProjects ? String(totalProjects) : `${totalProjects} · ${activeProjectCount} active`, icon: <FolderOpen size={10} /> },
       ]} />
 
       {/* Toolbar */}

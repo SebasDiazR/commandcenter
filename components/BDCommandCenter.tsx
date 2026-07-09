@@ -11,7 +11,8 @@ import {
   Home, MoreHorizontal, Download,
 } from "lucide-react";
 
-import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase } from "@/lib/persistence";
+import { UNDO_LIMIT, loadPersistedState, saveState, clearState, buildDefaultEditState, loadFromSupabase, saveToSupabase, saveFailureReason } from "@/lib/persistence";
+import type { DbFailure } from "@/lib/persistence";
 import { useStateContext } from "@/lib/StateContext";
 import { inferPractice, fmtMoney } from "@/lib/helpers";
 import { FONT } from "@/lib/constants";
@@ -46,6 +47,24 @@ import type { LoadedDoc } from "./presentation/DocumentPanel/useDocumentLoader";
 import type { EditStateMap, EnrichedInstitution, FilterState, ViewId, RawContact, InstEditState, RawInstitution, RawProject } from "@/lib/types";
 import type { CommitPayload } from "@/lib/import/types";
 import { STAGE_WIN_PROBABILITY } from "@/lib/constants";
+
+// Human-readable copy for each DB load failure. Shown in the load-error banner.
+const LOAD_ERROR_MESSAGES: Record<DbFailure, string> = {
+  session: "Your session expired. Log out and back in to reconnect to the shared database.",
+  config:  "The database isn’t configured on the server (missing credentials).",
+  server:  "The database returned an error.",
+  network: "Couldn’t reach the database.",
+};
+
+// Copy for a *save* that reached localStorage but not the shared DB. The point:
+// tell the user their edits live on this device only, so a silent auth/network
+// failure can't masquerade as a successful save. Shown in the save-error toast.
+const SAVE_ERROR_MESSAGES: Record<DbFailure, string> = {
+  session: "Session expired — changes saved on this device only. Log back in to sync.",
+  config:  "Database not configured — changes saved on this device only.",
+  server:  "Database error — changes saved on this device only.",
+  network: "Couldn’t reach the database — changes saved on this device only.",
+};
 
 // ── Animated count-up hook ─────────────────────────────────────────────────────
 function useCountUp(target: number, ms = 600): number {
@@ -226,20 +245,34 @@ export default function BDCommandCenter() {
   );
   const [dirty, setDirty] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  // Non-null when the last DB load failed — surfaced as a banner so a silent
+  // auth/config/network failure no longer masquerades as "no data".
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Snapshot of the rows as last persisted (per-row object identity). Saves send
   // only rows whose reference differs from this, so we never overwrite another
   // user's edits to institutions this session didn't touch.
   const savedSnapshotRef = useRef<EditStateMap>({});
 
-  // Load from Supabase on mount. The shared DB is authoritative, but we must not
-  // clobber edits this user has made locally but not yet saved.
-  useEffect(() => {
+  // Monotonic token so a stale load (rapid Retry, or a state switch mid-flight)
+  // can't resolve last and clobber a newer one.
+  const loadReqRef = useRef(0);
+
+  // Pull the shared DB state and merge it in. The DB is authoritative, but we
+  // must not clobber edits this user has made locally but not yet saved. On a
+  // genuine failure we surface a banner instead of silently keeping seed data.
+  const loadDbState = () => {
     const freshDefault = buildDefaultEditState(stateConfig.rawData.institutions);
-    const localSeed = loadPersistedState(stateId)?.editState;
-    const baseline: EditStateMap = localSeed ? { ...freshDefault, ...localSeed } : freshDefault;
-    _setEditState(baseline);
-    savedSnapshotRef.current = baseline;   // best-known persisted state until the DB responds
-    loadFromSupabase(stateId).then(dbState => {
+    const token = ++loadReqRef.current;
+    setLoadError(null);
+    setDbLoaded(false);
+    return loadFromSupabase(stateId).then(result => {
+      if (token !== loadReqRef.current) return;   // superseded by a newer load / state switch
+      if (result.error) {
+        setLoadError(LOAD_ERROR_MESSAGES[result.error]);
+        setDbLoaded(true);
+        return;
+      }
+      const dbState = result.editState;
       if (dbState && Object.keys(dbState).length > 0) {
         const preLoadSnapshot = savedSnapshotRef.current;   // capture before we advance it
         const dbTruth: EditStateMap = { ...freshDefault, ...dbState };
@@ -256,6 +289,17 @@ export default function BDCommandCenter() {
       }
       setDbLoaded(true);
     });
+  };
+
+  // On mount / state switch: seed from localStorage immediately, then reconcile
+  // with the DB.
+  useEffect(() => {
+    const freshDefault = buildDefaultEditState(stateConfig.rawData.institutions);
+    const localSeed = loadPersistedState(stateId)?.editState;
+    const baseline: EditStateMap = localSeed ? { ...freshDefault, ...localSeed } : freshDefault;
+    _setEditState(baseline);
+    savedSnapshotRef.current = baseline;   // best-known persisted state until the DB responds
+    loadDbState();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateId]);
 
@@ -309,9 +353,13 @@ export default function BDCommandCenter() {
         savedSnapshotRef.current = next;
         setLastSaved(ts); setDirty(false);
       })
-      .catch(() => {
+      .catch(err => {
+        // The shared DB rejected the write. Keep the edits on this device so
+        // they aren't lost, but surface *why* the sync failed — never let a
+        // shared-DB failure masquerade as a successful save.
         try { const ts = saveState(editState, stateId); setLastSaved(ts); setDirty(false); }
-        catch { showSaveError("Could not save — database unavailable and local storage is full."); }
+        catch { showSaveError("Could not save — database unavailable and local storage is full."); return; }
+        showSaveError(SAVE_ERROR_MESSAGES[saveFailureReason(err)]);
       });
   };
 
@@ -629,6 +677,12 @@ export default function BDCommandCenter() {
       projects: [],
       contacts: [],
       gsf: null, nasf: null, eg_nasf: null,
+      // Geocoded location (any place on Earth) — powers the map marker.
+      lat: typeof data.lat === "number" ? data.lat : null,
+      lng: typeof data.lng === "number" ? data.lng : null,
+      city: data.city != null ? String(data.city) : null,
+      region: data.region != null ? String(data.region) : null,
+      country: data.country != null ? String(data.country) : null,
     };
     setExtraRawInsts(prev => {
       const next = [...prev, newRaw];
@@ -708,8 +762,14 @@ export default function BDCommandCenter() {
       savedSnapshotRef.current = next;
       setLastSaved(ts); setDirty(false);
       return ts;
-    } catch {
-      try { const ts = saveState(nextEdit, stateId); setLastSaved(ts); setDirty(false); return ts; }
+    } catch (err) {
+      // Shared-DB write failed. Keep edits on this device, but say why the sync
+      // failed — don't let it look like a clean save (mirrors handleSave).
+      try {
+        const ts = saveState(nextEdit, stateId); setLastSaved(ts); setDirty(false);
+        showSaveError(SAVE_ERROR_MESSAGES[saveFailureReason(err)]);
+        return ts;
+      }
       catch { showSaveError("Could not save — database unavailable and local storage is full."); return ""; }
     }
   };
@@ -1081,10 +1141,53 @@ export default function BDCommandCenter() {
             </div>
           )}
 
+          {/* DB load-failure banner — the app is usable on the local copy, but
+              the shared database didn't load, so say so instead of silently
+              showing seed/stale data. */}
+          <AnimatePresence>
+            {loadError && (
+              <motion.div
+                role="status"
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: "auto", marginBottom: 14 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 14px",
+                  background: "rgba(217,119,6,0.08)",
+                  border: "1px solid rgba(217,119,6,0.25)",
+                  borderLeft: "3px solid #D97706",
+                  borderRadius: 8, overflow: "hidden",
+                }}
+              >
+                <AlertTriangle size={12} color="#D97706" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: "var(--text-2)", flex: 1, fontWeight: 500 }}>
+                  <span style={{ fontWeight: 700, color: "#D97706" }}>Showing your local copy · </span>
+                  {loadError}
+                </span>
+                <button
+                  onClick={() => loadDbState()}
+                  style={{ background: "none", border: "1px solid rgba(217,119,6,0.4)", borderRadius: 6, cursor: "pointer", color: "#D97706", padding: "3px 10px", fontSize: 11, fontWeight: 700, fontFamily: FONT, flexShrink: 0 }}
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={() => setLoadError(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 3, flexShrink: 0, display: "flex", lineHeight: 1 }}
+                  aria-label="Dismiss"
+                >
+                  <XIcon size={12} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Save error toast — surfaced above any view */}
           <AnimatePresence>
             {saveError && (
               <motion.div
+                role="alert"
                 initial={{ opacity: 0, height: 0, marginBottom: 0 }}
                 animate={{ opacity: 1, height: "auto", marginBottom: 14 }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
@@ -1247,8 +1350,8 @@ export default function BDCommandCenter() {
             {view === "timeline"  && <Timeline        institutions={visible}      onSelect={setSelectedInst} />}
             {view === "list"      && <ActionList      institutions={visible}      onSelect={setSelectedInst} updateEdit={alUpdateEdit} updateProject={alUpdateProject} />}
             {view === "forecast"  && <ForecastView    institutions={visible} showLost={filters.showLost} />}
-            {view === "mix"       && <PortfolioMix    globalEdit={globalEdit} editState={editState} setEditState={setEditState} institutions={institutions} onSelect={setSelectedInst} fundingSources={stateConfig.rawData.funding_sources} />}
-            {view === "growth"    && <PracticeGrowth  institutions={institutions} onSelect={setSelectedInst} />}
+            {view === "mix"       && <PortfolioMix    globalEdit={globalEdit} editState={editState} setEditState={setEditState} institutions={visible} onSelect={setSelectedInst} fundingSources={stateConfig.rawData.funding_sources} />}
+            {view === "growth"    && <PracticeGrowth  institutions={visible} onSelect={setSelectedInst} />}
             {view === "offices"   && <OfficesView     institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "conferences" && <ConferencesView institutions={allInstitutions} onSelect={setSelectedInst} />}
             {view === "data"      && (

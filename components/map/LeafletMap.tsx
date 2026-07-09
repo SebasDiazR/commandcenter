@@ -54,10 +54,15 @@ function markerRadius(pipeline: number, zoom: number): number {
 function getCoords(inst: EnrichedInstitution) {
   const staticCoords = INST_COORDS[inst._rawName];
   if (staticCoords) return staticCoords;
+  // User-added institutions carry their own geocoded location (any place on Earth).
   const lat = (inst as any).latitude ?? (inst as any).lat;
   const lng = (inst as any).longitude ?? (inst as any).lng;
   if (typeof lat === "number" && typeof lng === "number") {
-    return { lat, lng, city: (inst as any).city ?? "", state: "TX" };
+    return {
+      lat, lng,
+      city: (inst as any).city ?? "",
+      state: (inst as any).region ?? (inst as any).state ?? "",
+    };
   }
   return null;
 }

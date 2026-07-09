@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays, MapPin, Search, Star, Archive, ArchiveRestore,
-  ExternalLink, Users, Plus, X, Building2, Clock, UserPlus, Trash2, Cloud, WifiOff,
+  ExternalLink, Users, Plus, X, Building2, Clock, UserPlus, Trash2, Cloud,
   RefreshCw, Check, Sparkles,
 } from "lucide-react";
 
@@ -22,6 +22,17 @@ import {
 } from "@/lib/conference-persistence";
 import type { ConferenceStateMap, ConferenceRecord, Attendee } from "@/lib/conference-persistence";
 import type { EnrichedInstitution } from "@/lib/types";
+import type { GeoPlace } from "@/lib/geo";
+import { usStateCode } from "@/lib/geo";
+
+const LocationPicker = dynamic(() => import("@/components/map/LocationPicker"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3, #94A3B8)", fontFamily: FONT, fontSize: 12 }}>
+      Loading map…
+    </div>
+  ),
+});
 
 const ConferenceMiniMap = dynamic(() => import("@/components/map/ConferenceMiniMap"), {
   ssr: false,
@@ -74,18 +85,6 @@ function countdown(start: string, end: string, today: Date): { label: string; to
 }
 
 const officeLabel = (o: { city: string; state: string | null }) => `${o.city}${o.state ? `, ${o.state}` : ""}`;
-
-// Location presets for the "add conference" form — HKS office cities + existing
-// host cities. Keeps custom entries geocoded without a geocoding API.
-const LOCATION_PRESETS = (() => {
-  const map = new Map<string, { city: string; state: string | null; lat: number; lng: number }>();
-  HKS_OFFICES.forEach((o) => map.set(`${o.city}|${o.state ?? ""}`, { city: o.city, state: o.state, lat: o.lat, lng: o.lng }));
-  CONFERENCES.forEach((c) => {
-    const k = `${c.city}|${c.state ?? ""}`;
-    if (!map.has(k)) map.set(k, { city: c.city, state: c.state, lat: c.lat, lng: c.lng });
-  });
-  return Array.from(map.values()).sort((a, b) => a.city.localeCompare(b.city));
-})();
 
 function StatTile({ label, value, color }: { label: string; value: string; color: string }) {
   return (
@@ -367,7 +366,7 @@ export default function ConferencesView({ institutions, onSelect }: Props) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-3, #94A3B8)", marginTop: 2 }}>
                   {backend
                     ? <><Cloud size={11} color="#16A34A" /> Shared across the team</>
-                    : <><WifiOff size={11} color="#D97706" /> Local only — run the Supabase migration to share</>}
+                    : <><span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--text-3, #94A3B8)", opacity: 0.7 }} /> Local only</>}
                   {saving && <span style={{ color: "#B45309" }}>· saving…</span>}
                 </div>
               </div>
@@ -819,6 +818,22 @@ function ConferenceDetail({
         </div>
       </div>
 
+      {/* Planning notes */}
+      {conf.notes && (
+        <div style={{ padding: "14px 20px 6px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3, #94A3B8)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>
+            Planning notes
+          </div>
+          <div style={{
+            fontSize: 12.5, lineHeight: 1.55, color: "var(--text-2, #64748B)", whiteSpace: "pre-wrap",
+            padding: "10px 12px", borderRadius: 8,
+            background: `${accent}0a`, border: `1px solid ${accent}33`, borderLeft: `3px solid ${accent}`,
+          }}>
+            {conf.notes}
+          </div>
+        </div>
+      )}
+
       {/* Map */}
       <div style={{ padding: "14px 20px 6px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3, #94A3B8)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>
@@ -918,7 +933,7 @@ function ConferenceDetail({
 function AddConferenceModal({ onClose, onAdd, existingIds }: { onClose: () => void; onAdd: (c: Conference) => void; existingIds: Set<string> }) {
   const [name, setName]         = useState("");
   const [organizer, setOrg]     = useState("");
-  const [locKey, setLocKey]     = useState("");
+  const [location, setLocation] = useState<GeoPlace | null>(null);
   const [startDate, setStart]   = useState("");
   const [endDate, setEnd]       = useState("");
   const [url, setUrl]           = useState("");
@@ -927,11 +942,9 @@ function AddConferenceModal({ onClose, onAdd, existingIds }: { onClose: () => vo
   const [error, setError]       = useState("");
 
   const submit = () => {
-    if (!name.trim()) return setError("Name is required.");
-    if (!locKey)      return setError("Pick a location.");
-    if (!startDate)   return setError("Start date is required.");
-    const loc = LOCATION_PRESETS[Number(locKey)];
-    if (!loc)         return setError("Pick a location.");
+    if (!name.trim())  return setError("Name is required.");
+    if (!location)     return setError("Pick a location.");
+    if (!startDate)    return setError("Start date is required.");
     const start = startDate;
     const end = endDate || startDate;
     // Random suffix avoids collisions across concurrent add-forms (and with seed ids).
@@ -939,11 +952,13 @@ function AddConferenceModal({ onClose, onAdd, existingIds }: { onClose: () => vo
     while (existingIds.has(id)) id = `custom-${slugifyConference(name, start)}-${genId()}`;
     onAdd({
       id, name: name.trim(), organizer: organizer.trim() || "—",
-      city: loc.city, state: loc.state, country: "USA",
+      city: location.city || location.label.split(",")[0].trim(),
+      state: usStateCode(location.region, location.country),
+      country: location.country || "USA",
       venue: venue.trim() || undefined,
       startDate: start, endDate: end,
       url: url.trim() || "", relevance,
-      lat: loc.lat, lng: loc.lng, confidence: "low",
+      lat: location.lat, lng: location.lng, confidence: "low",
     });
   };
 
@@ -980,17 +995,8 @@ function AddConferenceModal({ onClose, onAdd, existingIds }: { onClose: () => vo
             <label style={lbl}>Organizer</label>
             <input value={organizer} onChange={(e) => setOrg(e.target.value)} style={field} placeholder="e.g. SCUP" />
           </div>
-          <div>
-            <label style={lbl}>Location *</label>
-            <select value={locKey} onChange={(e) => { setLocKey(e.target.value); setError(""); }} style={field}>
-              <option value="">Select a host city…</option>
-              {LOCATION_PRESETS.map((l, i) => (
-                <option key={`${l.city}-${l.state}`} value={String(i)}>{l.city}{l.state ? `, ${l.state}` : ""}</option>
-              ))}
-            </select>
-            <div style={{ fontSize: 10.5, color: "var(--text-3, #94A3B8)", marginTop: 4 }}>
-              Pick the closest listed city (used for the map & nearest-office math).
-            </div>
+          <div onClick={() => setError("")}>
+            <LocationPicker value={location} onChange={setLocation} />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
